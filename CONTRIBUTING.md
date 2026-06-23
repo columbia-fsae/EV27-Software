@@ -1,8 +1,7 @@
 # Contributing to EV26-Software
 
 Guide for getting set up and contributing. The firmware-setup section captures
-the toolchain steps that are easy to lose between team generations — keep it
-current as tools change.
+the toolchain steps that are easy to lose between team generations.
 
 ## Repository layout
 
