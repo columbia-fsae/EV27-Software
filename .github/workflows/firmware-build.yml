@@ -1,0 +1,86 @@
+name: Firmware Build
+
+# Build the STM32 firmware projects on every push and pull request.
+# Only the firmware (STM32 CMake) is built here — Simulink/C2000 codegen
+# needs a MATLAB license and is left as a manual step.
+
+on:
+  push:
+    branches: [ main ]
+    # Only run when firmware-relevant files change (saves CI minutes).
+    paths:
+      - 'High Voltage/Tractive Battery/**'
+      - 'High Voltage/Charging Cart/UI/STM32/**'
+      - '.github/workflows/firmware-build.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'High Voltage/Tractive Battery/**'
+      - 'High Voltage/Charging Cart/UI/STM32/**'
+      - '.github/workflows/firmware-build.yml'
+  # Allow manual triggering from the Actions tab.
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    # Build each firmware project as its own matrix entry so a failure in
+    # one is isolated and clearly labeled. Add new STM projects here.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Tractive Battery
+            path: "High Voltage/Tractive Battery"
+          - name: Charging Cart UI
+            path: "High Voltage/Charging Cart/UI/STM32"
+
+    name: Build ${{ matrix.name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ARM GCC toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'   # GCC 14.x, matches CubeCLT 1.21 (GCC 14)
+
+      - name: Install CMake and Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+          echo "--- tool versions ---"
+          arm-none-eabi-gcc --version | head -1
+          cmake --version | head -1
+          ninja --version
+
+      - name: Configure (Debug)
+        working-directory: ${{ matrix.path }}
+        run: cmake --preset Debug
+
+      - name: Build (Debug)
+        working-directory: ${{ matrix.path }}
+        run: cmake --build --preset Debug
+
+      - name: Report binary size
+        working-directory: ${{ matrix.path }}
+        run: |
+          elf=$(find build -name '*.elf' | head -1)
+          if [ -n "$elf" ]; then
+            echo "Built: $elf"
+            arm-none-eabi-size "$elf"
+          else
+            echo "No .elf produced" && exit 1
+          fi
+
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}-firmware
+          path: |
+            ${{ matrix.path }}/build/**/*.elf
+            ${{ matrix.path }}/build/**/*.hex
+            ${{ matrix.path }}/build/**/*.bin
+          if-no-files-found: warn

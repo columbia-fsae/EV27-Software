@@ -1,0 +1,33 @@
+# CODEOWNERS — auto-requests review from subsystem leads on PRs.
+#
+# Owners must be GitHub accounts with write access, or @org/team handles
+# (teams require the repo to live under a GitHub organization).
+#
+# Last matching pattern wins, so the broad default is first and more
+# specific paths override it below.
+#
+# Replace every @TODO-* placeholder with a real GitHub username or team.
+
+# ──────────────── Default ────────────────
+# Owner for anything not matched by a rule below.
+*                                   @TODO-maintainer
+
+# ──────────────── High Voltage ────────────────
+"/High Voltage/"                    @TODO-hv-lead
+"/High Voltage/Tractive Battery/"   @TODO-bms-lead
+"/High Voltage/Charging Cart/"      @TODO-hv-lead
+
+# ──────────────── Other subsystems ────────────────
+/BMS/                               @TODO-bms-lead
+/Controls/                          @TODO-controls-lead
+/CAN/                               @TODO-comms-lead
+"/Low Voltage/"                     @TODO-lv-lead
+/MoTeC/                             @TODO-controls-lead
+/Exploration/                       @TODO-maintainer
+
+# ──────────────── Build / CI infrastructure ────────────────
+# Tooling, CI, and repo config owned by whoever maintains the build system.
+/.github/                           @TODO-maintainer
+/.gitignore                         @TODO-maintainer
+/.gitattributes                     @TODO-maintainer
+/.editorconfig                      @TODO-maintainer

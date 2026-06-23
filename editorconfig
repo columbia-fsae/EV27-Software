@@ -1,0 +1,45 @@
+# EditorConfig — consistent formatting across VS Code, CubeIDE, MATLAB editor.
+# https://editorconfig.org
+#
+# root=true stops editors from looking further up the directory tree.
+root = true
+
+# ──────────────── Defaults for all files ────────────────
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+# ──────────────── Language-specific ────────────────
+# Makefiles require literal tabs.
+[Makefile]
+indent_style = tab
+
+# YAML is conventionally 2-space.
+[*.{yml,yaml}]
+indent_size = 2
+
+# Markdown: don't trim trailing whitespace (two trailing spaces = line break).
+[*.md]
+trim_trailing_whitespace = false
+
+# ──────────────── Generated / vendored — leave untouched ────────────────
+# Don't let the editor rewrite ST- or MathWorks-generated files we don't own.
+[**/Drivers/**]
+trim_trailing_whitespace = false
+insert_final_newline = false
+
+[**/CMSIS/**]
+trim_trailing_whitespace = false
+insert_final_newline = false
+
+[**/codegen/**]
+trim_trailing_whitespace = false
+insert_final_newline = false
+
+[**/slprj/**]
+trim_trailing_whitespace = false
+insert_final_newline = false
