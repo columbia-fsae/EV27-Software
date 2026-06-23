@@ -9,14 +9,14 @@ on:
     branches: [ main ]
     # Only run when firmware-relevant files change (saves CI minutes).
     paths:
-      - 'High Voltage/Tractive Battery/**'
-      - 'High Voltage/Charging Cart/UI/STM32/**'
+      - 'High_Voltage/Tractive_Battery/**'
+      - 'High_Voltage/Charging_Cart/UI/STM32/**'
       - '.github/workflows/firmware-build.yml'
   pull_request:
     branches: [ main ]
     paths:
-      - 'High Voltage/Tractive Battery/**'
-      - 'High Voltage/Charging Cart/UI/STM32/**'
+      - 'High_Voltage/Tractive_Battery/**'
+      - 'High_Voltage/Charging_Cart/UI/STM32/**'
       - '.github/workflows/firmware-build.yml'
   # Allow manual triggering from the Actions tab.
   workflow_dispatch:
@@ -31,10 +31,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: Tractive Battery
-            path: "High Voltage/Tractive Battery"
-          - name: Charging Cart UI
-            path: "High Voltage/Charging Cart/UI/STM32"
+          - name: Tractive_Battery
+            path: "High_Voltage/Tractive_Battery"
+          - name: Charging_Cart_UI
+            path: "High_Voltage/Charging_Cart/UI/STM32"
 
     name: Build ${{ matrix.name }}
 
