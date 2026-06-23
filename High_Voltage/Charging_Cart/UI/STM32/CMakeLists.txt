@@ -47,7 +47,7 @@ target_link_directories(${CMAKE_PROJECT_NAME} PRIVATE
 # Add sources to executable
 target_sources(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user sources here
-    ChargerSM/Src/chargersm.c
+    ChargerSM/src/chargersm.c
     Communications/Src/can.c
     Core/Src/cpp_main.cpp
     UserInterface/Src/display.cpp
