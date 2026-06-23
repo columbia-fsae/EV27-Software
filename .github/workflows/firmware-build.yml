@@ -1,86 +1,149 @@
 name: Firmware Build
-
-# Build the STM32 firmware projects on every push and pull request.
-# Only the firmware (STM32 CMake) is built here — Simulink/C2000 codegen
-# needs a MATLAB license and is left as a manual step.
-
+ 
+# Build the STM32 firmware projects. The CI Gate job ALWAYS runs (so the
+# required status check always resolves), while the per-project builds only
+# run when that project's files actually change. Require "CI Gate" in branch
+# protection — not the individual Build jobs.
+#
+# Simulink/C2000 codegen needs a MATLAB license and is left as a manual step.
+ 
 on:
   push:
     branches: [ main ]
-    # Only run when firmware-relevant files change (saves CI minutes).
-    paths:
-      - 'High_Voltage/Tractive_Battery/**'
-      - 'High_Voltage/Charging_Cart/UI/STM32/**'
-      - '.github/workflows/firmware-build.yml'
   pull_request:
     branches: [ main ]
-    paths:
-      - 'High_Voltage/Tractive_Battery/**'
-      - 'High_Voltage/Charging_Cart/UI/STM32/**'
-      - '.github/workflows/firmware-build.yml'
-  # Allow manual triggering from the Actions tab.
   workflow_dispatch:
-
+ 
 jobs:
-  build:
+  # ──────────────── Detect which firmware changed ────────────────
+  changes:
     runs-on: ubuntu-latest
-
-    # Build each firmware project as its own matrix entry so a failure in
-    # one is isolated and clearly labeled. Add new STM projects here.
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Tractive_Battery
-            path: "High_Voltage/Tractive_Battery"
-          - name: Charging_Cart_UI
-            path: "High_Voltage/Charging_Cart/UI/STM32"
-
-    name: Build ${{ matrix.name }}
-
+    outputs:
+      tractive: ${{ steps.filter.outputs.tractive }}
+      charging: ${{ steps.filter.outputs.charging }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            tractive:
+              - 'High_Voltage/Tractive_Battery/**'
+              - '.github/workflows/firmware-build.yml'
+            charging:
+              - 'High_Voltage/Charging_Cart/UI/STM32/**'
+              - '.github/workflows/firmware-build.yml'
+ 
+  # ──────────────── Build Tractive Battery (only if it changed) ────────────────
+  build_tractive:
+    needs: changes
+    if: needs.changes.outputs.tractive == 'true'
+    runs-on: ubuntu-latest
+    name: Build Tractive_Battery
+    env:
+      PROJECT_PATH: "High_Voltage/Tractive_Battery"
+    steps:
+      - uses: actions/checkout@v4
       - name: Install ARM GCC toolchain
         uses: carlosperate/arm-none-eabi-gcc-action@v1
         with:
-          release: '14.2.Rel1'   # GCC 14.x, matches CubeCLT 1.21 (GCC 14)
-
+          release: '14.2.Rel1'
       - name: Install CMake and Ninja
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build
-          echo "--- tool versions ---"
           arm-none-eabi-gcc --version | head -1
           cmake --version | head -1
           ninja --version
-
       - name: Configure (Debug)
-        working-directory: ${{ matrix.path }}
+        working-directory: ${{ env.PROJECT_PATH }}
         run: cmake --preset Debug
-
       - name: Build (Debug)
-        working-directory: ${{ matrix.path }}
+        working-directory: ${{ env.PROJECT_PATH }}
         run: cmake --build --preset Debug
-
       - name: Report binary size
-        working-directory: ${{ matrix.path }}
+        working-directory: ${{ env.PROJECT_PATH }}
         run: |
           elf=$(find build -name '*.elf' | head -1)
           if [ -n "$elf" ]; then
-            echo "Built: $elf"
-            arm-none-eabi-size "$elf"
+            echo "Built: $elf"; arm-none-eabi-size "$elf"
           else
-            echo "No .elf produced" && exit 1
+            echo "No .elf produced"; exit 1
           fi
-
       - name: Upload firmware artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}-firmware
+          name: Tractive_Battery-firmware
           path: |
-            ${{ matrix.path }}/build/**/*.elf
-            ${{ matrix.path }}/build/**/*.hex
-            ${{ matrix.path }}/build/**/*.bin
+            ${{ env.PROJECT_PATH }}/build/**/*.elf
+            ${{ env.PROJECT_PATH }}/build/**/*.hex
+            ${{ env.PROJECT_PATH }}/build/**/*.bin
           if-no-files-found: warn
+ 
+  # ──────────────── Build Charging Cart UI (only if it changed) ────────────────
+  build_charging:
+    needs: changes
+    if: needs.changes.outputs.charging == 'true'
+    runs-on: ubuntu-latest
+    name: Build Charging_Cart_UI
+    env:
+      PROJECT_PATH: "High_Voltage/Charging_Cart/UI/STM32"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install ARM GCC toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'
+      - name: Install CMake and Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+          arm-none-eabi-gcc --version | head -1
+          cmake --version | head -1
+          ninja --version
+      - name: Configure (Debug)
+        working-directory: ${{ env.PROJECT_PATH }}
+        run: cmake --preset Debug
+      - name: Build (Debug)
+        working-directory: ${{ env.PROJECT_PATH }}
+        run: cmake --build --preset Debug
+      - name: Report binary size
+        working-directory: ${{ env.PROJECT_PATH }}
+        run: |
+          elf=$(find build -name '*.elf' | head -1)
+          if [ -n "$elf" ]; then
+            echo "Built: $elf"; arm-none-eabi-size "$elf"
+          else
+            echo "No .elf produced"; exit 1
+          fi
+      - name: Upload firmware artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Charging_Cart_UI-firmware
+          path: |
+            ${{ env.PROJECT_PATH }}/build/**/*.elf
+            ${{ env.PROJECT_PATH }}/build/**/*.hex
+            ${{ env.PROJECT_PATH }}/build/**/*.bin
+          if-no-files-found: warn
+ 
+  # ──────────────── Gate: always runs, this is the REQUIRED check ────────────────
+  ci-gate:
+    if: always()
+    needs: [build_tractive, build_charging]
+    runs-on: ubuntu-latest
+    name: CI Gate
+    steps:
+      - name: Verify builds passed or were skipped
+        run: |
+          t="${{ needs.build_tractive.result }}"
+          c="${{ needs.build_charging.result }}"
+          echo "Tractive_Battery: $t"
+          echo "Charging_Cart_UI: $c"
+          for r in "$t" "$c"; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "A firmware build failed."
+              exit 1
+            fi
+          done
+          echo "OK — all required builds passed or were not needed."
+ 
