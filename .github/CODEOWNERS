@@ -10,24 +10,24 @@
 
 # ──────────────── Default ────────────────
 # Owner for anything not matched by a rule below.
-*                                   @TODO-maintainer
+*                                   @levinben3 @fordrollhaus @lukeearly
 
 # ──────────────── High Voltage ────────────────
-"/High Voltage/"                    @TODO-hv-lead
-"/High Voltage/Tractive Battery/"   @TODO-bms-lead
-"/High Voltage/Charging Cart/"      @TODO-hv-lead
+"/High Voltage/"                    @fordrollhaus @levinben3
+"/High Voltage/Tractive Battery/"   @levinben3
+"/High Voltage/Charging Cart/"      @fordrollhaus
 
 # ──────────────── Other subsystems ────────────────
-/BMS/                               @TODO-bms-lead
-/Controls/                          @TODO-controls-lead
-/CAN/                               @TODO-comms-lead
-"/Low Voltage/"                     @TODO-lv-lead
-/MoTeC/                             @TODO-controls-lead
-/Exploration/                       @TODO-maintainer
+/BMS/                               @levinben3
+/Controls/                          @levinben3
+/CAN/                               @levinben3
+"/Low Voltage/"                     @levinben3
+/MoTeC/                             @levinben3
+/Exploration/                       @levinben3
 
 # ──────────────── Build / CI infrastructure ────────────────
 # Tooling, CI, and repo config owned by whoever maintains the build system.
-/.github/                           @TODO-maintainer
-/.gitignore                         @TODO-maintainer
-/.gitattributes                     @TODO-maintainer
-/.editorconfig                      @TODO-maintainer
+/.github/                           @fordrollhaus @levinben3
+/.gitignore                         @fordrollhaus @levinben3
+/.gitattributes                     @fordrollhaus @levinben3
+/.editorconfig                      @fordrollhaus @levinben3
