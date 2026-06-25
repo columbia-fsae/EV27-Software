@@ -13,15 +13,15 @@
 *                                   @levinben3 @fordrollhaus @lukeearly
 
 # ──────────────── High Voltage ────────────────
-"/High Voltage/"                    @fordrollhaus @levinben3
-"/High Voltage/Tractive Battery/"   @levinben3
-"/High Voltage/Charging Cart/"      @fordrollhaus
+/High_Voltage/                    @fordrollhaus @levinben3
+/High_Voltage/Tractive_Battery/   @levinben3
+/High_Voltage/Charging_Cart/      @fordrollhaus
 
 # ──────────────── Other subsystems ────────────────
 /BMS/                               @levinben3
 /Controls/                          @levinben3
 /CAN/                               @levinben3
-"/Low Voltage/"                     @levinben3
+/Low_Voltage/                     @levinben3
 /MoTeC/                             @levinben3
 /Exploration/                       @levinben3
 
