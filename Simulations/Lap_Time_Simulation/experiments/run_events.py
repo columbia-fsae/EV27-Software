@@ -10,60 +10,87 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lap_sim import (
-    ACCEL_EVENT, EMRAX_208, ENDURANCE_EVENT, EV25, FSAE_EV, ICAHN_LOOP, SKIDPAD_EVENT,
+    ACCEL_EVENT, EMRAX_208, ENDURANCE_EVENT, EV25, FSAE_EV, ICAHN_LOOP, SKIDPAD_EVENT, EV27,
     CompetitionScorer, LapSimulator,
 )
 from lap_sim import plotting
 from lap_sim.vehicle import Aero, Car, Drivetrain, HighVoltageSystem
-
+from lap_sim.ecms import EcmsController, linear_soc_schedule
 DX = 0.005  # matches point_mass_sim_final.m's lapsim resolution
-
+LAPS = 22
+SOC_DERATE = 0.0 
+ECMS_KP = 500.0
+ECMS_KI = 20.0
+ECMS_LAM_MAX = 400.0
+total_distance = LAPS * ENDURANCE_EVENT.total_length
+soc_ref_fn = linear_soc_schedule(total_distance, soc_start=1.0, derate=SOC_DERATE)
 
 def build_ev26b() -> Car:
     """The EV26B spec specific to point_mass_sim_final.m (differs from the other
     scripts' EV26B in mass, aero, gear ratio, HV window, and motor power cap)."""
-    motor = EMRAX_208.with_power_limit(41.5e3)
+    motor=EMRAX_208
     return Car(
         name="EV26B (run_events)",
-        mass=207 + 60,
+        mass=200 + 60,
         cg=np.array([742.44, 0.0, 248.52]),
         aero=Aero(cda=1.7, cla=3.05),
-        tires=EV25.tires,
+        tire=EV25.tire,
         drivetrain=Drivetrain(motor=motor, ratio=4.3, efficiency=0.96, count=1),
         hv=HighVoltageSystem(vmax=255, vnom=216),
         l=1.530,
+        battery=EV27.battery,
     )
 
 
 def main():
-    ev26b = build_ev26b()
+    car = build_ev26b()
+    #car = EV25
     scorer = CompetitionScorer()
 
-    accel = LapSimulator(FSAE_EV, ACCEL_EVENT, ev26b, dx=DX).run()
+    accel = LapSimulator(FSAE_EV, ACCEL_EVENT, car, dx=DX).run()
     print(f"[Accel]    peak electric power = {accel.stats.pelectric.max() / 1e3:.1f} kW, "
           f"top speed = {accel.vv.max() * 3.6:.1f} km/h")
     plotting.plot_lap_overview([accel])
     accel_time = accel.split_time(1, 2)
     print(f"[Accel]    time = {accel_time:.3f} s")
 
-    skidpad = LapSimulator(FSAE_EV, SKIDPAD_EVENT, ev26b, dx=DX).run()
+    skidpad = LapSimulator(FSAE_EV, SKIDPAD_EVENT, car, dx=DX).run()
     plotting.plot_lap_overview([skidpad])
     skidpad_time = skidpad.split_time(2, 3)
     print(f"[Skidpad]  time = {skidpad_time:.3f} s")
 
-    icahn = LapSimulator(FSAE_EV, ICAHN_LOOP, ev26b, dx=DX).run()
+    icahn = LapSimulator(FSAE_EV, ICAHN_LOOP, car, dx=DX).run()
     plotting.plot_lap_overview([icahn])
     icahn_time = icahn.lap_time
     print(f"[Icahn]    lap time = {icahn_time:.3f} s")
 
     # The original script drops the power limit to 5 kW right before the endurance run
     # (unusually low relative to the 80 kW regulation) -- kept verbatim here.
-    endurance_regs = FSAE_EV.replace(power_limit=5e3)
-    endur = LapSimulator(endurance_regs, ENDURANCE_EVENT, ev26b, dx=DX).run()
+    endurance_regs = FSAE_EV
+    # ECMS is only attached here, not on `car` above -- otherwise accel/skidpad/Icahn
+    # would also get gated by a controller (and its shared lambda/distance-traveled
+    # state) that's calibrated for a 22-lap endurance budget, not a 75 m sprint or a
+    # skidpad circle.
+    endur_car = car.replace(ecms=EcmsController(
+        soc_ref_fn=soc_ref_fn, kp=ECMS_KP, ki=ECMS_KI, lam_max=ECMS_LAM_MAX,
+    ))
+    endur_sim = LapSimulator(endurance_regs, ENDURANCE_EVENT, endur_car, dx=0.5)
+    if car.battery is not None:
+        # With a real battery, per-lap state (SOC, RC-branch voltage sag, temperature)
+        # carries over and can genuinely slow later laps -- a single lap scaled by 22
+        # can't capture that, so run all 22 laps for real.
+        endur = endur_sim.run_multi_lap(22)
+        endur_time = endur.lap_time
+    else:
+        endur = endur_sim.run()
+        endur_time = endur.lap_time * 22
     print(f"[Endur]    peak electric power = {endur.stats.pelectric.max() / 1e3:.1f} kW, "
           f"top speed = {endur.vv.max() * 3.6:.1f} km/h")
     plotting.plot_lap_overview([endur])
-    endur_time = endur.lap_time * 22
+    if car.battery != None:
+        plotting.plot_battery_stats([endur])
+        final_energy = endur.stats.batt_energy
+        print(f"[Endur] battery energy usage = {final_energy:.1f} kWh")
 
     fig, (ax_v, ax_a) = plt.subplots(2, 1, figsize=(7, 6))
     ax_v.plot(endur.vv)
@@ -82,6 +109,8 @@ def main():
     energy_wh = avg_power * endur_time / 3600.0
     print(f"[Endur]    22-lap time = {endur_time:.1f} s, avg electric power = "
           f"{avg_power / 1e3:.2f} kW, energy = {energy_wh:.1f} Wh")
+
+    
 
     score = scorer.score(accel_time, skidpad_time, endur_time * 0.8 / 22, endur_time, energy_wh)
     print(

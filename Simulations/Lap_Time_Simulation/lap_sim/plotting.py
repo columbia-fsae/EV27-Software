@@ -81,6 +81,29 @@ def plot_track_geometry(track: Track, points_per_segment: int = 200, ax=None, cm
     cbar.set_label("Fraction of lap completed")
     return ax
 
+def plot_battery_stats(results: Sequence[LapResult], labels: Optional[Sequence[str]] = None):
+    if labels is None:
+        labels = [r.car.name for r in results]
+
+    fig, axes = plt.subplots(3, 2, figsize=(11, 16))
+    panels = [
+        ("Current (A)", lambda r: r.stats.batt_i),
+        ("Battery Terminal V (V)", lambda r: r.stats.batt_v),
+        ("Battery SOC (%)", lambda r: r.stats.batt_soc),
+        ("Cell Temp (C)", lambda r: r.stats.cell_T),
+        ("Battery Power Limit (kW)", lambda r: r.stats.batt_p_limit * 1e-3),
+    ]
+    for ax, (ylabel, extract) in zip(axes.flat, panels):
+        for result, label in zip(results, labels):
+            ax.plot(result.stats.tt, extract(result), label=label)
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel(ylabel)
+    axes.flat[1].legend()
+    axes.flat[5].axis("off")
+    fig.tight_layout()
+    
+    return fig
+
 
 def plot_heatmap(x_vals, y_vals, grid, xlabel, ylabel, cbar_label, title, ax=None):
     """Reproduces the `imagesc` figures in test_graph.m/test_graph_energy.m."""

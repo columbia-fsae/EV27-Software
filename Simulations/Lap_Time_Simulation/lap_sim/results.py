@@ -30,6 +30,12 @@ class LapStats:
     avg_motor: float
     avg_electric: float
     energy_j: float  # electrical energy for this one lap, joules
+    batt_energy: float  # pack energy consumed this lap, kWh; None if car.battery is None
+    batt_i: np.ndarray  # pack current trace, A; None if car.battery is None
+    batt_v: np.ndarray  # pack terminal voltage trace, V; None if car.battery is None
+    batt_soc: np.ndarray  # pack SOC trace, 0-1 fraction; None if car.battery is None
+    cell_T: np.ndarray
+    batt_p_limit: np.ndarray  # cell-model-derived available pack power trace, W; None if car.battery is None
 
     @classmethod
     def from_dynamics_output(cls, out: dict) -> "LapStats":
@@ -48,6 +54,7 @@ class LapResult:
     vv: np.ndarray  # speed trace, m/s
     stats: LapStats
     splits: np.ndarray  # cumulative time at the end of each segment, seconds
+    segment_corner_limit: np.ndarray  # per-segment corner/battery speed limit from this lap's pre-pass, m/s
 
     @property
     def lap_time(self) -> float:

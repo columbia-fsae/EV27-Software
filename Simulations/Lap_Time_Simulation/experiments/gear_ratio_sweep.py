@@ -23,7 +23,7 @@ def build_ev26b() -> Car:
         mass=220 + 68,
         cg=EV25.cg,
         aero=Aero(cda=1.7, cla=3.2),
-        tires=EV25.tires,
+        tire=EV25.tire,
         drivetrain=Drivetrain(motor=EMRAX_208, ratio=4.9, efficiency=0.96, count=1),
         hv=HighVoltageSystem(vmax=300, vnom=260),
         l=1.530,

@@ -73,6 +73,10 @@ __pycache__/
 mbed-os
 BUILD
 
+# Python virtual environments
+.venv/
+venv/
+
 # Windows default autosave extension
 *.asv
 
