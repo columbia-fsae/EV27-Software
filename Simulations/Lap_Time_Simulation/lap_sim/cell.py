@@ -109,7 +109,7 @@ class Cell:
             )
 
         self._x = np.array([1.0, 0.0, 0.0])  # [SOC, v_ct, v_dif]
-        self._T = 25.0
+        self._T = 30.0
 
     @property
     def r_0(self):

@@ -24,6 +24,7 @@ class Battery(Cell):
         self._pack_v_max = self._max_v * self._series
         self._pack_v_nom = self._nom_v * self._series
         self._pack_energy = self._q_nom / 3600 * self._max_v * self._series * self._parallel / 1000
+        self._cell_T = 25.0
 
     def available_power(self) -> float:
         """Max electrical power (W) the pack can deliver at this SOC/temperature."""
@@ -51,6 +52,14 @@ class Battery(Cell):
     def cell_T(self) -> float:
         return self._cell_T
 
+    @property
+    def batt_ocv(self) -> float:
+        return self.ocv * self._series
+
+    @property
+    def batt_r0(self) -> float:
+        return self.r_0 / self._parallel**2
+    
     def step(self, i, dt):
         self._i = i
         self._dt = dt

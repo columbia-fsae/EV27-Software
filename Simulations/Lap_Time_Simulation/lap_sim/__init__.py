@@ -1,7 +1,7 @@
 """Point-mass lap time simulation library for FSAE EV vehicle design studies."""
 
 from .battery import Battery, StaticVoltageBattery
-from .ecms import EcmsController, linear_soc_schedule
+from .ecms import EcmsController, linear_soc_schedule, linear_temp_schedule
 from .lap_simulator import LapSimulator
 from .motors import DHX_K40, EMRAX_208, EMRAX_228, EMRAX_268, Motor
 from .regulations import FSAE_EV, FSAE_HYBRID, Regulations
@@ -14,7 +14,7 @@ from .vehicle import EV24, EV25, EV26A, EV27, Aero, Car, Drivetrain, HighVoltage
 
 __all__ = [
     "Battery", "StaticVoltageBattery",
-    "EcmsController", "linear_soc_schedule",
+    "EcmsController", "linear_soc_schedule", "linear_temp_schedule",
     "LapSimulator",
     "DHX_K40", "EMRAX_208", "EMRAX_228", "EMRAX_268", "Motor",
     "FSAE_EV", "FSAE_HYBRID", "Regulations",

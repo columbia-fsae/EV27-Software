@@ -64,7 +64,7 @@ _TIRES_EV24_25 = Tire(mu_x=1.5, mu_y=1.5, radius=0.2032, rolling_resistance=0.01
 _TIRES_EV26_27 = Tire(type=TIRE_LOOKUP, radius=0.2032, rolling_resistance=0.015)
 _HV_EV24_25 = HighVoltageSystem(vmax=302.4, vnom=260)
 _CG_EV24_25 = np.array([738.0, 0.0, 255.41])
-_BATTERY_EV26_27 = Battery(series=105,parallel=3,cell_type='ampace_jp50')
+_BATTERY_EV26_27 = Battery(series=144,parallel=2,cell_type='ampace_jp50')
 
 EV24 = Car(
     name="EV24",

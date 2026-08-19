@@ -32,6 +32,10 @@ class Motor:
         """Max available torque (Nm) at motor angular speed(s) `omega` (rad/s)."""
         return np.interp(omega, self.torque_speed_w, self.torque_speed_m)
 
+    def max_power(self, omega: np.ndarray) -> np.ndarray:
+        """Max available power (W) at motor angular speed(s) `omega` (rad/s)."""
+        return self.max_torque(omega)*omega
+
     def efficiency(self, omega: np.ndarray, torque: np.ndarray) -> np.ndarray:
         """Efficiency (0-1) at motor angular speed(s)/torque(s), clamped to the map."""
         w = np.clip(omega, self.eff_speed[0], self.eff_speed[-1])

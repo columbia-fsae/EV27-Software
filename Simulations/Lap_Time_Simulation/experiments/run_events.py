@@ -10,20 +10,29 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lap_sim import (
-    ACCEL_EVENT, EMRAX_208, ENDURANCE_EVENT, EV25, FSAE_EV, ICAHN_LOOP, SKIDPAD_EVENT, EV27,
+    ACCEL_EVENT, Battery, EMRAX_208, ENDURANCE_EVENT, EV25, FSAE_EV, ICAHN_LOOP, SKIDPAD_EVENT,
     CompetitionScorer, LapSimulator,
 )
 from lap_sim import plotting
 from lap_sim.vehicle import Aero, Car, Drivetrain, HighVoltageSystem
-from lap_sim.ecms import EcmsController, linear_soc_schedule
+from lap_sim.ecms import EcmsController, linear_soc_schedule, linear_temp_schedule
 DX = 0.005  # matches point_mass_sim_final.m's lapsim resolution
 LAPS = 22
-SOC_DERATE = 0.0 
-ECMS_KP = 500.0
-ECMS_KI = 20.0
-ECMS_LAM_MAX = 400.0
+SOC_DERATE = 0.0
+TEMP_START = 30.0  # realistic pre-warmed/hot-day ambient, not the sim's cold-start 25 C default
+TEMP_END = 60.0
+TEMP_DERATE = 0.0
+ECMS_K = 300.0
+ECMS_K_TEMP = 26690.4
+ECMS_S1_KP = 10.0
+ECMS_S1_KI = 2.0
+ECMS_S1_MAX = 51.6
+ECMS_S2_KP = 0.05
+ECMS_S2_KI = 0.01
+ECMS_S2_MAX = 40.0
 total_distance = LAPS * ENDURANCE_EVENT.total_length
 soc_ref_fn = linear_soc_schedule(total_distance, soc_start=1.0, derate=SOC_DERATE)
+temp_ref_fn = linear_temp_schedule(total_distance, temp_start=TEMP_START, temp_end=TEMP_END, derate=TEMP_DERATE)
 
 def build_ev26b() -> Car:
     """The EV26B spec specific to point_mass_sim_final.m (differs from the other
@@ -38,12 +47,18 @@ def build_ev26b() -> Car:
         drivetrain=Drivetrain(motor=motor, ratio=4.3, efficiency=0.96, count=1),
         hv=HighVoltageSystem(vmax=255, vnom=216),
         l=1.530,
-        battery=EV27.battery,
+        # Fresh Battery per call, not the shared EV27.battery singleton -- reusing that
+        # object across repeated build_ev26b() calls (e.g. in a tuning sweep) means each
+        # subsequent run inherits whatever SOC/temp the *previous* run left the pack at,
+        # instead of starting from a full charge.
+        battery=Battery(series=144, parallel=2, cell_type="ampace_jp50"),
     )
 
 
 def main():
     car = build_ev26b()
+    if car.battery is not None:
+        car.battery._T = TEMP_START  # realistic pre-warmed/hot-day start, not the sim's cold-start 25 C default
     #car = EV25
     scorer = CompetitionScorer()
 
@@ -72,7 +87,9 @@ def main():
     # state) that's calibrated for a 22-lap endurance budget, not a 75 m sprint or a
     # skidpad circle.
     endur_car = car.replace(ecms=EcmsController(
-        soc_ref_fn=soc_ref_fn, kp=ECMS_KP, ki=ECMS_KI, lam_max=ECMS_LAM_MAX,
+        soc_ref_fn=soc_ref_fn, temp_ref_fn=temp_ref_fn, k=ECMS_K, k_temp=ECMS_K_TEMP,
+        s1_kp=ECMS_S1_KP, s1_ki=ECMS_S1_KI, s1_max=ECMS_S1_MAX,
+        s2_kp=ECMS_S2_KP, s2_ki=ECMS_S2_KI, s2_max=ECMS_S2_MAX,
     ))
     endur_sim = LapSimulator(endurance_regs, ENDURANCE_EVENT, endur_car, dx=0.5)
     if car.battery is not None:

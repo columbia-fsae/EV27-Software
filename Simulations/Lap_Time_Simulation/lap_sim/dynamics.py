@@ -233,7 +233,7 @@ def battery_forward_pass(
             power_request = f_tract_request * vv_base[i] if f_tract_request > 0.0 else 0.0
             i_request = power_request / battery.voltage
 
-            i_ecms = ecms.command_current(battery, i_request, dt_i)
+            i_ecms = ecms.command_current(battery, i_request, battery.batt_ocv, battery.batt_r0, dt_i)
             battery_power_override = i_ecms * battery.voltage
 
         _, accel = force_balance(
@@ -253,7 +253,8 @@ def battery_forward_pass(
 
         if ecms is not None:
             dt_actual = dx / vv[i] if vv[i] > 0.0 else np.inf
-            ecms.update_lambda(battery.soc, dx, dt_actual)
+            ecms.update_s1(battery.soc, dx, dt_actual)
+            ecms.update_s2(battery.cell_T, dx, dt_actual)
 
     return vv, batt_i, batt_v, batt_soc, cell_t, batt_p_limit
 
