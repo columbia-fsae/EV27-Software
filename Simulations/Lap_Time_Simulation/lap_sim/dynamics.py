@@ -31,6 +31,7 @@ from __future__ import annotations
 import numpy as np
 
 GRAVITY = 9.806  # m/s^2, matches the original scripts' constant
+MAX_WEIGHT_TRANSFER = 0.9  # cap on the linear load-transfer fraction below (see force_balance)
 
 
 def force_balance(
@@ -52,7 +53,7 @@ def force_balance(
     fz = GRAVITY * mass + downforce
     fy = v * v * k * mass
 
-    potential_fx = tire.get_fx(fz, fy, mass)
+    potential_fx = tire.get_fx(fz, fy)
 
     drag = 0.5 * air_density * cda * v * v
     brake = (-potential_fx - drag) / mass
@@ -66,7 +67,12 @@ def force_balance(
     else:
         battery_limited_accel = battery.available_power() / mass / v if v > 0.0 else np.inf
 
-    weight_transfer = (cg_height / wheelbase) * potential_fx / mass / GRAVITY
+    # Linear load-transfer model -- only valid up to "all the load has transferred to
+    # one axle" (weight_transfer -> 1). At high enough potential_fx (e.g. a lot of
+    # downforce) the raw fraction can reach or exceed that, sending the denominator
+    # below through zero and traction_limited_accel to +-inf; cap it short of 1 so the
+    # corner-speed search never hits that singularity.
+    weight_transfer = min((cg_height / wheelbase) * potential_fx / mass / GRAVITY, MAX_WEIGHT_TRANSFER)
     traction_limited_accel = 0.5 * potential_fx / mass / (1.0 - weight_transfer)
 
     omega = v / tire.radius * ratio
@@ -288,6 +294,13 @@ def power_and_energy(vv, dx, curvature_by_point, mass, cda, air_density, ratio,
     tt = np.cumsum(dt)
 
     ax = (np.roll(vv, -1) - vv) / dt
+    # trace_speed_profile doesn't guarantee vv[0] and vv[-1] agree even though they're
+    # the same physical point (the lap's start/finish) -- the two ends can be governed
+    # by different, uncoordinated accel/brake marches. Wrapping across that gap here
+    # produces an unphysical multi-hundred-kW acceleration spike at the last point every
+    # lap. Reusing the last interior (trustworthy) derivative instead of the wraparound
+    # one is a reporting-layer patch, not a fix for the underlying discontinuity itself.
+    ax[-1] = ax[-2]
     ay = vv**2 * curvature_by_point
 
     f = mass * ax

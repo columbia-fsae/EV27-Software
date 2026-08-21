@@ -41,12 +41,15 @@ SOC_REF_FN = linear_soc_schedule(TOTAL_DISTANCE, soc_start=1.0)
 
 TEMP_START = 30.0  # realistic pre-warmed/hot-day ambient, not the sim's cold-start 25 C default
 
-# Measured for this car's pack (144s2p): Voc=598.2V, r0=0.000562 ohm (see the console
-# probe this file's tuning was built from -- pull fresh if the pack config changes).
-# i_request from the battery-blind trace: max~147A, p90~102A, mean(nonzero)~47A.
-PACK_VOC = 598.22
-PACK_R0 = 0.000562
-I_REQUEST_MAX = 147.0
+# Measured for build_ev26b()'s pack (105s4p) against the current cell data
+# (hppc_new_cells_full_0819_fitted_parameters_CORRECTED.csv): Voc=435.1V, r0=0.000641 ohm
+# -- pull fresh if the pack config OR the cell data changes; the previous values here
+# (598.2V / 0.000562 ohm, mislabeled "144s2p") predated the real HPPC dataset and were
+# ~4.5x too low on r0, which is what threw the thermal-pacing tune off in the first place.
+# i_request from the battery-blind trace: max~205A, p90~141A, mean(nonzero)~64A.
+PACK_VOC = 435.14
+PACK_R0 = 0.000641
+I_REQUEST_MAX = 205.40
 
 # First sweep collapsed almost every trial: s1 could grow large enough that s1*Voc fully
 # overwhelmed k*Ir, clipping i_star to exactly 0 -- with no floor above zero, force_balance

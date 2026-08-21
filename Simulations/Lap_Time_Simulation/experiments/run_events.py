@@ -10,7 +10,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lap_sim import (
-    ACCEL_EVENT, Battery, EMRAX_208, ENDURANCE_EVENT, EV25, FSAE_EV, ICAHN_LOOP, SKIDPAD_EVENT,
+    ACCEL_EVENT, Battery, EMRAX_208, ENDURANCE_EVENT, EV25, FSAE_EV, ICAHN_LOOP, SKIDPAD_EVENT, EV27,
     CompetitionScorer, LapSimulator,
 )
 from lap_sim import plotting
@@ -22,14 +22,20 @@ SOC_DERATE = 0.0
 TEMP_START = 30.0  # realistic pre-warmed/hot-day ambient, not the sim's cold-start 25 C default
 TEMP_END = 60.0
 TEMP_DERATE = 0.0
-ECMS_K = 300.0
-ECMS_K_TEMP = 26690.4
+# Tuned via experiments/tune_ecms.py's staged sweep against build_ev26b()'s 105s4p pack,
+# the current cell data, and Cell's convective cooling term -- see the matching comment
+# in compare_packs.py for the full story (cooling raised the achievable-energy ceiling
+# enough that ECMS can now actually hit the SOC schedule's target instead of leaving
+# ~40%+ SOC unused).
+ECMS_K = 200.0
+ECMS_K_TEMP = 15600.6
 ECMS_S1_KP = 10.0
 ECMS_S1_KI = 2.0
-ECMS_S1_MAX = 51.6
-ECMS_S2_KP = 0.05
-ECMS_S2_KI = 0.01
+ECMS_S1_MAX = 66.1
+ECMS_S2_KP = 0.2
+ECMS_S2_KI = 0.002
 ECMS_S2_MAX = 40.0
+ECMS_S2_0 = 1.0
 total_distance = LAPS * ENDURANCE_EVENT.total_length
 soc_ref_fn = linear_soc_schedule(total_distance, soc_start=1.0, derate=SOC_DERATE)
 temp_ref_fn = linear_temp_schedule(total_distance, temp_start=TEMP_START, temp_end=TEMP_END, derate=TEMP_DERATE)
@@ -43,7 +49,7 @@ def build_ev26b() -> Car:
         mass=200 + 60,
         cg=np.array([742.44, 0.0, 248.52]),
         aero=Aero(cda=1.7, cla=3.05),
-        tire=EV25.tire,
+        tire=EV27.tire,
         drivetrain=Drivetrain(motor=motor, ratio=4.3, efficiency=0.96, count=1),
         hv=HighVoltageSystem(vmax=255, vnom=216),
         l=1.530,
@@ -51,7 +57,7 @@ def build_ev26b() -> Car:
         # object across repeated build_ev26b() calls (e.g. in a tuning sweep) means each
         # subsequent run inherits whatever SOC/temp the *previous* run left the pack at,
         # instead of starting from a full charge.
-        battery=Battery(series=144, parallel=2, cell_type="ampace_jp50"),
+        battery=Battery(series=105, parallel=4, cell_type="ampace_jp50"),
     )
 
 
@@ -89,7 +95,7 @@ def main():
     endur_car = car.replace(ecms=EcmsController(
         soc_ref_fn=soc_ref_fn, temp_ref_fn=temp_ref_fn, k=ECMS_K, k_temp=ECMS_K_TEMP,
         s1_kp=ECMS_S1_KP, s1_ki=ECMS_S1_KI, s1_max=ECMS_S1_MAX,
-        s2_kp=ECMS_S2_KP, s2_ki=ECMS_S2_KI, s2_max=ECMS_S2_MAX,
+        s2_kp=ECMS_S2_KP, s2_ki=ECMS_S2_KI, s2_max=ECMS_S2_MAX, s2_0=ECMS_S2_0,
     ))
     endur_sim = LapSimulator(endurance_regs, ENDURANCE_EVENT, endur_car, dx=0.5)
     if car.battery is not None:
