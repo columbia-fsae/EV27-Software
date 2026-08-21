@@ -25,7 +25,7 @@ from lap_sim import ENDURANCE_EVENT, FSAE_EV, EcmsController, LapSimulator, grid
 from lap_sim.ecms import linear_soc_schedule, linear_temp_schedule
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import run_events as re  # noqa: E402  (for build_ev26b(), matching the real car this'll be used on)
+import run_events as re  # noqa: E402  (for build_ev27(), matching the real car this'll be used on)
 
 LAPS = 22
 DX_ENDURANCE = 0.5
@@ -41,15 +41,15 @@ SOC_REF_FN = linear_soc_schedule(TOTAL_DISTANCE, soc_start=1.0)
 
 TEMP_START = 30.0  # realistic pre-warmed/hot-day ambient, not the sim's cold-start 25 C default
 
-# Measured for build_ev26b()'s pack (105s4p) against the current cell data
-# (hppc_new_cells_full_0819_fitted_parameters_CORRECTED.csv): Voc=435.1V, r0=0.000641 ohm
-# -- pull fresh if the pack config OR the cell data changes; the previous values here
-# (598.2V / 0.000562 ohm, mislabeled "144s2p") predated the real HPPC dataset and were
-# ~4.5x too low on r0, which is what threw the thermal-pacing tune off in the first place.
-# i_request from the battery-blind trace: max~205A, p90~141A, mean(nonzero)~64A.
-PACK_VOC = 435.14
-PACK_R0 = 0.000641
-I_REQUEST_MAX = 205.40
+# Measured for build_ev27()'s pack (140s3p, up from the earlier 105s4p) against the
+# current cell data at SOC~1.0, T=30 C: Voc=580.2V, r0=0.001140 ohm -- pull fresh if the
+# pack config OR the cell data changes. i_request from the battery-blind trace (also
+# pack-voltage-dependent via i_request = power_request / battery.voltage, so it moved
+# too even though the traction/aero physics didn't): max~125.8A, p90~106.5A,
+# mean(nonzero)~49.2A.
+PACK_VOC = 580.19
+PACK_R0 = 0.001140
+I_REQUEST_MAX = 125.75
 
 # First sweep collapsed almost every trial: s1 could grow large enough that s1*Voc fully
 # overwhelmed k*Ir, clipping i_star to exactly 0 -- with no floor above zero, force_balance
@@ -79,7 +79,7 @@ def safe_s2_max(k: float, k_temp: float) -> float:
 
 
 def run_trial(ecms_kwargs: dict, temp_end: float = 60.0) -> dict:
-    car = re.build_ev26b()
+    car = re.build_ev27()
     car.battery._T = TEMP_START
     temp_ref_fn = linear_temp_schedule(TOTAL_DISTANCE, temp_start=TEMP_START, temp_end=temp_end)
     ecms = EcmsController(soc_ref_fn=SOC_REF_FN, temp_ref_fn=temp_ref_fn, **ecms_kwargs)

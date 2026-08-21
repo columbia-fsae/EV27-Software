@@ -2,8 +2,7 @@
 
 `Car.battery` feeds `dynamics.py` a per-instant available electrical power (from the
 cell equivalent-circuit model in `cell.py`) and tracks pack SOC/energy over the course
-of a lap. `Car.battery` stays optional (`None`) -- cars that don't set one keep the old
-behavior of being limited only by `Regulations.power_limit`.
+of a lap. `Car.battery` stays optional (`None`)
 """
 from __future__ import annotations
 

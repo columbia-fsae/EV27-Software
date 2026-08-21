@@ -13,13 +13,12 @@ import numpy as np
 
 _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cell_data")
 
-# R0_ARRHENIUS_EA is a literature-typical activation energy for Li-ion ohmic/charge-transfer resistance
+# R0_ARRHENIUS_EA is a literature-standard activation energy for Li-ion ohmic/charge-transfer resistance
 # (~20-30 kJ/mol); it only models the well-evidenced cold-temperature resistance rise
-# (e.g. Batemo's published discharge curves for this cell fan out below room temp) and is
-# left flat above the reference temp rather than guessing a high-temp rise with no
-# supporting data. THERMAL_DERATE_START_C/MAX_C instead carry the "hot pack loses
+# left flat above the reference temp 
+# THERMAL_DERATE_START_C/MAX_C instead carry the "hot pack loses
 # performance" behavior, as a current derate anchored to Ampace's stated -20/80 degC
-# stable-operation range (matching Batemo's observed thermal-plateau ceiling).
+# stable-operation range
 _GAS_CONSTANT = 8.314  # J/(mol*K)
 _R0_TEMP_REF_C = 25.0  # deg C -- reference temp for the per-SOC R0 curves in cell_data/*.csv
 _R0_ARRHENIUS_EA = 25000.0  # J/mol
@@ -31,11 +30,7 @@ def _load_cell_csv(filename: str):
     """Read a per-SOC fitted-parameter CSV into SOC-indexed numpy arrays.
 
     Expects columns named SOC, R0, R1, C1, R2, C2, OCV, "OCV slope" (other columns, e.g.
-    the tau/rmse diagnostic fields, are ignored). SOC must already be on the same 0-1
-    fraction scale as `Cell`'s internal state (self._x[0], 1.0 == full); "OCV slope" is
-    d(OCV)/d(SOC) on that same scale. Returns 2-column [SOC, value] arrays for
-    r0/rct/cct/rdif/cdif, and a 3-column [SOC, OCV, OCV slope] array for soc_ocv -- all
-    sorted ascending by SOC so they're ready for np.interp.
+    the tau/rmse diagnostic fields, are ignored).
     """
     path = os.path.join(_DATA_DIR, filename)
     with open(path, newline="") as f:
@@ -62,13 +57,7 @@ def _load_cell_csv(filename: str):
 
 
 # Convective heat rejection to ambient air, per cell (Newton's law of cooling: P = h*A*(T -
-# T_ambient)). Previously the cell model was purely adiabatic (all I^2*R0 heat stayed in the
-# cell forever) -- with the real HPPC data's ~4.5x higher R0 than the old placeholder, that
-# made the thermal-pacing loop throttle current far harder than a cell with any real airflow
-# actually needs. h=50 W/(m^2*K) is a placeholder for light forced convection (fan/ram-air
-# across the pack); A is estimated from a 21700-format cylinder (21mm dia x 70mm), matching
-# this cell's mass/capacity ballpark -- TODO: confirm both against the real pack's cooling
-# design and the AMPACE JP50 datasheet.
+# T_ambient)).
 _COOLING_H_W_M2K = 50.0
 _AMBIENT_TEMP_C = 30.0  # matches the sim's TEMP_START convention (hot-day pre-warmed ambient)
 

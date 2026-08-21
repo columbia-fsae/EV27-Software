@@ -13,7 +13,7 @@ from lap_sim import (
 from lap_sim.ecms import linear_soc_schedule, linear_temp_schedule
 from lap_sim.vehicle import Aero, Car, Drivetrain, HighVoltageSystem
 
-# --- knobs -------------------------------------------------------------------------
+#  knobs 
 SERIES_VALUES = np.arange(100, 145, 4)     # cells in series to sweep
 PARALLEL_VALUES = np.arange(2, 6, 1)        # cells in parallel to sweep
 MASS_VALUES = np.arange(200, 301, 5)
@@ -21,36 +21,35 @@ CELL_TYPE = "ampace_jp50"
 OTHER_MASS_KG = 160 + 60                  # vehicle mass excluding the accumulator (chassis/driver/etc.)
 LAPS = 22
 DX_EVENT = 0.005                           # accel/skidpad resolution
-DX_ENDURANCE = 0.5                         # endurance resolution -- the expensive one; coarsen further if too slow
-SOC_DERATE = 0.0                            # 0 = linear SOC-vs-distance schedule; >0 = bows faster-than-linear late
+DX_ENDURANCE = 0.5                         # endurance resolution
+SOC_DERATE = 0.0                           # 0 = linear SOC-vs-distance schedule; >0 = bows faster-than-linear late
 TEMP_START = 30.0  # realistic pre-warmed/hot-day ambient, not the sim's cold-start 25 C default
 TEMP_END = 60.0
 TEMP_DERATE = 0.0
 # Tuned via experiments/tune_ecms.py's staged sweep against build_ev26b()'s 105s4p pack,
 # the current cell data (hppc_new_cells_full_0819_fitted_parameters_CORRECTED.csv), AND
-# Cell's convective cooling term (see cell.py's _COOLING_H_W_M2K) -- k_temp especially
-# depends on r0 (see EcmsController's module docstring: "seed near k/r0"), which shifts
-# with parallel and with the cell chemistry/thermal model, so these are a reasonable
-# starting point across the grid rather than independently optimal for every series/
-# parallel combo swept below. (Earlier values here predated the cooling term -- the cell
-# model was purely adiabatic, so the thermal-pacing loop had to throttle current far
-# harder than a cell with real airflow needs, leaving ~40%+ SOC unused across most of the
-# grid. Adding cooling raised the achievable-energy ceiling enough that ECMS can now
-# actually reach the SOC schedule's target -- confirmed on 105s4p: final_soc 40%->1-5%,
-# lap time ~110s faster, all while running ~15C cooler. Note: tune_ecms.py's own
-# argmin pick for the SOC loop reached final_soc=0.000 (bone dry) since its soc_score()
-# doesn't penalize undershooting the schedule's 5% floor -- these values are a
-# deliberately safer pick from the same sweep, not the literal argmin.)
-ECMS_K = 200.0
-ECMS_K_TEMP = 15600.6
-ECMS_S1_KP = 10.0
-ECMS_S1_KI = 2.0
-ECMS_S1_MAX = 66.1
-ECMS_S2_KP = 0.2
-ECMS_S2_KI = 0.002
-ECMS_S2_MAX = 40.0
-ECMS_S2_0 = 1.0  # matches EcmsController's default, kept explicit for clarity alongside the tuned combo above
-ENERGY_METRIC = "final"  # "final" = actual energy consumed over the 22 laps (recommended);
+# Cell's convective cooling term (see cell.py's _COOLING_H_W_M2K) 
+REDUCED_COOLING = True  # matches cell.py's current _COOLING_H_W_M2K = 20.0
+
+_ECMS_GAINS_NOMINAL = dict(
+    k=200.0, k_temp=15600.6, s1_kp=10.0, s1_ki=2.0, s1_max=66.1,
+    s2_kp=0.2, s2_ki=0.002, s2_max=40.0, s2_0=1.0,
+)
+_ECMS_GAINS_REDUCED_COOLING = dict(
+    k=300.0, k_temp=13157.9, s1_kp=10.0, s1_ki=0.5, s1_max=45.5,
+    s2_kp=0.7, s2_ki=0.0015, s2_max=40.0, s2_0=1.0,
+)
+_ecms_gains = _ECMS_GAINS_REDUCED_COOLING if REDUCED_COOLING else _ECMS_GAINS_NOMINAL
+ECMS_K = _ecms_gains["k"]
+ECMS_K_TEMP = _ecms_gains["k_temp"]
+ECMS_S1_KP = _ecms_gains["s1_kp"]
+ECMS_S1_KI = _ecms_gains["s1_ki"]
+ECMS_S1_MAX = _ecms_gains["s1_max"]
+ECMS_S2_KP = _ecms_gains["s2_kp"]
+ECMS_S2_KI = _ecms_gains["s2_ki"]
+ECMS_S2_MAX = _ecms_gains["s2_max"]
+ECMS_S2_0 = _ecms_gains["s2_0"]
+ENERGY_METRIC = "final"  # "final" = actual energy consumed over the 22 laps
                           # "nominal" = the pack's rated capacity from battery.py (even across
                           # mass, since it doesn't depend on mass, but ignores how efficiently
                           # that capacity actually got used)
@@ -58,7 +57,6 @@ FIG4_N_COMBOS = 10                    # series/parallel combos sampled across th
 FIG4_CELL_MASS_KG = 0.07             # per-cell mass, used to build each pack's total vehicle mass
 FIG4_NON_BATTERY_MASS_KG = 175 + 60  # chassis/vehicle w/o battery (175 kg) + driver (60 kg)
 FIG4_MASS_OFFSETS_KG = (0, 2, 4, 6)    # error-bar samples: base mass, +5 kg, +10 kg
-# -------------------------------------------------------------------------------------
 
 
 def build_car(series: int, parallel: int, mass: int) -> Car:
@@ -89,10 +87,7 @@ def evaluate_pack(pack_combo: tuple[int], mass: int) -> dict:
         skidpad = LapSimulator(FSAE_EV, SKIDPAD_EVENT, car, dx=DX_EVENT).run()
         skidpad_time = skidpad.split_time(2, 3)
 
-        # ECMS is only attached for the endurance run below, not on `car` above --
-        # otherwise accel/skidpad would also get gated by a controller (and its shared
-        # s1/s2/distance-traveled state) calibrated for a 22-lap endurance budget, not
-        # a 75 m sprint or a skidpad circle.
+        # ECMS is only attached for the endurance run below, not on `car` 
         total_distance = LAPS * ENDURANCE_EVENT.total_length
         soc_ref_fn = linear_soc_schedule(total_distance, soc_start=1.0, derate=SOC_DERATE)
         temp_ref_fn = linear_temp_schedule(total_distance, temp_start=TEMP_START, temp_end=TEMP_END, derate=TEMP_DERATE)
@@ -103,9 +98,7 @@ def evaluate_pack(pack_combo: tuple[int], mass: int) -> dict:
         ))
 
         # Real per-lap state carryover (SOC, RC-branch sag, temperature, and the ECMS
-        # controller's own s1/s2/distance) is the entire point of this sweep -- a
-        # single-lap-scaled-by-22 shortcut (as CompetitionEvaluator/mass_power_grid_sweep.py
-        # use) would make the SOC-pacing controller meaningless.
+        # controller's own s1/s2/distance)
         endur = LapSimulator(FSAE_EV, ENDURANCE_EVENT, endur_car, dx=DX_ENDURANCE).run_multi_lap(LAPS)
         endur_time = endur.lap_time
         avg_power = endur.stats.avg_electric
@@ -160,10 +153,7 @@ def main():
     energy_col = "final_energy_kwh" if ENERGY_METRIC == "final" else "pack_energy_kwh"
     energy_wh = df[energy_col] * 1000.0  # kWh -> Wh, more readable scale
 
-    # --- grid 1: series x parallel -> points, best achieved across the mass sweep -----
-    # (mass is now a third swept dimension, so a plain series/parallel pivot needs an
-    # aggregate over it rather than one value per cell; `.pivot()` would also just error
-    # on the resulting duplicate (series, parallel) rows)
+    # grid 1: series x parallel -> points, best achieved across the mass sweep 
     sp_pivot = df.pivot_table(index="parallel", columns="series", values="total_points", aggfunc="max")
     plotting.plot_heatmap(
         sp_pivot.columns.values, sp_pivot.index.values, sp_pivot.values,
@@ -171,10 +161,7 @@ def main():
         "Competition Points vs. Pack Configuration",
     )
 
-    # --- grid 2: mass x energy -> points --------------------------------------------
-    # Energy is a simulation *output*, not a swept variable, so (mass, energy) pairs
-    # don't land on a regular grid -- tricontourf interpolates a filled contour over the
-    # actual (irregular) sample cloud instead of assuming even spacing.
+    # grid 2: mass x energy -> points
     fig2, ax2 = plt.subplots(figsize=(8, 6))
     contour = ax2.tricontourf(energy_wh, df["mass_kg"], df["total_points"], levels=20, cmap="viridis")
     ax2.scatter(energy_wh, df["mass_kg"], c="k", s=6, alpha=0.3)
@@ -183,7 +170,7 @@ def main():
     ax2.set_title("Competition Points vs. Mass and Energy")
     fig2.colorbar(contour, ax=ax2, label="Total points")
 
-    # --- 3d: energy x mass x pack size, colored by points ---------------------------
+    # 3d: energy x mass x pack size, colored by points
     fig3 = plt.figure(figsize=(9, 7))
     ax3 = fig3.add_subplot(projection="3d")
     cell_count = df["series"] * df["parallel"]  # collapses (series, parallel) to one spatial axis
@@ -194,12 +181,9 @@ def main():
     ax3.set_title("Competition Points across Energy, Mass, and Pack Size")
     fig3.colorbar(scatter3d, ax=ax3, shrink=0.6, label="Total points")
 
-    # --- fig 4: points vs. energy for a handful of packs spanning the full energy range,
+    # fig 4: points vs. energy for a handful of packs spanning the full energy range,
     # with error bars built from a small mass sweep (base weight, +2/+4/+6 kg) around
     # each pack's actual expected mass (175 kg non-battery + 60 kg driver + cell mass).
-    # Each point is labeled with its nameplate pack energy (car.battery.pack_energy,
-    # i.e. series x parallel x cell capacity x cell max voltage), independent of the
-    # simulated/achieved energy plotted on the x-axis.
     combo_energy = (
         df.groupby(["series", "parallel"])["pack_energy_kwh"].first()
         .reset_index().sort_values("pack_energy_kwh").reset_index(drop=True)
@@ -249,13 +233,12 @@ def main():
     ax4.set_title(
         "Competition Points vs. Energy Across Representative Pack Configurations\n"
         f"(error bars: {FIG4_NON_BATTERY_MASS_KG} kg + cell mass, "
-        f"+{FIG4_MASS_OFFSETS_KG[1]}/+{FIG4_MASS_OFFSETS_KG[-1]} kg; point labels = nameplate energy)"
+        f"+{FIG4_MASS_OFFSETS_KG[1]} to +{FIG4_MASS_OFFSETS_KG[-1]} kg; point labels = nameplate energy)"
     )
     ax4.legend(fontsize=8)
 
-    # --- fig 5: for every fixed pack design (each with its own single nameplate energy
-    # number), how do mass and points vary across the same mass sweep used for fig 4's
-    # error bars? one line per pack, so designs can be compared side by side. -----------
+    # fig 5: for every fixed pack design (each with its own single nameplate energy
+    # number), one line per pack, so designs can be compared side by side.
     if fig4_records:
         fig5, ax5 = plt.subplots(figsize=(8, 6))
         for rec in fig4_records:

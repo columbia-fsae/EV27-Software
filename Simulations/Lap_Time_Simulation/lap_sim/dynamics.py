@@ -16,15 +16,7 @@ The algorithm, in three stages:
    traction/brake/drag power, motor torque and efficiency (via the efficiency map), and
    electrical power, plus lap-average figures.
 
-Stage 2 (`trace_speed_profile`/`_march`) is the hot loop. It used to be Numba-JIT-compiled,
-but `tire`/`battery` are now plain Python objects (`Tire`/`Battery`, with SOC-dependent
-lookups and CSV-backed state) rather than raw scalars/arrays, and Numba's nopython mode
-can't call into arbitrary Python objects -- so JIT has been dropped here in favor of
-correctness. (A `Tire`/`Battery` pair implemented as Numba `jitclass`es could bring it
-back, but that's a bigger redesign than this fix.)
-Everything here operates on plain NumPy arrays/scalars plus `tire`/`battery` objects
-rather than the full `Car`/`Track` objects -- `lap_simulator.py` is the adapter that
-unpacks those objects into the arguments these functions need.
+Stage 2 (`trace_speed_profile`/`_march`) is the hot loop. 
 """
 from __future__ import annotations
 
@@ -46,8 +38,7 @@ def force_balance(
     traction, motor torque curve) is most restrictive.
 
     `battery_power_override`, when given, replaces `battery.available_power()` as the
-    battery's power ceiling for this call -- how `EcmsController` gates the pack down to
-    less than its full physical limit without touching `battery`'s own state.
+    battery's power ceiling for this call
     """
     downforce = 0.5 * air_density * cla * v * v
     fz = GRAVITY * mass + downforce
@@ -146,8 +137,7 @@ def trace_speed_profile(
     power_limit, ratio, count, efficiency, motor,
 ):
     """The feasible speed trace around one lap, battery-blind (no `battery` param at
-    all -- see `battery_forward_pass` for how a battery's acceleration limit gets
-    layered on top afterward for cars that have one).
+    all
 
     `point_limit` is the per-point speed ceiling before considering accel/braking
     capability (corner grip limits and any externally-imposed segment limits).
@@ -186,36 +176,20 @@ def battery_forward_pass(
     power_limit, ratio, count, efficiency, motor, battery, ecms=None,
 ):
     """Overlay battery-limited acceleration onto an already-resolved, battery-blind
-    speed trace `vv_base` (no regen -- braking never depends on the battery, so
+    speed trace `vv_base` (no regen, braking never depends on the battery, so
     `vv_base`'s braking zones are already final and this pass never needs to touch
     them).
 
     When `ecms` (an `EcmsController`) is given, the battery isn't simply granted its full
-    physical `available_power()` at each point -- `vv_base`'s own point-to-point speed
+    physical `available_power()` at each point, `vv_base`'s own point-to-point speed
     change already says what current the car would draw here if energy were free
-    (`i_request`); ECMS minimizes its Hamiltonian to decide how much of that to actually
+    (`i_request`); ECMS decides how much of that to actually
     grant, gated by the running price `ecms.lam`, and that gated power (not the raw
     physical ceiling) is what `force_balance` sees as the battery's limit for this point.
 
     A single forward integration, point by point: from each point's actual (possibly
     battery-reduced) speed, take one battery-aware acceleration step and cap the result
-    at `vv_base[i]`, the true physical ceiling once the battery isn't binding. That cap
-    is what keeps this from ever needing a backward march -- it's what makes it safe to
-    step the battery's SOC/voltage/temperature sequentially as each point is finalized,
-    unlike `trace_speed_profile`'s combined forward+backward version, where a backward
-    march launched from a later point can retroactively lower an earlier point's speed
-    *after* that point's battery current was already computed and locked in against the
-    old, higher value.
-
-    (An earlier version of this used discrete `_march` calls that stopped once they
-    rejoined `vv_base`, mirroring `trace_speed_profile`'s structure. That's fragile here:
-    when the battery isn't actually binding, this pass's independently-recomputed
-    trajectory should retrace `vv_base` exactly, but tiny floating-point differences
-    between the two made the march's `v <= vv_base[idx]` stopping check trip almost
-    immediately, so no march ever covered more than one or two points -- leaving nearly
-    every point looking "untouched" and forcing an expensive standalone
-    `corner_speed_limit` solve at each one. Capping with `min()` every step instead of
-    comparing for an exact rejoin sidesteps that entirely.)
+    at `vv_base[i]`
 
     Returns `(vv, batt_i, batt_v, batt_soc, cell_t, batt_p_limit)`.
     """
