@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 
@@ -22,6 +23,11 @@ OTHER_MASS_KG = 160 + 60                  # vehicle mass excluding the accumulat
 LAPS = 22
 DX_EVENT = 0.005                           # accel/skidpad resolution
 DX_ENDURANCE = 0.5                         # endurance resolution
+# Process pool size for the grid sweep below -- each grid cell (~14s) is fully
+# independent, so this parallelizes near-linearly with physical core count. Set to 1
+# to run sequentially (e.g. for debugging a single cell's traceback without it getting
+# swallowed/reordered by a worker process).
+N_WORKERS = max(1, (os.cpu_count() or 1) - 1)
 SOC_DERATE = 0.0                           # 0 = linear SOC-vs-distance schedule; >0 = bows faster-than-linear late
 TEMP_START = 30.0  # realistic pre-warmed/hot-day ambient, not the sim's cold-start 25 C default
 TEMP_END = 60.0
@@ -126,21 +132,27 @@ def evaluate_pack(pack_combo: tuple[int], mass: int) -> dict:
         }
 
 
+def evaluate_grid_cell(pack_combo, mass):
+    """`grid_sweep`'s per-cell callback -- module-level (rather than a closure inside
+    `main()`) so it can be pickled and shipped to worker processes when N_WORKERS > 1.
+    """
+    print(f"[compare_packs] series={pack_combo[0]} parallel={pack_combo[1]} mass={mass} ...")
+    result = evaluate_pack(pack_combo, int(mass))
+    pts = result["total_points"]
+    print(f"[compare_packs]   -> mass={result['mass_kg']:.1f} kg, points={pts:.1f}, score_breakdown = {result['score_breakdown']}, accel_time={result['accel_time']}, skidpad_time = {result['skidpad_time']}, endur=time = {result['endur_time']}"
+          if not np.isnan(pts) else "[compare_packs]   -> failed, see above")
+    return result
+
+
 def main():
     pack_combos = np.stack(np.meshgrid(SERIES_VALUES, PARALLEL_VALUES), axis=-1).reshape(-1, 2)
     n_combos = len(pack_combos) * len(MASS_VALUES)
     print(f"[compare_packs] sweeping {len(pack_combos)} pack configs x {len(MASS_VALUES)} masses = "
-          f"{n_combos} configurations (each a full 22-lap endurance run)...")
+          f"{n_combos} configurations (each a full 22-lap endurance run) across {N_WORKERS} worker process(es)...")
 
-    def evaluate(pack_combo, mass):
-        print(f"[compare_packs] series={pack_combo[0]} parallel={pack_combo[1]} mass={mass} ...")
-        result = evaluate_pack(pack_combo, int(mass))
-        pts = result["total_points"]
-        print(f"[compare_packs]   -> mass={result['mass_kg']:.1f} kg, points={pts:.1f}, score_breakdown = {result['score_breakdown']}, accel_time={result['accel_time']}, skidpad_time = {result['skidpad_time']}, endur=time = {result['endur_time']}"
-              if not np.isnan(pts) else "[compare_packs]   -> failed, see above")
-        return result
-
-    df = grid_sweep({"pack_combo": pack_combos, "mass": MASS_VALUES}, evaluate)
+    df = grid_sweep(
+        {"pack_combo": pack_combos, "mass": MASS_VALUES}, evaluate_grid_cell, n_workers=N_WORKERS,
+    )
     print(df[["series", "parallel", "mass_kg", "final_soc", "total_points",
                "energy_wh", "pack_energy_kwh", "final_energy_kwh"]])
 

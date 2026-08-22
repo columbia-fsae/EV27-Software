@@ -8,6 +8,7 @@ skidpad, and endurance events for a given car/ruleset and score the result.
 from __future__ import annotations
 
 import itertools
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -90,17 +91,29 @@ class PowerEnergySearch:
         return result
 
 
-def grid_sweep(param_grid: dict, evaluate_fn: Callable[..., dict]) -> pd.DataFrame:
+def grid_sweep(param_grid: dict, evaluate_fn: Callable[..., dict], n_workers: int = 1) -> pd.DataFrame:
     """Evaluate `evaluate_fn(**params)` over every combination in `param_grid`.
 
     Replaces the `meshgrid` + `arrayfun` + `reshape` pattern used for the power-limit x
     mass sweep in `point_mass_sim_mass_powerlim208.m`, returning a tidy DataFrame (one
     row per combination) instead of parallel 2D arrays.
+
+    `n_workers` > 1 fans the combinations out across a process pool instead of running
+    them one at a time. This is only safe/useful because every grid cell is independent
+    -- each call builds its own fresh Car/Battery and touches no state shared with any
+    other cell -- so cells can run in any order or process with the same result.
+    `evaluate_fn` must be a module-level (picklable) callable for this to work; a
+    closure defined inside another function can't be sent to a worker process.
     """
     keys = list(param_grid.keys())
-    rows = []
-    for combo in itertools.product(*(param_grid[k] for k in keys)):
-        params = dict(zip(keys, combo))
-        result = evaluate_fn(**params)
-        rows.append({**params, **result})
+    param_dicts = [dict(zip(keys, combo)) for combo in itertools.product(*(param_grid[k] for k in keys))]
+
+    if n_workers == 1:
+        results = [evaluate_fn(**params) for params in param_dicts]
+    else:
+        with ProcessPoolExecutor(max_workers=n_workers) as executor:
+            futures = [executor.submit(evaluate_fn, **params) for params in param_dicts]
+            results = [f.result() for f in futures]
+
+    rows = [{**params, **result} for params, result in zip(param_dicts, results)]
     return pd.DataFrame(rows)

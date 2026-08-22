@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-df = pd.read_csv("/mnt/c/Users/levin/OneDrive/Documents/GitHub/EV27-Software/Simulations/Lap_Time_Simulation/experiments/compare_packs_results_full_cooling.csv")
+df = pd.read_csv(Path(__file__).with_name("compare_packs_results.csv"))
 
 CELL_MASS = 0.07
 CAR_MASS = 175 + 60
