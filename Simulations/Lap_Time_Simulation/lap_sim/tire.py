@@ -175,18 +175,34 @@ class Tire:
             # front/rear breakdown).
             fz_tire = fz / self._NUM_TIRES
             fy_tire = fy / self._NUM_TIRES
-            # Snap to the nearest pre-built fz bucket -- its envelope is already
-            # Fx(Fy) *for that specific fz*, so no further fz-normalization is needed;
-            # just convert the query/result between the cache's kN and the rest of the
-            # codebase's N.
-            fz_value = float(self._fz_values[(np.abs(self._fz_values - fz_tire)).argmin()])
-            fy_env, fx_env = self._envelope[fz_value]
             fy_kn = abs(fy_tire) / self._CACHE_KN_TO_N
-            # Demanding more lateral force than the table's own ellipse ever achieves
-            # is physically impossible -- treat it as zero remaining longitudinal
-            # capacity (matching TIRE_SIMPLE's lateral_fraction clamp) rather than
-            # letting np.interp silently clamp to the (nonzero) last sampled point.
-            fx_kn = np.interp(fy_kn, fy_env, fx_env, right=0.0)
+
+            # Linearly interpolate between the two pre-built fz buckets bracketing
+            # fz_tire, rather than snapping to whichever bucket is nearest -- nearest-
+            # neighbor snapping made get_fx piecewise-constant in fz, so a smooth sweep
+            # of car mass (which shifts fz_tire smoothly) produced a stairstep in
+            # available grip: every ~50 N-per-tire step (~20 kg of car mass) jumped to
+            # a new, independently-reconstructed envelope, which could imply *more*
+            # capacity than the heavier point just below it in the same bucket. That
+            # showed up as a sawtooth in corner-speed-limited events (e.g. skidpad
+            # time vs. mass) instead of a monotonic trend.
+            idx_hi = int(np.clip(np.searchsorted(self._fz_values, fz_tire), 1, len(self._fz_values) - 1))
+            idx_lo = idx_hi - 1
+            fz_lo, fz_hi = self._fz_values[idx_lo], self._fz_values[idx_hi]
+            frac = 0.0 if fz_hi == fz_lo else np.clip((fz_tire - fz_lo) / (fz_hi - fz_lo), 0.0, 1.0)
+    
+            def _fx_at_fraction(fz_value):
+                fy_env, fx_env = self._envelope[fz_value]
+                return np.interp(fy_fraction * fy_env[-1], fy_env, fx_env, right=0.0)
+
+            max_fy_lo = self._envelope[float(fz_lo)][0][-1]
+            max_fy_hi = self._envelope[float(fz_hi)][0][-1]
+            max_fy_interp = max_fy_lo + frac * (max_fy_hi - max_fy_lo)
+            fy_fraction = min(fy_kn / max_fy_interp, 1.0) if max_fy_interp > 0.0 else 1.0
+
+            fx_lo_kn = _fx_at_fraction(float(fz_lo))
+            fx_hi_kn = _fx_at_fraction(float(fz_hi))
+            fx_kn = fx_lo_kn + frac * (fx_hi_kn - fx_lo_kn)
             fx_tire = fx_kn * self._CACHE_KN_TO_N
             # fx out: per-tire -> whole-car, summing all four (equal-share) contributions.
             return abs(np.round(fx_tire * self._NUM_TIRES, decimals=3))

@@ -35,7 +35,7 @@ TEMP_DERATE = 0.0
 # Tuned via experiments/tune_ecms.py's staged sweep against build_ev26b()'s 105s4p pack,
 # the current cell data (hppc_new_cells_full_0819_fitted_parameters_CORRECTED.csv), AND
 # Cell's convective cooling term (see cell.py's _COOLING_H_W_M2K) 
-REDUCED_COOLING = True  # matches cell.py's current _COOLING_H_W_M2K = 20.0
+REDUCED_COOLING = False  # matches cell.py's current _COOLING_H_W_M2K = 20.0
 
 _ECMS_GAINS_NOMINAL = dict(
     k=200.0, k_temp=15600.6, s1_kp=10.0, s1_ki=2.0, s1_max=66.1,
@@ -156,7 +156,8 @@ def main():
     print(df[["series", "parallel", "mass_kg", "final_soc", "total_points",
                "energy_wh", "pack_energy_kwh", "final_energy_kwh"]])
 
-    csv_path = Path(__file__).with_name("compare_packs_results.csv")
+    csv_path = Path(__file__).parent / "output_data" / "compare_packs_results.csv"
+    csv_path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(csv_path, index=False)
     print(f"[compare_packs] saved full results to {csv_path}")
 

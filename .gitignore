@@ -1,14 +1,17 @@
-#settings
+# settings
 .settings/
 
-#metadata
+# metadata
 .metadata/
 
-#Debug
+# Debug
 Debug/
 debug/
 Release/
 release
+
+# Simulations
+output_data/
 
 # Prerequisites
 *.d

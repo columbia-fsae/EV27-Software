@@ -66,7 +66,7 @@ def build_ev27() -> Car:
         hv=HighVoltageSystem(vmax=255, vnom=216),
         l=1.530,
         # Fresh Battery per call
-        battery=Battery(series=140, parallel=3, cell_type="ampace_jp50"),
+        battery=Battery(series=116, parallel=3, cell_type="ampace_jp50"),
     )
 
 

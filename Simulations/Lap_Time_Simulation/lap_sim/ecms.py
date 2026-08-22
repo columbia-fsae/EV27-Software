@@ -89,7 +89,7 @@ class EcmsController:
         self.s2 = self.s2_0 + float(np.clip(self.s2_kp * e + self.s2_ki * self.s2_integral, 0.0, self.s2_max))
 
 def linear_soc_schedule(
-    total_distance: float, soc_start: float = 1.0, soc_end: float = 0.00, derate: float = 0.0,
+    total_distance: float, soc_start: float = 1.0, soc_end: float = 0.05, derate: float = 0.0,
 ) -> Callable[[float], float]:
     """Reference SOC trajectory from `soc_start` to `soc_end` over `total_distance`
     meters (e.g. `n_laps * track.total_length` for endurance).
