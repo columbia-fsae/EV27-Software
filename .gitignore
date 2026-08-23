@@ -1,14 +1,17 @@
-#settings
+# settings
 .settings/
 
-#metadata
+# metadata
 .metadata/
 
-#Debug
+# Debug
 Debug/
 debug/
 Release/
 release
+
+# Simulations
+output_data/
 
 # Prerequisites
 *.d
@@ -73,6 +76,10 @@ __pycache__/
 mbed-os
 BUILD
 
+# Python virtual environments
+.venv/
+venv/
+
 # Windows default autosave extension
 *.asv
 
@@ -122,7 +129,6 @@ CMakeUserPresets.json
 
 # VS Code — ignore personal, keep shared project config
 .vscode/*
-!.vscode/settings.json
 !.vscode/c_cpp_properties.json
 !.vscode/launch.json
 !.vscode/extensions.json

@@ -8,22 +8,14 @@ its owning experiment script instead of living here.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import TYPE_CHECKING, Optional
+from typing import Optional
 
 import numpy as np
 
 from .motors import EMRAX_208, EMRAX_268, Motor
-
-if TYPE_CHECKING:
-    from .battery import BatteryModel
-
-
-@dataclass(eq=False)
-class Tires:
-    mux: float
-    muy: float
-    radius: float
-    rolling_resistance: float = 0.0
+from .tire import TIRE_LOOKUP, Tire
+from .battery import Battery
+from .ecms import EcmsController
 
 
 @dataclass(eq=False)
@@ -52,11 +44,12 @@ class Car:
     mass: float
     cg: np.ndarray  # [x, y, z] in mm, matching the original struct layout
     aero: Aero
-    tires: Tires
+    tire: Tire
     drivetrain: Drivetrain
     hv: HighVoltageSystem
     l: Optional[float] = None  # wheelbase (m); required only for weight-transfer physics
-    battery: Optional["BatteryModel"] = None  # future extension hook, inert today
+    battery: Optional["Battery"] = None
+    ecms: Optional["EcmsController"] = None  # energy-pacing controller; only used if battery is also set
 
     @property
     def cg_height_m(self) -> float:
@@ -67,16 +60,18 @@ class Car:
         return replace(self, **changes)
 
 
-_TIRES_EV24_25 = Tires(mux=1.5, muy=1.5, radius=0.2032, rolling_resistance=0.015)
+_TIRES_EV24_25 = Tire(mu_x=1.5, mu_y=1.5, radius=0.2032, rolling_resistance=0.015)
+_TIRES_EV26_27 = Tire(type=TIRE_LOOKUP, radius=0.2032, rolling_resistance=0.015)
 _HV_EV24_25 = HighVoltageSystem(vmax=302.4, vnom=260)
 _CG_EV24_25 = np.array([738.0, 0.0, 255.41])
+_BATTERY_EV26_27 = Battery(series=144,parallel=2,cell_type='ampace_jp50')
 
 EV24 = Car(
     name="EV24",
     mass=264 + 68,
     cg=_CG_EV24_25,
     aero=Aero(cda=0.428, cla=0.0),
-    tires=_TIRES_EV24_25,
+    tire=_TIRES_EV24_25,
     drivetrain=Drivetrain(motor=EMRAX_208, ratio=3.7, efficiency=0.96, count=1),
     hv=_HV_EV24_25,
     l=None,  # never exercised by any experiment; wheelbase was left unset in the source
@@ -87,7 +82,7 @@ EV25 = Car(
     mass=242.5 + 68,
     cg=_CG_EV24_25,
     aero=Aero(cda=0.428, cla=0.0),
-    tires=_TIRES_EV24_25,
+    tire=_TIRES_EV24_25,
     drivetrain=Drivetrain(motor=EMRAX_208, ratio=4.9, efficiency=0.96, count=1),
     hv=_HV_EV24_25,
     l=1.530,
@@ -98,8 +93,20 @@ EV26A = Car(
     mass=260 + 68,
     cg=_CG_EV24_25,
     aero=Aero(cda=0.2288, cla=0.51),
-    tires=_TIRES_EV24_25,
+    tire=_TIRES_EV24_25,
     drivetrain=Drivetrain(motor=EMRAX_268, ratio=1, efficiency=0.96, count=2),
     hv=HighVoltageSystem(vmax=600, vnom=520),
     l=1.530,
+)
+
+EV27 = Car(
+    name="EV27",
+    mass=200 + 68,
+    cg=_CG_EV24_25,
+    aero=Aero(cda=0.2288, cla=0.51),
+    tire=_TIRES_EV26_27,
+    drivetrain=Drivetrain(motor=EMRAX_208, ratio=1, efficiency=0.96, count=2),
+    hv=HighVoltageSystem(vmax=600, vnom=520),  # TODO: placeholder (EV26A's window); confirm EV27 HV pack
+    l=None,  # TODO: not yet exercised by any experiment; set when EV27 specs are finalized
+    battery=_BATTERY_EV26_27
 )

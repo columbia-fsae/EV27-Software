@@ -3,3 +3,4 @@ scipy>=1.10
 numba>=0.58
 matplotlib>=3.7
 pandas>=2.0
+nptdms>=1.11

@@ -18,8 +18,7 @@ library (`lap_sim/`) with each original study reproduced as a short script in
   - `motors.py`, `vehicle.py`, `regulations.py`, `track.py` — data model (motors, cars,
     competition rules, tracks), including presets matching the original MATLAB constants.
   - `dynamics.py` — the numeric core: force balance, corner speed limits, the
-    forward/backward speed-trace evolution, and power/energy accounting. Numba-JIT'd for
-    speed.
+    forward/backward speed-trace evolution, and power/energy accounting.
   - `lap_simulator.py` — `LapSimulator` ties the data model to the dynamics core and
     produces a `LapResult`.
   - `results.py` — `LapResult`/`LapStats`, the per-point simulation output.
@@ -27,8 +26,13 @@ library (`lap_sim/`) with each original study reproduced as a short script in
   - `sweeps.py` — parameter-sweep helpers used by the design-study scripts.
   - `geometry.py` / `plotting.py` — track geometry reconstruction and all matplotlib
     visualizations.
-  - `battery.py` — a currently-inert extension point for future battery/cell-level
-    modeling (see "Extending" below).
+  - `tire.py` — tire model: simple friction-ellipse (`mu_x`/`mu_y`), or a lookup table
+    built from measured/simulated friction-ellipse data (`tire_ellipse_cache.pkl`).
+  - `cell.py` / `battery.py` — cell equivalent-circuit model (SOC-dependent 2RC Thevenin
+    network, per-cell parameters loaded from `cell_data/*.csv`) and the series/parallel
+    pack built from it. `Car.battery` is optional; set it on a `Car` to have SOC-dependent
+    available power shape `dynamics.py`'s force balance over the lap (see "Extending"
+    below).
 - `experiments/` — one script per original MATLAB study (see table below).
 - `tests/` — basic sanity checks on the dynamics core.
 
@@ -41,7 +45,6 @@ library (`lap_sim/`) with each original study reproduced as a short script in
 | `experiments/track_geometry_demo.py` | `track_layout.m` | Reconstructs and plots track centerlines from segment data |
 
 ## Usage
-
 ```bash
 pip install -r requirements.txt
 python experiments/run_events.py
@@ -53,8 +56,10 @@ simulations and can take a while on first run (Numba JIT warmup adds a few secon
 
 ## Extending
 
-`lap_sim/battery.py` defines a `BatteryModel` interface and a `Car.battery` slot that
-isn't yet wired into the physics (today's model uses a flat `Regulations.power_limit`,
-same as the original MATLAB). It exists as the intended attachment point for a future
-battery/cell-level model (voltage sag, thermal derating, SOC-dependent power limits, etc.)
-to eventually influence available power in `dynamics.py`.
+`Car.battery` is an optional slot (default `None`, meaning "no battery model" -- available
+power is limited only by `Regulations.power_limit`, same as the original MATLAB). Set it to
+a `lap_sim.battery.Battery(series, parallel, cell_type)` and `dynamics.py` derates available
+power by that pack's SOC-dependent current limit over the course of the lap, using the cell
+equivalent-circuit model in `cell.py`. To add a new cell, drop a per-SOC fitted-parameter CSV
+(columns `SOC, R0, R1, C1, R2, C2, OCV, OCV slope`) into `lap_sim/cell_data/` and register it
+in `cell.CELL_OPTIONS`.
