@@ -1,8 +1,10 @@
+from pathlib import Path
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-df = pd.read_csv("/mnt/c/Users/levin/OneDrive/Documents/GitHub/EV27-Software/Simulations/Lap_Time_Simulation/experiments/compare_packs_results.csv")
+df = pd.read_csv(Path(__file__).resolve().parent / "output_data" / "compare_packs_results.csv")
 
 CELL_MASS = 0.07
 CAR_MASS = 175 + 60
@@ -60,7 +62,7 @@ energy_wh = df[energy_col] * 1000.0  # kWh -> Wh, more readable scale
 # actual (irregular) sample cloud instead of assuming even spacing.
 fig4, ax4 = plt.subplots(figsize=(8,6))
 ax4.scatter(df['mass_kg'],df['skidpad_time'])
-'''
+
 fig4, ax4 = plt.subplots(figsize=(8, 6))
 contour = ax4.tricontourf(energy_wh, df["mass_kg"], df["accel_time"], levels=20, cmap="viridis")
 ax4.scatter(energy_wh, df["mass_kg"], c="k", s=6, alpha=0.3)
@@ -82,5 +84,5 @@ ax5.set_xlabel("Nominal pack energy (Wh)")
 ax5.set_ylabel("Mass (kg)")
 ax5.set_title("Skidpad Time vs. Mass and Energy")
 fig5.colorbar(contour, ax=ax5, label="Skidpad time (s)")
-'''
+
 plt.show()
