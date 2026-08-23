@@ -60,9 +60,6 @@ energy_wh = df[energy_col] * 1000.0  # kWh -> Wh, more readable scale
 # Energy is a simulation *output*, not a swept variable, so (mass, energy) pairs
 # don't land on a regular grid -- tricontourf interpolates a filled contour over the
 # actual (irregular) sample cloud instead of assuming even spacing.
-fig4, ax4 = plt.subplots(figsize=(8,6))
-ax4.scatter(df['mass_kg'],df['skidpad_time'])
-
 fig4, ax4 = plt.subplots(figsize=(8, 6))
 contour = ax4.tricontourf(energy_wh, df["mass_kg"], df["accel_time"], levels=20, cmap="viridis")
 ax4.scatter(energy_wh, df["mass_kg"], c="k", s=6, alpha=0.3)
