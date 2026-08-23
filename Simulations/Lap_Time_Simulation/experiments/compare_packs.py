@@ -139,7 +139,7 @@ def evaluate_grid_cell(pack_combo, mass):
     print(f"[compare_packs] series={pack_combo[0]} parallel={pack_combo[1]} mass={mass} ...")
     result = evaluate_pack(pack_combo, int(mass))
     pts = result["total_points"]
-    print(f"[compare_packs]   -> mass={result['mass_kg']:.1f} kg, points={pts:.1f}, score_breakdown = {result['score_breakdown']}, accel_time={result['accel_time']}, skidpad_time = {result['skidpad_time']}, endur=time = {result['endur_time']}"
+    print(f"[compare_packs]   -> mass={result['mass_kg']:.1f} kg, points={pts:.1f}, score_breakdown = {result['score_breakdown']}, accel_time={result['accel_time']}, skidpad_time = {result['skidpad_time']}, endur_time = {result['endur_time']}"
           if not np.isnan(pts) else "[compare_packs]   -> failed, see above")
     return result
 
