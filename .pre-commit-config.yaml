@@ -1,0 +1,32 @@
+# Vendor/generated firmware code (STM32 CMSIS/HAL drivers, CubeMX glue) is
+# excluded from every hook below via this global pattern — it's not ours to
+# reformat, and running unscoped hooks against it once already reformatted
+# ~450 files repo-wide during setup.
+exclude: '(^|/)(Drivers|build|Debug)/|/cmake/stm32cubemx/|\.(ld|ioc|s|S)$'
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.4
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/cpp-linter/cpp-linter-hooks
+    rev: v1.6.0
+    hooks:
+      - id: clang-format
+        args: [--style=file]
+      - id: clang-tidy
+        # Needs a CMake compile_commands.json to resolve includes correctly,
+        # which this repo only generates in the cpp-linter.yml CI workflow.
+        # Run manually (`pre-commit run --hook-stage manual clang-tidy`)
+        # after a `cmake --preset Debug` configure if you want it locally.
+        stages: [manual]
