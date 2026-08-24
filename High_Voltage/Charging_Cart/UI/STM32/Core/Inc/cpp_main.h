@@ -10,7 +10,7 @@
 extern "C" {
 #endif
 
-//enable display self-testing
+// enable display self-testing
 #define SELF_TEST_DISPLAY
 
 int cpp_main(void);
