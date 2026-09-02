@@ -10,17 +10,25 @@ TIRE_SIMPLE = "simple"
 TIRE_LOOKUP = "lookup"
 
 
-def build_tire_ellipse_dict(input_path, lookup_path):
-    """Parse raw friction-ellipse CSVs into the `{fz_value: {"fx": [...], "fy": [...]}}`
-    shape consumed by `Tire.build_cache`.
+def build_tire_ellipse_dict(csv_path):
+    """Parse a wide-format friction-ellipse CSV into the
+    `{fz_value: {"fx": [...], "fy": [...]}}` shape consumed by `Tire.build_cache`.
 
-    Not yet implemented -- `tire_ellipse_cache.pkl` is currently checked in pre-built.
-    Implement this once the raw ellipse CSV format is finalized.
+    Expected format: one row per raw combined-slip sample, with a `{fz}_FX`/`{fz}_FY`
+    column pair per Fz level tested (e.g. "0_FX,0_FY,50_FX,50_FY,...,5000_FX,5000_FY"),
+    values already in kN to match what the cache stores.
     """
-    raise NotImplementedError(
-        "build_tire_ellipse_dict is not implemented yet; tire_ellipse_cache.pkl is "
-        "currently checked in pre-built, so Tire(type=TIRE_LOOKUP) doesn't need this."
-    )
+    with open(csv_path) as f:
+        header = f.readline().strip().split(",")
+    table = np.genfromtxt(csv_path, delimiter=",", skip_header=1)
+
+    data = {}
+    fz_values = []
+    for col in range(0, len(header), 2):
+        fz = int(float(header[col].split("_")[0]))
+        fz_values.append(fz)
+        data[fz] = {"fx": table[:, col], "fy": table[:, col + 1]}
+    return data, fz_values
 
 
 class Tire:
@@ -116,15 +124,15 @@ class Tire:
         return fy_env, fx_env
 
     @classmethod
-    def build_cache(cls, input_path, lookup_path, cache_path=None):
-        """One-time step: parse the CSVs and write the permanent pickle file.
+    def build_cache(cls, csv_path, cache_path=None):
+        """One-time step: parse the raw ellipse CSV and write the permanent pickle file.
 
-        Run this once (or whenever the CSVs change). After that, create
+        Run this once (or whenever the CSV changes). After that, create
         objects with Tire(type=TIRE_LOOKUP) and they read straight from the pickle.
         """
         if cache_path is None:
             cache_path = cls.DEFAULT_CACHE
-        data, fz_values = build_tire_ellipse_dict(input_path, lookup_path)
+        data, fz_values = build_tire_ellipse_dict(csv_path)
         with open(cache_path, "wb") as f:
             pickle.dump({"data": data, "fz_values": fz_values}, f,
                         protocol=pickle.HIGHEST_PROTOCOL)

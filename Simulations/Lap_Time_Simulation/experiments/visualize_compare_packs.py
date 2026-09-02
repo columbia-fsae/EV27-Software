@@ -25,7 +25,7 @@ mesh_accel = np.zeros((len(series), len(parallel)))
 mesh_skidpad = np.zeros((len(series), len(parallel)))
 
 for i, (series_count, parallel_count) in enumerate(pack_combos):
-    desired_mass = np.round((CAR_MASS + 1.2*CELL_MASS * series_count * parallel_count) / 5) * 5
+    desired_mass = np.round((CAR_MASS + 1.0*CELL_MASS * series_count * parallel_count) / 5) * 5
     if df['mass'][i] == desired_mass:
         mesh[np.where(series_count == series)[0], np.where(parallel_count == parallel)[0]] = df['total_points'][i]
         mesh_accel[np.where(series_count == series)[0], np.where(parallel_count == parallel)[0]] = df['accel_time'][i]

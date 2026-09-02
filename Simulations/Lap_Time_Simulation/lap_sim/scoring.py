@@ -29,17 +29,17 @@ class ScoreBreakdown:
 class CompetitionScorer:
     """FSAE points formula, parameterized by reference times/efficiency benchmarks.
 
-    Defaults are the 2025 Michigan competition benchmarks used in the original scripts.
+    Defaults are the 2026 Michigan competition benchmarks used in the original scripts.
     """
 
-    accel_min: float = 3.821
-    skidpad_min: float = 4.933
-    autocross_min: float = 45.734
-    endurance_min: float = 1369.936
-    efficiency_factor_max: float = 0.848  # UConn 2025
-    efficiency_factor_min: float = (62.270 / (1.45 * 62.270)) * (
-        (3.275 * 0.65 / 22) / (20.02 * 22 / (100 * 22))
-    )  # ~0.483: min time SJSU, min CO2 UConn
+    accel_min: float = 3.697
+    skidpad_min: float = 4.782
+    autocross_min: float = 43.397
+    endurance_min: float = 1312.281
+    efficiency_factor_max: float = 0.797  # UConn 2025
+    efficiency_factor_min: float = (59.649/ (1.45 * 59.649)) * (
+        (2.843 * 0.65 / 22) / (20.02 * 22 / (100 * 22))
+    )  # ~0.483: min time SJSU, min CO2 UConn   
 
     def score(
         self,
@@ -94,8 +94,8 @@ class CompetitionScorer:
         if endurance_time <= 0 or not (best <= endurance_time < worst):
             return 0.0
         laps = 22
-        efficiency_factor = (62.270 / (endurance_time / laps)) * (
-            (3.275 * 0.65 / laps) / (energy_wh / 1000 * 0.65 / laps)
+        efficiency_factor = (59.649 / (endurance_time / laps)) * (
+            (2.843 * 0.65 / laps) / (energy_wh / 1000 * 0.65 / laps)
         )
         score = 100 * (efficiency_factor - self.efficiency_factor_min) / (
             self.efficiency_factor_max - self.efficiency_factor_min
