@@ -1,15 +1,17 @@
 # python GUI.py
-# Main control file: read serial from arduino and save to file + send inputs to arduino to determine what tests to run
+# Main control file: read serial from arduino and save to file + send inputs
+# to arduino to determine what tests to run
 
-import serial
+import datetime
 import threading
+import time
 import tkinter as tk
 from tkinter import filedialog
-import time
-import datetime
+
+import serial
+
 
 class SerialGUI:
-
     # UI
     def __init__(self, root):
         self.root = root
@@ -43,8 +45,7 @@ class SerialGUI:
         self.send_entry = tk.Entry(root, width=50)
         self.send_entry.grid(row=2, column=1, columnspan=2)
 
-        self.send_button = tk.Button(root, text="Send",
-                                     command=self.send_serial)
+        self.send_button = tk.Button(root, text="Send", command=self.send_serial)
         self.send_button.grid(row=2, column=3)
 
         # ----- File Location -----
@@ -54,53 +55,37 @@ class SerialGUI:
         self.file_entry = tk.Entry(root, width=50)
         self.file_entry.grid(row=3, column=1, columnspan=2)
 
-        self.browse_button = tk.Button(root,
-                                       text="Browse",
-                                       command=self.browse_file)
+        self.browse_button = tk.Button(root, text="Browse", command=self.browse_file)
         self.browse_button.grid(row=3, column=3)
 
         # ----- Control Buttons -----
 
-        self.start_button = tk.Button(root,
-                                      text="Start",
-                                      command=self.start)
+        self.start_button = tk.Button(root, text="Start", command=self.start)
         self.start_button.grid(row=4, column=0)
 
-        self.stop_button = tk.Button(root,
-                                     text="Stop",
-                                     command=self.stop)
+        self.stop_button = tk.Button(root, text="Stop", command=self.stop)
         self.stop_button.grid(row=4, column=1)
 
-        self.clear_button = tk.Button(root,
-                                      text="Clear",
-                                      command=self.clear_text)
+        self.clear_button = tk.Button(root, text="Clear", command=self.clear_text)
         self.clear_button.grid(row=4, column=2)
-
 
     # ----- File Browser -----
 
     def browse_file(self):
-
         filename = filedialog.asksaveasfilename(
-            defaultextension=".txt",
-            filetypes=[("Text Files", "*.txt")]
+            defaultextension=".txt", filetypes=[("Text Files", "*.txt")]
         )
 
         if filename:
             self.file_entry.delete(0, tk.END)
             self.file_entry.insert(0, filename)
 
-
     # ----- Serial Reading Thread ----- (read from arduino outputs)
     def read_serial(self):
-
         while self.running:
-
             try:
-
                 if self.ser.in_waiting:
-
-                    line = self.ser.readline().decode(errors='ignore')
+                    line = self.ser.readline().decode(errors="ignore")
 
                     self.text_area.insert(tk.END, line)
                     self.text_area.see(tk.END)
@@ -109,19 +94,16 @@ class SerialGUI:
                         self.log_file.write(line)
                         self.log_file.flush()
 
-            except:
+            except Exception:
                 pass
-
 
     # ----- Start Serial -----
     def start(self):
-
         port = self.port_entry.get()
         baud = int(self.baud_entry.get())
         filename = self.file_entry.get()
 
         try:
-
             self.ser = serial.Serial(port, baud)
             time.sleep(2)
 
@@ -140,11 +122,9 @@ class SerialGUI:
         except Exception as e:
             print("Error:", e)
 
-
     # ----- Stop -----
 
     def stop(self):
-
         self.running = False
 
         if self.ser:
@@ -153,13 +133,10 @@ class SerialGUI:
         if self.log_file:
             self.log_file.close()
 
-
     # ----- Send Serial -----
 
     def send_serial(self):
-
         if self.ser:
-
             msg = self.send_entry.get()
 
             self.ser.write((msg + "\n").encode())
@@ -167,11 +144,9 @@ class SerialGUI:
 
             self.send_entry.delete(0, tk.END)
 
-
     # ----- Clear Display -----
 
     def clear_text(self):
-
         self.text_area.delete(1.0, tk.END)
 
 
@@ -191,10 +166,12 @@ root = tk.Tk()
 app = SerialGUI(root)
 
 print("Set a filename to save output data!")
-print("m: BMS Unit Test" \
-"\np: BPT Unit Test" \
-"\nc: CT Unit Test" \
-"\nd: Dual Unit Test" \
-"\ni: IMD Unit Test" \
-"\nn: N Cycle Unit Test (only after running all unit tests)") # instructions for what characters trigger what tests via the arduino
+print(
+    "m: BMS Unit Test"
+    "\np: BPT Unit Test"
+    "\nc: CT Unit Test"
+    "\nd: Dual Unit Test"
+    "\ni: IMD Unit Test"
+    "\nn: N Cycle Unit Test (only after running all unit tests)"
+)  # instructions for what characters trigger what tests via the arduino
 root.mainloop()

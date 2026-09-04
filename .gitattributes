@@ -1,13 +1,16 @@
-*.slx   binary
-*.slxc  binary
+*.slx   binary merge=mlAutoMerge
+*.slxc  binary merge=mlAutoMerge
 *.slxp  binary
 *.mdl   binary
 *.sldd  binary
 *.mat   binary
 *.mlx   binary
 *.p     binary
+*.mlapp binary
+*.fig   binary
 
 * text=auto
+*.sh text eol=lf
 
 *.c   text eol=lf
 *.h   text eol=lf

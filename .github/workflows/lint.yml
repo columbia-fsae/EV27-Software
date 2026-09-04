@@ -1,0 +1,66 @@
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+jobs:
+  # Runs the same hooks as `pre-commit run --all-files` locally, so CI and
+  # your local pre-commit hooks never drift out of sync. clang-tidy is
+  # excluded here (stages: [manual] in .pre-commit-config.yaml) — it needs a
+  # CMake compile database and is handled separately in cpp-linter.yml.
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Resolve diff base
+        # This repo has never run these hooks before, so --all-files would
+        # flag pre-existing whitespace/EOL issues across the whole tree
+        # (including vendor STM32 driver code). Only lint what changed.
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          else
+            base="${{ github.event.before }}"
+          fi
+          if [ -z "$base" ] || ! git cat-file -e "$base" 2>/dev/null; then
+            base=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
+          fi
+          echo "sha=$base" >> "$GITHUB_OUTPUT"
+      - uses: pre-commit/action@v3.0.1
+        with:
+          extra_args: --from-ref ${{ steps.base.outputs.sha }} --to-ref HEAD
+
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Install test dependencies
+        run: |
+          pip install pytest
+          for req in $(find . -name requirements.txt -not -path '*/.venv/*'); do
+            pip install -r "$req"
+          done
+      - name: Run pytest
+        run: |
+          set +e
+          pytest
+          code=$?
+          set -e
+          if [ "$code" = "5" ]; then
+            echo "No tests collected yet — skipping."
+            exit 0
+          fi
+          exit "$code"

@@ -10,15 +10,16 @@ and its licensor.
 * Developed by: ADIBMS Software team, Bangalore, India
 *****************************************************************************/
 /*! \addtogroup MCU DRIVER
-*  @{
-*/
+ *  @{
+ */
 
 /*! @addtogroup Mcu Driver
-*  @{
-*/
-#include "common.h"
+ *  @{
+ */
 #include "mcuWrapper.h"
-#define WAKEUP_DELAY 1                          /* BMS ic wakeup delay  */
+
+#include "common.h"
+#define WAKEUP_DELAY 1 /* BMS ic wakeup delay  */
 #define TIM_EN 0
 
 #ifdef MBED
@@ -33,18 +34,15 @@ extern DigitalOut chip_select;
  * @brief Delay mili second
  *
  * @details This function insert delay in ms.
- *     
+ *
  * Parameters:
  * @param [in]  delay   Delay_ms
  *
  * @return None
  *
  *******************************************************************************
-*/
-void Delay_ms(uint32_t delay)
-{
-  wait_ms((int)delay);
-}
+ */
+void Delay_ms(uint32_t delay) { wait_ms((int)delay); }
 
 /**
  *******************************************************************************
@@ -56,11 +54,10 @@ void Delay_ms(uint32_t delay)
  * @return None
  *
  *******************************************************************************
-*/
-void adBmsCsLow()
-{
-  spi.lock();
-  chip_select = 0;
+ */
+void adBmsCsLow() {
+    spi.lock();
+    chip_select = 0;
 }
 
 /**
@@ -73,11 +70,10 @@ void adBmsCsLow()
  * @return None
  *
  *******************************************************************************
-*/
-void adBmsCsHigh()
-{
-  chip_select = 1;
-  spi.unlock();
+ */
+void adBmsCsHigh() {
+    chip_select = 1;
+    spi.unlock();
 }
 
 /**
@@ -89,20 +85,17 @@ void adBmsCsHigh()
  *
  * @param [in]  size            Numberof bytes to be send on the SPI line
  *
- * @param [in]  *tx_Data    Tx data pointer 
+ * @param [in]  *tx_Data    Tx data pointer
  *
  * @return None
  *
  *******************************************************************************
-*/
-void spiWriteBytes
-( 
-uint16_t size,                     /*Option: Number of bytes to be written on the SPI port*/
-uint8_t *tx_data                       /*Array of bytes to be written on the SPI port*/
-)
-{
-  uint8_t rx_data[size];
-  spi.write((char *)tx_data, size ,(char *)rx_data, size);
+ */
+void spiWriteBytes(uint16_t size,   /*Option: Number of bytes to be written on the SPI port*/
+                   uint8_t* tx_data /*Array of bytes to be written on the SPI port*/
+) {
+    uint8_t rx_data[size];
+    spi.write((char*)tx_data, size, (char*)rx_data, size);
 }
 
 /**
@@ -114,26 +107,24 @@ uint8_t *tx_data                       /*Array of bytes to be written on the SPI
  *
  * @param [in]  *tx_data    Tx data pointer
  *
- * @param [in]  *rx_data    Rx data pointer 
+ * @param [in]  *rx_data    Rx data pointer
  *
- * @param [in]  size            Data size 
+ * @param [in]  size            Data size
  *
  * @return None
  *
  *******************************************************************************
-*/
-void spiWriteReadBytes
-(
-uint8_t *tx_data,                   /*array of data to be written on SPI port*/
-uint8_t *rx_data,                   /*Input: array that will store the data read by the SPI port*/
-uint16_t size                           /*Option: number of bytes*/
-)
-{  
-  uint16_t data_size = (4 + size);
-  uint8_t cmd[data_size];
-  memcpy(&cmd[0], &tx_data[0], 4); /* dst, src, size */
-  spi.write((char *)cmd, data_size ,(char *)cmd, data_size);
-  memcpy(&rx_data[0], &cmd[4], size); /* dst, src, size */
+ */
+void spiWriteReadBytes(
+    uint8_t* tx_data, /*array of data to be written on SPI port*/
+    uint8_t* rx_data, /*Input: array that will store the data read by the SPI port*/
+    uint16_t size     /*Option: number of bytes*/
+) {
+    uint16_t data_size = (4 + size);
+    uint8_t cmd[data_size];
+    memcpy(&cmd[0], &tx_data[0], 4); /* dst, src, size */
+    spi.write((char*)cmd, data_size, (char*)cmd, data_size);
+    memcpy(&rx_data[0], &cmd[4], size); /* dst, src, size */
 }
 
 /**
@@ -143,87 +134,78 @@ uint16_t size                           /*Option: number of bytes*/
  *
  * @details This function Read a set number of bytes using the SPI port.
  *
- * @param [in]  size            Data size 
+ * @param [in]  size            Data size
  *
  * @param [in]  *rx_data    Rx data pointer
- * 
+ *
  * @return None
  *
  *******************************************************************************
-*/
-void spiReadBytes(uint16_t size, uint8_t *rx_data)
-{   
-  uint8_t tx_data[size];
-  for(uint8_t i=0; i < size; i++)
-  {
-    tx_data[i] = 0xFF;
-  }
-  spi.write((char *)tx_data, size ,(char *)rx_data, size);
+ */
+void spiReadBytes(uint16_t size, uint8_t* rx_data) {
+    uint8_t tx_data[size];
+    for (uint8_t i = 0; i < size; i++) {
+        tx_data[i] = 0xFF;
+    }
+    spi.write((char*)tx_data, size, (char*)rx_data, size);
 }
 
 #if TIM_EN
 /**
  *******************************************************************************
  * Function: startTimer()
- * @brief Start timer 
+ * @brief Start timer
  *
  * @details This function start the timer.
  *
  * @return None
  *
  *******************************************************************************
-*/
-void startTimer()
-{   
-  timer.start();
-}
+ */
+void startTimer() { timer.start(); }
 
 /**
  *******************************************************************************
  * Function: stopTimer()
- * @brief Stop timer 
+ * @brief Stop timer
  *
  * @details This function stop the timer.
  *
  * @return None
  *
  *******************************************************************************
-*/
-void stopTimer()
-{   
-  timer.stop();
-}
+ */
+void stopTimer() { timer.stop(); }
 
 /**
  *******************************************************************************
  * Function: getTimCount()
- * @brief Get Timer Count Value 
+ * @brief Get Timer Count Value
  *
  * @details This function return the timer count value.
  *
  * @return tim_count
  *
  *******************************************************************************
-*/
-uint32_t getTimCount()
-{   
-  uint32_t count = 0;
-  count = timer.read_us();
-  timer.reset();
-  return(count);
+ */
+uint32_t getTimCount() {
+    uint32_t count = 0;
+    count = timer.read_us();
+    timer.reset();
+    return (count);
 }
 #endif
 
 #else
 
-#define SPI_TIME_OUT 500              /* SPI Time out delay   */
-#define UART_TIME_OUT HAL_MAX_DELAY             /* UART Time out delay  */
-#define I2C_TIME_OUT HAL_MAX_DELAY              /* I2C Time out delay   */
+#define SPI_TIME_OUT 500            /* SPI Time out delay   */
+#define UART_TIME_OUT HAL_MAX_DELAY /* UART Time out delay  */
+#define I2C_TIME_OUT HAL_MAX_DELAY  /* I2C Time out delay   */
 
-SPI_HandleTypeDef *hspi         = &hspi1;       /* MUC SPI Handler      */
+SPI_HandleTypeDef* hspi = &hspi1; /* MUC SPI Handler      */
 extern UART_HandleTypeDef huart2;
-UART_HandleTypeDef *huart       = &huart2;      /* MUC UART Handler     */
-//I2C_HandleTypeDef *hi2c         = &hi2c1;       /* MUC I2C Handler      */
+UART_HandleTypeDef* huart = &huart2; /* MUC UART Handler     */
+// I2C_HandleTypeDef *hi2c         = &hi2c1;       /* MUC I2C Handler      */
 
 /**
  *******************************************************************************
@@ -231,18 +213,15 @@ UART_HandleTypeDef *huart       = &huart2;      /* MUC UART Handler     */
  * @brief Delay mili second
  *
  * @details This function insert delay in ms.
- *     
+ *
  * Parameters:
  * @param [in]  delay   Delay_ms
  *
  * @return None
  *
  *******************************************************************************
-*/
-void Delay_ms(uint32_t delay)
-{
-  HAL_Delay(delay);
-}
+ */
+void Delay_ms(uint32_t delay) { HAL_Delay(delay); }
 
 /**
  *******************************************************************************
@@ -254,11 +233,8 @@ void Delay_ms(uint32_t delay)
  * @return None
  *
  *******************************************************************************
-*/
-void adBmsCsLow()
-{
-  HAL_GPIO_WritePin(GPIO_PORT, CS_PIN, GPIO_PIN_RESET);
-}
+ */
+void adBmsCsLow() { HAL_GPIO_WritePin(GPIO_PORT, CS_PIN, GPIO_PIN_RESET); }
 
 /**
  *******************************************************************************
@@ -270,11 +246,8 @@ void adBmsCsLow()
  * @return None
  *
  *******************************************************************************
-*/
-void adBmsCsHigh()
-{
-  HAL_GPIO_WritePin(GPIO_PORT, CS_PIN, GPIO_PIN_SET);
-}
+ */
+void adBmsCsHigh() { HAL_GPIO_WritePin(GPIO_PORT, CS_PIN, GPIO_PIN_SET); }
 
 /**
  *******************************************************************************
@@ -285,19 +258,16 @@ void adBmsCsHigh()
  *
  * @param [in]  size            Numberof bytes to be send on the SPI line
  *
- * @param [in]  *tx_Data    Tx data pointer 
+ * @param [in]  *tx_Data    Tx data pointer
  *
  * @return None
  *
  *******************************************************************************
-*/
-void spiWriteBytes
-( 
-uint16_t size,                     /*Option: Number of bytes to be written on the SPI port*/
-uint8_t *tx_Data                       /*Array of bytes to be written on the SPI port*/
-)
-{
-  HAL_SPI_Transmit(hspi, tx_Data, size, SPI_TIME_OUT); /* SPI1 , data, size, timeout */ 
+ */
+void spiWriteBytes(uint16_t size,   /*Option: Number of bytes to be written on the SPI port*/
+                   uint8_t* tx_Data /*Array of bytes to be written on the SPI port*/
+) {
+    HAL_SPI_Transmit(hspi, tx_Data, size, SPI_TIME_OUT); /* SPI1 , data, size, timeout */
 }
 
 /**
@@ -309,23 +279,21 @@ uint8_t *tx_Data                       /*Array of bytes to be written on the SPI
  *
  * @param [in]  *tx_data    Tx data pointer
  *
- * @param [in]  *rx_data    Rx data pointer 
+ * @param [in]  *rx_data    Rx data pointer
  *
- * @param [in]  size            Data size 
+ * @param [in]  size            Data size
  *
  * @return None
  *
  *******************************************************************************
-*/
-void spiWriteReadBytes
-(
-uint8_t *tx_data,                   /*array of data to be written on SPI port*/
-uint8_t *rx_data,                   /*Input: array that will store the data read by the SPI port*/
-uint16_t size                           /*Option: number of bytes*/
-)
-{
-  HAL_SPI_Transmit(hspi, tx_data, 4, SPI_TIME_OUT);
-  HAL_SPI_Receive(hspi, rx_data, size, SPI_TIME_OUT);
+ */
+void spiWriteReadBytes(
+    uint8_t* tx_data, /*array of data to be written on SPI port*/
+    uint8_t* rx_data, /*Input: array that will store the data read by the SPI port*/
+    uint16_t size     /*Option: number of bytes*/
+) {
+    HAL_SPI_Transmit(hspi, tx_data, 4, SPI_TIME_OUT);
+    HAL_SPI_Receive(hspi, rx_data, size, SPI_TIME_OUT);
 }
 
 /**
@@ -335,68 +303,60 @@ uint16_t size                           /*Option: number of bytes*/
  *
  * @details This function Read a set number of bytes using the SPI port.
  *
- * @param [in]  size            Data size 
+ * @param [in]  size            Data size
  *
  * @param [in]  *rx_data    Rx data pointer
- * 
+ *
  * @return None
  *
  *******************************************************************************
-*/
-void spiReadBytes(uint16_t size, uint8_t *rx_data)
-{   
-  HAL_SPI_Receive(hspi, rx_data, size, SPI_TIME_OUT);
+ */
+void spiReadBytes(uint16_t size, uint8_t* rx_data) {
+    HAL_SPI_Receive(hspi, rx_data, size, SPI_TIME_OUT);
 }
 #if TIM_EN
 /**
  *******************************************************************************
  * Function: startTimer()
- * @brief Start timer 
+ * @brief Start timer
  *
  * @details This function start the timer.
  *
  * @return None
  *
  *******************************************************************************
-*/
-void startTimer()
-{   
-  HAL_TIM_Base_Start(htim);
-}
+ */
+void startTimer() { HAL_TIM_Base_Start(htim); }
 
 /**
  *******************************************************************************
  * Function: stopTimer()
- * @brief Stop timer 
+ * @brief Stop timer
  *
  * @details This function stop the timer.
  *
  * @return None
  *
  *******************************************************************************
-*/
-void stopTimer()
-{   
-  HAL_TIM_Base_Stop(htim);
-}
+ */
+void stopTimer() { HAL_TIM_Base_Stop(htim); }
 
 /**
  *******************************************************************************
  * Function: getTimCount()
- * @brief Get Timer Count Value 
+ * @brief Get Timer Count Value
  *
  * @details This function return the timer count value.
  *
  * @return tim_count
  *
  *******************************************************************************
-*/
-uint32_t getTimCount()
-{   
-  uint32_t count = 0;
-  count = __HAL_TIM_GetCounter(htim);
-  __HAL_TIM_SetCounter(htim, 0);
-  return(count);
+ */
+uint32_t getTimCount() {
+    uint32_t count = 0;
+    count = __HAL_TIM_GetCounter(htim);
+    __HAL_TIM_SetCounter(htim, 0);
+    return (count);
 }
 #endif
 
@@ -414,16 +374,14 @@ uint32_t getTimCount()
  * @return None
  *
  *******************************************************************************
-*/
-void adBmsWakeupIc(uint8_t total_ic)
-{
-  for (uint8_t ic = 0; ic < total_ic; ic++)
-  {
-    adBmsCsLow();
-    Delay_ms(WAKEUP_DELAY);
-    adBmsCsHigh();
-    Delay_ms(WAKEUP_DELAY);
-  }
+ */
+void adBmsWakeupIc(uint8_t total_ic) {
+    for (uint8_t ic = 0; ic < total_ic; ic++) {
+        adBmsCsLow();
+        Delay_ms(WAKEUP_DELAY);
+        adBmsCsHigh();
+        Delay_ms(WAKEUP_DELAY);
+    }
 }
 
 /** @}*/

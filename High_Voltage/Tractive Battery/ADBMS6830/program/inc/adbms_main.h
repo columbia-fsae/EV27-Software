@@ -10,27 +10,26 @@ and its licensor.
 * Developed by: ADIBMS Software team, Bangalore, India
 *****************************************************************************/
 /** @addtogroup MAIN
-*  @{
-*
-*/
+ *  @{
+ *
+ */
 
 /** @addtogroup ADBMS_MAIN MAIN
-*  @{
-*
-*/
+ *  @{
+ *
+ */
 #ifndef _ADBMS6830_MAIN_H
 #define _ADBMS6830_MAIN_H
 
-//#include "main.h"
-#include "common.h"
+// #include "main.h"
 #include "adBms6830Data.h"
 #include "adBms6830GenericType.h"
 #include "adBms6830ParseCreate.h"
-#include "mcuWrapper.h"
 #include "can_management.h"
+#include "common.h"
+#include "mcuWrapper.h"
 
-
-//void board(BoardStatus_t b);
+// void board(BoardStatus_t b);
 
 #endif
 /** @}*/

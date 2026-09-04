@@ -1,0 +1,114 @@
+name: C/C++ Lint
+
+# Runs clang-format + clang-tidy (via cpp-linter-action) against changed
+# firmware files only. The CPP Lint Gate job ALWAYS runs (so it's safe to
+# require in branch protection on every PR, not just firmware ones), while
+# the matrix lint job only runs for projects whose files actually changed.
+# Require "CPP Lint Gate" in branch protection — not "Lint <project>".
+#
+# Each project gets its own CMake configure step first so clang-tidy has a
+# real compile_commands.json to resolve includes from — without it, it can't
+# find STM32 HAL/CMSIS headers and produces spurious "file not found" errors
+# instead of real findings.
+#
+# Style/checks come from the repo-root .clang-format and .clang-tidy files —
+# keep those in sync with the same-named hooks in .pre-commit-config.yaml.
+#
+# To add a new CubeMX/CMake project: add a filter entry under `changes.filter`
+# below, and a matching `project`/`path` pair in `lint.strategy.matrix.include`.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # ──────────────── Detect which firmware projects changed ────────────────
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            Tractive_Battery:
+              - 'High_Voltage/Tractive_Battery/**'
+              - '.clang-format'
+              - '.clang-tidy'
+              - '.github/workflows/cpp-linter.yml'
+            Charging_Cart_UI:
+              - 'High_Voltage/Charging_Cart/UI/STM32/**'
+              - '.clang-format'
+              - '.clang-tidy'
+              - '.github/workflows/cpp-linter.yml'
+
+  # ──────────────── Lint changed firmware projects ────────────────
+  lint:
+    needs: changes
+    if: needs.changes.outputs.matrix != '[]'
+    runs-on: ubuntu-latest
+    name: Lint ${{ matrix.project }}
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.changes.outputs.matrix) }}
+        include:
+          - project: Tractive_Battery
+            path: High_Voltage/Tractive_Battery
+          - project: Charging_Cart_UI
+            path: High_Voltage/Charging_Cart/UI/STM32
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ARM GCC toolchain
+        uses: carlosperate/arm-none-eabi-gcc-action@v1
+        with:
+          release: '14.2.Rel1'
+
+      - name: Install CMake and Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+
+      - name: Configure (generates compile_commands.json)
+        working-directory: ${{ matrix.path }}
+        run: cmake --preset Debug
+
+      - name: Lint
+        uses: cpp-linter/cpp-linter-action@v2
+        id: linter
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          style: 'file'          # use repo-root .clang-format
+          tidy-checks: ''        # use repo-root .clang-tidy
+          database: ${{ matrix.path }}/build/Debug
+          files-changed-only: true
+          thread-comments: ${{ github.event_name == 'pull_request' && 'update' || false }}
+          step-summary: true
+
+      - name: Fail on lint errors
+        if: steps.linter.outputs.checks-failed > 0
+        run: exit 1
+
+  # ──────────────── Gate: always runs, this is the REQUIRED check ────────────────
+  cpp-lint-gate:
+    if: always()
+    needs: [lint]
+    runs-on: ubuntu-latest
+    name: CPP Lint Gate
+    steps:
+      - name: Verify lint passed or was skipped
+        run: |
+          r="${{ needs.lint.result }}"
+          echo "Lint: $r"
+          if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+            echo "A C/C++ lint check failed."
+            exit 1
+          fi
+          echo "OK — all required lint checks passed or were not needed."
