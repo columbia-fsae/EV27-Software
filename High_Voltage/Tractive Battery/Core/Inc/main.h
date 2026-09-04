@@ -1,21 +1,21 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.h
-  * @brief          : Header for main.c file.
-  *                   This file contains the common defines of the application.
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2025 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.h
+ * @brief          : Header for main.c file.
+ *                   This file contains the common defines of the application.
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2025 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 
 /* Define to prevent recursive inclusion -------------------------------------*/
@@ -32,8 +32,6 @@ extern "C" {
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
-
-
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -48,7 +46,7 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-#define COUNTOF(__BUFFER__)   (sizeof(__BUFFER__) / sizeof(*(__BUFFER__)))
+#define COUNTOF(__BUFFER__) (sizeof(__BUFFER__) / sizeof(*(__BUFFER__)))
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
@@ -112,7 +110,7 @@ void Error_Handler(void);
 #define MCU_MLS_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-//CAN DEFINITIONS for 1 MBPS (Car) for 250 KBPS (Charger)
+// CAN DEFINITIONS for 1 MBPS (Car) for 250 KBPS (Charger)
 #define CAN_CAR_Nominal_Prescaler 1
 #define CAN_CAR_Nominal_TSeg_1 136
 #define CAN_CAR_Nominal_TSeg_2 33
@@ -133,11 +131,11 @@ void Error_Handler(void);
 
 void reset_counter_init(void);
 
-//Reset counter definitions for software reset
+// Reset counter definitions for software reset
 extern uint32_t reset_counter;
 extern uint32_t reset_counter_magic;
 
-//Memory access reset counter upon reset of the system
+// Memory access reset counter upon reset of the system
 #define RESET_COUNTER_MAGIC 0xCAFEBABE
 
 extern ADC_HandleTypeDef hadc1;

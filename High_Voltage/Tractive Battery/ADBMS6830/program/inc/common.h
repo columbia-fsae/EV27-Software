@@ -12,18 +12,18 @@ and its licensor.
 #ifndef __COMMON_H_
 #define __COMMON_H_
 
-#include <stdio.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdbool.h>
 
-//#define MBED /* Switch between IAR Workbench or Mbed Studio. */
+// #define MBED /* Switch between IAR Workbench or Mbed Studio. */
 
 #ifdef MBED
-#include "mbed.h"
 #include "SPI.h"
 #include "Timer.h"
+#include "mbed.h"
 #endif
 
 #endif
