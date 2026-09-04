@@ -58,8 +58,8 @@ def _load_cell_csv(filename: str):
 
 # Convective heat rejection to ambient air, per cell (Newton's law of cooling: P = h*A*(T -
 # T_ambient)).
-_COOLING_H_W_M2K = 50.0
-_AMBIENT_TEMP_C = 30.0  # matches the sim's TEMP_START convention (hot-day pre-warmed ambient)
+_COOLING_H_W_M2K = 15.0
+_AMBIENT_TEMP_C = 25.0  # matches the sim's TEMP_START convention (hot-day pre-warmed ambient)
 
 
 @dataclass
