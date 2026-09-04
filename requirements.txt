@@ -1,0 +1,7 @@
+# Dev tooling for linting/formatting/testing this repo (see CONTRIBUTING.md).
+# Per-project Python dependencies live in their own requirements.txt instead
+# (e.g. Simulations/<project>/requirements.txt) — this file is repo tooling
+# only, not any subsystem's runtime dependencies.
+pre-commit>=4.0
+ruff==0.14.4
+pytest>=8.0

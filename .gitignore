@@ -88,6 +88,10 @@ venv/
 
 # Compiled MEX binaries (all platforms)
 *.mex*
+*.mexw32
+*.mexw64
+*.mexa64
+*.mexmaci64
 
 # Packaged app and toolbox files
 *.mlappinstall
@@ -102,12 +106,26 @@ sccprj/
 
 # Matlab code generation folders
 codegen/
+_yotta/
+
+# Simulink Test Manager result databases (regenerated on every test run)
+derived/
+
 
 # Simulink autosave extension
 *.autosave
 
 # Simulink cache files
 *.slxc
+
+# Simulink Project internal work folder (keep the tracked project files, ignore transient work)
+resources/.categories.dmp
+resources/project/**/*.info
+
+# Code generation & build artifacts
+*.tlc.log
+*.rtw
+html/
 
 # Octave session info
 octave-workspace
