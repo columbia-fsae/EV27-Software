@@ -49,22 +49,36 @@ jobs:
               - '.github/workflows/cpp-linter.yml'
 
       # dorny/paths-filter only tells us WHICH projects changed, as a list of
-      # names. Build the {project, path} pairs the lint matrix actually needs
-      # here, so only changed projects appear in the matrix. Feeding a static
-      # `include:` list alongside a dynamic `project:` array (the previous
-      # approach) doesn't work: GitHub Actions adds any `include` entry whose
-      # keys don't match an existing combination as a BRAND NEW job, instead
-      # of dropping it — so every project in `include` always ran, regardless
-      # of what actually changed.
+      # names. Build the {project, path, ignore} triples the lint matrix
+      # actually needs here, so only changed projects appear in the matrix.
+      # Feeding a static `include:` list alongside a dynamic `project:` array
+      # (the previous approach) doesn't work: GitHub Actions adds any
+      # `include` entry whose keys don't match an existing combination as a
+      # BRAND NEW job, instead of dropping it — so every project in `include`
+      # always ran, regardless of what actually changed.
+      #
+      # `ignore` is every OTHER known project's path, joined with `.github`.
+      # cpp-linter-action's files-changed-only fetches the WHOLE PR's changed
+      # files (not just this job's matrix.path), so without this, a PR that
+      # touches both projects' files — or just .clang-format/cpp-linter.yml,
+      # which puts every project in the matrix — has each job linting the
+      # other project's files too, against its own (wrong) compile database.
       - name: Build project/path matrix
         id: build-matrix
         run: |
+          all_paths='High_Voltage/Tractive_Battery|High_Voltage/Charging_Cart/UI/STM32'
           matrix='[]'
           if [ "${{ steps.filter.outputs.Tractive_Battery }}" = "true" ]; then
-            matrix=$(echo "$matrix" | jq -c '. + [{"project":"Tractive_Battery","path":"High_Voltage/Tractive_Battery"}]')
+            path='High_Voltage/Tractive_Battery'
+            ignore=".github|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
+              '. + [{"project":"Tractive_Battery","path":$path,"ignore":$ignore}]')
           fi
           if [ "${{ steps.filter.outputs.Charging_Cart_UI }}" = "true" ]; then
-            matrix=$(echo "$matrix" | jq -c '. + [{"project":"Charging_Cart_UI","path":"High_Voltage/Charging_Cart/UI/STM32"}]')
+            path='High_Voltage/Charging_Cart/UI/STM32'
+            ignore=".github|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
+              '. + [{"project":"Charging_Cart_UI","path":$path,"ignore":$ignore}]')
           fi
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
@@ -105,6 +119,7 @@ jobs:
           tidy-checks: ''        # use repo-root .clang-tidy
           database: ${{ matrix.path }}/build/Debug
           files-changed-only: true
+          ignore: ${{ matrix.ignore }}
           thread-comments: ${{ github.event_name == 'pull_request' && 'update' || false }}
           step-summary: true
 
