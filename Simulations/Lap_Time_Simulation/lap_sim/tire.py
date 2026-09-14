@@ -1,6 +1,7 @@
 """Tire model: either a simple friction-ellipse (mu_x/mu_y) or a lookup table built from
 measured/simulated friction-ellipse data, cached to a pickle for fast repeated loads.
 """
+
 import os
 import pickle
 
@@ -24,8 +25,9 @@ def build_tire_ellipse_dict(input_path, lookup_path):
 
 
 class Tire:
-    DEFAULT_CACHE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "tire_ellipse_cache.pkl")
+    DEFAULT_CACHE = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "tire_ellipse_cache.pkl"
+    )
     # The cached ellipse tables store fx/fy in kN; fz (and get_fx's fy argument/return)
     # are in N throughout the rest of the codebase (see dynamics.py's force_balance).
     _CACHE_KN_TO_N = 1000.0
@@ -35,15 +37,16 @@ class Tire:
     # the result back up rather than pushing that conversion onto every caller.
     _NUM_TIRES = 4
 
-    def __init__(self,
-                 type=TIRE_SIMPLE,
-                 mu_x: float = None,
-                 mu_y: float = None,
-                 radius: float = 0.203,
-                 rolling_resistance: float = 0.0,
-                 cache_path: str = None,
-                 envelope_bins: int = 80):
-
+    def __init__(
+        self,
+        type=TIRE_SIMPLE,
+        mu_x: float = None,
+        mu_y: float = None,
+        radius: float = 0.203,
+        rolling_resistance: float = 0.0,
+        cache_path: str = None,
+        envelope_bins: int = 80,
+    ):
         self._type = type
         self._mu_x = mu_x
         self._mu_y = mu_y
@@ -126,8 +129,7 @@ class Tire:
             cache_path = cls.DEFAULT_CACHE
         data, fz_values = build_tire_ellipse_dict(input_path, lookup_path)
         with open(cache_path, "wb") as f:
-            pickle.dump({"data": data, "fz_values": fz_values}, f,
-                        protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump({"data": data, "fz_values": fz_values}, f, protocol=pickle.HIGHEST_PROTOCOL)
         return cache_path
 
     @property
@@ -163,11 +165,10 @@ class Tire:
         self._rolling_resistance = new_rolling_resistance
 
     def get_fx(self, fz: float, fy: float) -> float:
-
         if self._type == TIRE_SIMPLE:
             lateral_fraction = min((fy / (fz * self._mu_y)) ** 2, 1.0)
             effective_mux = np.sqrt(1.0 - lateral_fraction) * self._mu_x
-            return effective_mux*fz
+            return effective_mux * fz
         else:
             # fz/fy in: whole-car -> per-tire, dividing evenly across all four contact
             # patches (no per-corner load transfer split -- consistent with fz itself
@@ -186,11 +187,13 @@ class Tire:
             # capacity than the heavier point just below it in the same bucket. That
             # showed up as a sawtooth in corner-speed-limited events (e.g. skidpad
             # time vs. mass) instead of a monotonic trend.
-            idx_hi = int(np.clip(np.searchsorted(self._fz_values, fz_tire), 1, len(self._fz_values) - 1))
+            idx_hi = int(
+                np.clip(np.searchsorted(self._fz_values, fz_tire), 1, len(self._fz_values) - 1)
+            )
             idx_lo = idx_hi - 1
             fz_lo, fz_hi = self._fz_values[idx_lo], self._fz_values[idx_hi]
             frac = 0.0 if fz_hi == fz_lo else np.clip((fz_tire - fz_lo) / (fz_hi - fz_lo), 0.0, 1.0)
-    
+
             def _fx_at_fraction(fz_value):
                 fy_env, fx_env = self._envelope[fz_value]
                 return np.interp(fy_fraction * fy_env[-1], fy_env, fx_env, right=0.0)

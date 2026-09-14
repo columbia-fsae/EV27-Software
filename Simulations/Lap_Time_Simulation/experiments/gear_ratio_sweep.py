@@ -1,6 +1,7 @@
 """Reproduces point_mass_sim_gear_ratio.m: sweep final drive ratio and plot its effect
 on the FSAE acceleration event time.
 """
+
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -26,7 +27,7 @@ def build_ev26b() -> Car:
         tire=EV25.tire,
         drivetrain=Drivetrain(motor=EMRAX_208, ratio=4.9, efficiency=0.96, count=1),
         hv=HighVoltageSystem(vmax=300, vnom=260),
-        l=1.530,
+        l_base=1.530,
     )
 
 

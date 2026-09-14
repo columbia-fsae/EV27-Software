@@ -5,6 +5,7 @@ and from `test_graph.m`/`test_graph_energy.m`/`track_layout.m`. Legend/styling c
 (e.g. `track_layout.m`'s random per-bucket coloring) are cleaned up rather than
 pixel-matched; the underlying data and geometry are unchanged.
 """
+
 from __future__ import annotations
 
 from typing import Optional, Sequence
@@ -46,7 +47,9 @@ def plot_lap_overview(results: Sequence[LapResult], labels: Optional[Sequence[st
     axes.flat[1].legend()
     fig.tight_layout()
 
-    track_fig, track_axes = plt.subplots(1, len(results), figsize=(6 * len(results), 5), squeeze=False)
+    track_fig, track_axes = plt.subplots(
+        1, len(results), figsize=(6 * len(results), 5), squeeze=False
+    )
     for ax, result, label in zip(track_axes[0], results, labels):
         plot_track_map(result, ax=ax)
         ax.set_title(label)
@@ -84,7 +87,9 @@ def _plot_colored_line(ax, x, y, values, cmap, linewidth=2.0):
     return lc
 
 
-def plot_track_map(result: LapResult, ax=None, cmap: str = "viridis", points_per_segment: int = 200):
+def plot_track_map(
+    result: LapResult, ax=None, cmap: str = "viridis", points_per_segment: int = 200
+):
     """Track centerline colored by the simulated speed at each point.
 
     The shape is built from the track's own segment lengths/curvatures (as
@@ -160,6 +165,7 @@ def plot_track_geometry(track: Track, points_per_segment: int = 200, ax=None, cm
     cbar.set_label("Fraction of lap completed")
     return ax
 
+
 def plot_battery_stats(results: Sequence[LapResult], labels: Optional[Sequence[str]] = None):
     if labels is None:
         labels = [r.car.name for r in results]
@@ -180,7 +186,7 @@ def plot_battery_stats(results: Sequence[LapResult], labels: Optional[Sequence[s
     axes.flat[1].legend()
     axes.flat[5].axis("off")
     fig.tight_layout()
-    
+
     return fig
 
 
@@ -210,7 +216,9 @@ def plot_surface(x_vals, y_vals, grid, xlabel, ylabel, zlabel, title):
     return fig, ax
 
 
-def plot_energy_density_lines(ax, energy_range, mass_intercepts, densities_wh_per_kg, density_labels=None):
+def plot_energy_density_lines(
+    ax, energy_range, mass_intercepts, densities_wh_per_kg, density_labels=None
+):
     """Overlay `energy = density * (mass - intercept)` lines, as in test_graph_energy.m:
     for each candidate battery energy density and each mass offset, the line of
     (energy, mass) pairs achievable at that density.
@@ -222,8 +230,12 @@ def plot_energy_density_lines(ax, energy_range, mass_intercepts, densities_wh_pe
         for j, intercept in enumerate(mass_intercepts):
             y_vals = x_vals / density + intercept
             ax.plot(
-                x_vals, y_vals, linestyle="-" if j == 0 else "--", linewidth=0.8,
-                color=color, label=label if j == 0 else None,
+                x_vals,
+                y_vals,
+                linestyle="-" if j == 0 else "--",
+                linewidth=0.8,
+                color=color,
+                label=label if j == 0 else None,
             )
     ax.legend(title="Energy density (Wh/kg)", fontsize=8)
     return ax

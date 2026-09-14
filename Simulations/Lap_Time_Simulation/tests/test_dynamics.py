@@ -2,6 +2,7 @@
 
 Run directly with `python tests/test_dynamics.py`, or with pytest if available.
 """
+
 import sys
 from pathlib import Path
 
@@ -14,16 +15,42 @@ from lap_sim.dynamics import GRAVITY, corner_speed_limit
 from lap_sim.tire import Tire
 
 
-def _flat_args(mass=300.0, cg_height=0.25, wheelbase=1.53, cda=0.0, cla=0.0,
-                air_density=1.293, mux=1.5, muy=1.5, power_limit=1e9, ratio=1.0,
-                count=1.0, efficiency=1.0, tire_radius=0.2032):
+def _flat_args(
+    mass=300.0,
+    cg_height=0.25,
+    wheelbase=1.53,
+    cda=0.0,
+    cla=0.0,
+    air_density=1.293,
+    mux=1.5,
+    muy=1.5,
+    power_limit=1e9,
+    ratio=1.0,
+    count=1.0,
+    efficiency=1.0,
+    tire_radius=0.2032,
+):
     motor_w = np.array([0.0, 10000.0])
     motor_m = np.array([1e6, 1e6])  # effectively unlimited torque
     tire = Tire(mu_x=mux, mu_y=muy, radius=tire_radius)
     # battery=None: these are dynamics-core sanity checks, not battery ones, so leave the
     # car's electrical draw unbounded, same as the effectively-infinite power_limit above.
-    return (mass, cg_height, wheelbase, cda, cla, air_density, tire,
-            power_limit, ratio, count, efficiency, motor_w, motor_m, None)
+    return (
+        mass,
+        cg_height,
+        wheelbase,
+        cda,
+        cla,
+        air_density,
+        tire,
+        power_limit,
+        ratio,
+        count,
+        efficiency,
+        motor_w,
+        motor_m,
+        None,
+    )
 
 
 def test_straight_line_corner_limit_is_large_and_finite():

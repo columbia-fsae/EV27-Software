@@ -5,6 +5,7 @@ are loaded from a CSV in `cell_data/`, one file per premade cell -- adding a new
 means dropping a similarly-shaped CSV into `cell_data/` and registering it in
 `CELL_OPTIONS` below.
 """
+
 import csv
 import os
 from dataclasses import dataclass
@@ -13,9 +14,10 @@ import numpy as np
 
 _DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cell_data")
 
-# R0_ARRHENIUS_EA is a literature-standard activation energy for Li-ion ohmic/charge-transfer resistance
-# (~20-30 kJ/mol); it only models the well-evidenced cold-temperature resistance rise
-# left flat above the reference temp 
+# R0_ARRHENIUS_EA is a literature-standard activation energy for Li-ion ohmic/charge-transfer
+# resistance (~20-30 kJ/mol); it only models the well-evidenced cold-temperature
+# resistance rise
+# left flat above the reference temp
 # THERMAL_DERATE_START_C/MAX_C instead carry the "hot pack loses
 # performance" behavior, as a current derate anchored to Ampace's stated -20/80 degC
 # stable-operation range
@@ -36,7 +38,7 @@ def _load_cell_csv(filename: str):
     with open(path, newline="") as f:
         rows = list(csv.DictReader(f))
 
-    soc = np.array([float(row["SOC"])/100.0 for row in rows])
+    soc = np.array([float(row["SOC"]) / 100.0 for row in rows])
     order = np.argsort(soc)
     soc = soc[order]
 
@@ -44,10 +46,10 @@ def _load_cell_csv(filename: str):
         values = np.array([float(row[header]) for row in rows])[order]
         return np.column_stack([soc, values])
 
-    r0 = column("R0_mohm")/1000.0
-    rct = column("R1_mohm")/1000.0
+    r0 = column("R0_mohm") / 1000.0
+    rct = column("R1_mohm") / 1000.0
     cct = column("C1_F")
-    rdif = column("R2_mohm")/1000.0
+    rdif = column("R2_mohm") / 1000.0
     cdif = column("C2_F")
     ocv = np.array([float(row["OCV_V"]) for row in rows])[order]
     ocv_slope = np.array([float(row["OCV slope"]) for row in rows])[order]
@@ -81,9 +83,16 @@ class cell_type:
 
 
 def _make_ampace_jp50() -> cell_type:
-    r0, rct, cct, rdif, cdif, soc_ocv = _load_cell_csv("hppc_new_cells_full_0819_fitted_parameters_CORRECTED.csv")
-    cell_diameter_m, cell_height_m = 0.021, 0.070  # 21700-format estimate -- see module comment above
-    surface_area_m2 = np.pi * cell_diameter_m * cell_height_m + 2 * np.pi * (cell_diameter_m / 2) ** 2
+    r0, rct, cct, rdif, cdif, soc_ocv = _load_cell_csv(
+        "hppc_new_cells_full_0819_fitted_parameters_CORRECTED.csv"
+    )
+    cell_diameter_m, cell_height_m = (
+        0.021,
+        0.070,
+    )  # 21700-format estimate -- see module comment above
+    surface_area_m2 = (
+        np.pi * cell_diameter_m * cell_height_m + 2 * np.pi * (cell_diameter_m / 2) ** 2
+    )
     return cell_type(
         name="ampace_jp50",
         min_v=2.5,
@@ -93,7 +102,12 @@ def _make_ampace_jp50() -> cell_type:
         mass_kg=0.072,  # kg -- TODO: confirm against the AMPACE JP50 datasheet
         specific_heat=1000.0,
         surface_area_m2=surface_area_m2,
-        r0=r0, rct=rct, cct=cct, rdif=rdif, cdif=cdif, soc_ocv=soc_ocv,
+        r0=r0,
+        rct=rct,
+        cct=cct,
+        rdif=rdif,
+        cdif=cdif,
+        soc_ocv=soc_ocv,
     )
 
 
@@ -123,8 +137,7 @@ class Cell:
                 break
         else:
             raise ValueError(
-                f"Unknown cell_type {cell_type!r}; options are "
-                f"{[c.name for c in CELL_OPTIONS]}"
+                f"Unknown cell_type {cell_type!r}; options are {[c.name for c in CELL_OPTIONS]}"
             )
 
         self._x = np.array([1.0, 0.0, 0.0])  # [SOC, v_ct, v_dif]
@@ -145,8 +158,7 @@ class Cell:
             return 1.0
         if self._T >= _THERMAL_DERATE_MAX_C:
             return 0.0
-        return ((_THERMAL_DERATE_MAX_C - self._T) /
-                (_THERMAL_DERATE_MAX_C - _THERMAL_DERATE_START_C))
+        return (_THERMAL_DERATE_MAX_C - self._T) / (_THERMAL_DERATE_MAX_C - _THERMAL_DERATE_START_C)
 
     @property
     def r_0(self):
@@ -190,9 +202,17 @@ class Cell:
         v_ct_prev = self._x[1]
         v_dif_prev = self._x[2]
 
-        i_dis = ((self.ocv - v_ct_prev * np.exp(-dt/(r_ct * c_ct)) - v_dif_prev * np.exp(-dt/(r_dif * c_dif)) - self._min_v) /
-                 (dt/(self._q_nom / 3600 * 0.9) * self.docv_soc + r_ct * (1 - np.exp(-dt / (r_ct * c_ct))) +
-                  r_dif * (1 - np.exp(-dt / (r_dif * c_dif))) + r0))
+        i_dis = (
+            self.ocv
+            - v_ct_prev * np.exp(-dt / (r_ct * c_ct))
+            - v_dif_prev * np.exp(-dt / (r_dif * c_dif))
+            - self._min_v
+        ) / (
+            dt / (self._q_nom / 3600 * 0.9) * self.docv_soc
+            + r_ct * (1 - np.exp(-dt / (r_ct * c_ct)))
+            + r_dif * (1 - np.exp(-dt / (r_dif * c_dif)))
+            + r0
+        )
 
         return i_dis * self._thermal_derate_factor()
 
@@ -206,22 +226,30 @@ class Cell:
         v_ct_prev = self._x[1]
         v_dif_prev = self._x[2]
 
-        a = np.array([
-            [1.0, 0.0, 0.0],
-            [0.0, np.exp(-dt / (r_ct * c_ct)), 0.0],
-            [0.0, 0.0, np.exp(-dt / (r_dif * c_dif))],
-        ])
-        b = np.array([
-            -dt / self._q_nom,
-            -r_ct * (1 - np.exp(-dt / (r_ct * c_ct))),
-            -r_dif * (1 - np.exp(-dt / (r_dif * c_dif))),
-        ])
+        a = np.array(
+            [
+                [1.0, 0.0, 0.0],
+                [0.0, np.exp(-dt / (r_ct * c_ct)), 0.0],
+                [0.0, 0.0, np.exp(-dt / (r_dif * c_dif))],
+            ]
+        )
+        b = np.array(
+            [
+                -dt / self._q_nom,
+                -r_ct * (1 - np.exp(-dt / (r_ct * c_ct))),
+                -r_dif * (1 - np.exp(-dt / (r_dif * c_dif))),
+            ]
+        )
         self._x = a @ self._x + b * i
         self._x[0] = np.clip(self._x[0], 0.0, 1.0)
 
-        terminal_v = self.ocv - self._x[1] - self._x[2] - r0*i
+        terminal_v = self.ocv - self._x[1] - self._x[2] - r0 * i
 
-        p_dis = i**2 * r0 + (self._x[1] - v_ct_prev)**2/r_ct + (self._x[2] - v_dif_prev)**2/r_dif
+        p_dis = (
+            i**2 * r0
+            + (self._x[1] - v_ct_prev) ** 2 / r_ct
+            + (self._x[2] - v_dif_prev) ** 2 / r_dif
+        )
         p_cooling = _COOLING_H_W_M2K * self._surface_area * (self._T - _AMBIENT_TEMP_C)
 
         self._T = self._T + (p_dis - p_cooling) / (self._m * self._c_p) * dt

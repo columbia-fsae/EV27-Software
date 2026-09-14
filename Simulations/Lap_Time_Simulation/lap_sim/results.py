@@ -1,7 +1,8 @@
 """Output of a single lap simulation."""
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -35,7 +36,9 @@ class LapStats:
     batt_v: np.ndarray  # pack terminal voltage trace, V; None if car.battery is None
     batt_soc: np.ndarray  # pack SOC trace, 0-1 fraction; None if car.battery is None
     cell_T: np.ndarray
-    batt_p_limit: np.ndarray  # cell-model-derived available pack power trace, W; None if car.battery is None
+    batt_p_limit: (
+        np.ndarray
+    )  # cell-model-derived available pack power trace, W; None if car.battery is None
 
     @classmethod
     def from_dynamics_output(cls, out: dict) -> "LapStats":
@@ -54,7 +57,9 @@ class LapResult:
     vv: np.ndarray  # speed trace, m/s
     stats: LapStats
     splits: np.ndarray  # cumulative time at the end of each segment, seconds
-    segment_corner_limit: np.ndarray  # per-segment corner/battery speed limit from this lap's pre-pass, m/s
+    segment_corner_limit: (
+        np.ndarray
+    )  # per-segment corner/battery speed limit from this lap's pre-pass, m/s
 
     @property
     def lap_time(self) -> float:

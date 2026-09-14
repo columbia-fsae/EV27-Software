@@ -1,4 +1,5 @@
 """Adapter between the OOP data model (Car/Track/Regulations) and the numeric core."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -18,9 +19,9 @@ class LapSimulator:
     """
 
     def __init__(self, regulations: Regulations, track: Track, car: Car, dx: float = 0.01):
-        if car.l is None:
+        if car.l_base is None:
             raise ValueError(
-                f"{car.name}: wheelbase (car.l) is required to run a lap simulation "
+                f"{car.name}: wheelbase (car.l_base) is required to run a lap simulation "
                 "(used by the weight-transfer traction limit)."
             )
         self.regulations = regulations
@@ -58,10 +59,19 @@ class LapSimulator:
         curvature_by_point = track.curvature[seg_idx_per_point]
 
         base_args = (
-            car.mass, car.cg_height_m, car.l, car.aero.cda, car.aero.cla,
-            track.air_density, car.tire, regs.power_limit,
-            drivetrain.ratio, float(drivetrain.count), drivetrain.efficiency,
-            motor, None,
+            car.mass,
+            car.cg_height_m,
+            car.l_base,
+            car.aero.cda,
+            car.aero.cla,
+            track.air_density,
+            car.tire,
+            regs.power_limit,
+            drivetrain.ratio,
+            float(drivetrain.count),
+            drivetrain.efficiency,
+            motor,
+            None,
         )
 
         if warm_start is None:
@@ -69,10 +79,12 @@ class LapSimulator:
                 [dynamics.corner_speed_limit(k, *base_args) for k in track.curvature]
             )
         else:
-            segment_corner_limit = np.array([
-                dynamics.corner_speed_limit(k, *base_args, v0=v0)
-                for k, v0 in zip(track.curvature, warm_start)
-            ])
+            segment_corner_limit = np.array(
+                [
+                    dynamics.corner_speed_limit(k, *base_args, v0=v0)
+                    for k, v0 in zip(track.curvature, warm_start)
+                ]
+            )
         segment_gross_limit = np.minimum(segment_corner_limit, track.limits)
         point_limit = segment_gross_limit[seg_idx_per_point]
 
@@ -85,25 +97,57 @@ class LapSimulator:
             batt_i = batt_v = batt_soc = cell_T = batt_p_limit = None
         else:
             vv, batt_i, batt_v, batt_soc, cell_T, batt_p_limit = dynamics.battery_forward_pass(
-                vv_base, curvature_by_point, dx,
-                car.mass, car.cg_height_m, car.l, car.aero.cda, car.aero.cla,
-                track.air_density, car.tire, regs.power_limit,
-                drivetrain.ratio, float(drivetrain.count), drivetrain.efficiency,
-                motor, car.battery, car.ecms,
+                vv_base,
+                curvature_by_point,
+                dx,
+                car.mass,
+                car.cg_height_m,
+                car.l_base,
+                car.aero.cda,
+                car.aero.cla,
+                track.air_density,
+                car.tire,
+                regs.power_limit,
+                drivetrain.ratio,
+                float(drivetrain.count),
+                drivetrain.efficiency,
+                motor,
+                car.battery,
+                car.ecms,
             )
 
         stats_dict = dynamics.power_and_energy(
-            vv, dx, curvature_by_point, car.mass, car.aero.cda, track.air_density,
-            drivetrain.ratio, drivetrain.efficiency, car.tire, motor, car.battery,
-            batt_i, batt_v, batt_soc, cell_T, batt_p_limit
+            vv,
+            dx,
+            curvature_by_point,
+            car.mass,
+            car.aero.cda,
+            track.air_density,
+            drivetrain.ratio,
+            drivetrain.efficiency,
+            car.tire,
+            motor,
+            car.battery,
+            batt_i,
+            batt_v,
+            batt_soc,
+            cell_T,
+            batt_p_limit,
         )
         stats = LapStats.from_dynamics_output(stats_dict)
 
         splits = _segment_finish_times(seg_idx_per_point, stats.tt, track.num_segments)
 
         return LapResult(
-            track=track, car=car, regulations=regs, dx=dx, x=x, vv=vv,
-            stats=stats, splits=splits, segment_corner_limit=segment_corner_limit,
+            track=track,
+            car=car,
+            regulations=regs,
+            dx=dx,
+            x=x,
+            vv=vv,
+            stats=stats,
+            splits=splits,
+            segment_corner_limit=segment_corner_limit,
         )
 
     def run_multi_lap(self, n_laps: int) -> LapResult:
@@ -146,15 +190,29 @@ def _concat_laps(laps: list) -> LapResult:
     tt = np.concatenate([lap.stats.tt + off for lap, off in zip(laps, time_offsets)])
 
     per_point_fields = [
-        "ax", "ay", "k", "ptraction", "pbrakes", "pdrag", "pkinetic",
-        "pmotor", "pelectric", "tmotor", "wmotor", "numotor",
+        "ax",
+        "ay",
+        "k",
+        "ptraction",
+        "pbrakes",
+        "pdrag",
+        "pkinetic",
+        "pmotor",
+        "pelectric",
+        "tmotor",
+        "wmotor",
+        "numotor",
     ]
-    combined = {f: np.concatenate([getattr(lap.stats, f) for lap in laps]) for f in per_point_fields}
+    combined = {
+        f: np.concatenate([getattr(lap.stats, f) for lap in laps]) for f in per_point_fields
+    }
 
     has_battery = first.stats.batt_i is not None
     battery_fields = ["batt_i", "batt_v", "batt_soc", "cell_T", "batt_p_limit"]
     for f in battery_fields:
-        combined[f] = np.concatenate([getattr(lap.stats, f) for lap in laps]) if has_battery else None
+        combined[f] = (
+            np.concatenate([getattr(lap.stats, f) for lap in laps]) if has_battery else None
+        )
 
     def time_avg(power):
         return float(np.sum(dt * power) / np.sum(dt))
@@ -165,7 +223,9 @@ def _concat_laps(laps: list) -> LapResult:
     )
 
     stats = LapStats(
-        dt=dt, tt=tt, **combined,
+        dt=dt,
+        tt=tt,
+        **combined,
         avg_traction=time_avg(combined["ptraction"]),
         avg_brakes=time_avg(combined["pbrakes"]),
         avg_drag=time_avg(combined["pdrag"]),
@@ -178,13 +238,21 @@ def _concat_laps(laps: list) -> LapResult:
     splits = laps[-1].splits + time_offsets[-1]
 
     return LapResult(
-        track=first.track, car=first.car, regulations=first.regulations, dx=first.dx,
-        x=x, vv=vv, stats=stats, splits=splits,
+        track=first.track,
+        car=first.car,
+        regulations=first.regulations,
+        dx=first.dx,
+        x=x,
+        vv=vv,
+        stats=stats,
+        splits=splits,
         segment_corner_limit=laps[-1].segment_corner_limit,
     )
 
 
-def _segment_finish_times(seg_idx_per_point: np.ndarray, tt: np.ndarray, num_segments: int) -> np.ndarray:
+def _segment_finish_times(
+    seg_idx_per_point: np.ndarray, tt: np.ndarray, num_segments: int
+) -> np.ndarray:
     """Cumulative lap time at the last simulation point falling in each segment.
 
     A segment shorter than the simulation step can end up with no points of its own; it
@@ -194,7 +262,8 @@ def _segment_finish_times(seg_idx_per_point: np.ndarray, tt: np.ndarray, num_seg
     segments = np.arange(num_segments)
     boundaries = np.clip(
         np.searchsorted(seg_idx_per_point, segments, side="right") - 1,
-        0, len(seg_idx_per_point) - 1,
+        0,
+        len(seg_idx_per_point) - 1,
     )
     hit = seg_idx_per_point[boundaries] == segments
     splits[hit] = tt[boundaries[hit]]

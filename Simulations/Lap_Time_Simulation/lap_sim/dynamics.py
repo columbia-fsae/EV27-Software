@@ -16,8 +16,9 @@ The algorithm, in three stages:
    traction/brake/drag power, motor torque and efficiency (via the efficiency map), and
    electrical power, plus lap-average figures.
 
-Stage 2 (`trace_speed_profile`/`_march`) is the hot loop. 
+Stage 2 (`trace_speed_profile`/`_march`) is the hot loop.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -27,8 +28,23 @@ MAX_WEIGHT_TRANSFER = 0.9  # cap on the linear load-transfer fraction below (see
 
 
 def force_balance(
-    v, k, mass, cg_height, wheelbase, cda, cla, air_density, tire,
-    power_limit, ratio, count, efficiency, motor_w, motor_m, battery, t: float = None,
+    v,
+    k,
+    mass,
+    cg_height,
+    wheelbase,
+    cda,
+    cla,
+    air_density,
+    tire,
+    power_limit,
+    ratio,
+    count,
+    efficiency,
+    motor_w,
+    motor_m,
+    battery,
+    t: float = None,
     battery_power_override: float = None,
 ):
     """Longitudinal brake/accel limits (m/s^2) at speed `v` and curvature `k`.
@@ -63,22 +79,41 @@ def force_balance(
     # downforce) the raw fraction can reach or exceed that, sending the denominator
     # below through zero and traction_limited_accel to +-inf; cap it short of 1 so the
     # corner-speed search never hits that singularity.
-    weight_transfer = min((cg_height / wheelbase) * potential_fx / mass / GRAVITY, MAX_WEIGHT_TRANSFER)
+    weight_transfer = min(
+        (cg_height / wheelbase) * potential_fx / mass / GRAVITY, MAX_WEIGHT_TRANSFER
+    )
     traction_limited_accel = 0.5 * potential_fx / mass / (1.0 - weight_transfer)
 
     omega = v / tire.radius * ratio
     max_torque = np.interp(omega, motor_w, motor_m)
     motor_limited_accel = max_torque * count * ratio * efficiency / tire.radius / mass
 
-    accel_limit = min(power_limited_accel, traction_limited_accel, motor_limited_accel, battery_limited_accel)
+    accel_limit = min(
+        power_limited_accel, traction_limited_accel, motor_limited_accel, battery_limited_accel
+    )
     accel = accel_limit - drag / mass
     return brake, accel
 
 
 def corner_speed_limit(
-    k, mass, cg_height, wheelbase, cda, cla, air_density, tire,
-    power_limit, ratio, count, efficiency, motor, battery,
-    v0=0.0, time_step=0.001, accel_tolerance=0.001 * GRAVITY, max_steps=100_000,
+    k,
+    mass,
+    cg_height,
+    wheelbase,
+    cda,
+    cla,
+    air_density,
+    tire,
+    power_limit,
+    ratio,
+    count,
+    efficiency,
+    motor,
+    battery,
+    v0=0.0,
+    time_step=0.001,
+    accel_tolerance=0.001 * GRAVITY,
+    max_steps=100_000,
 ):
     """Steady-state cornering speed (m/s) for curvature `k`, found by time-marching.
 
@@ -91,8 +126,22 @@ def corner_speed_limit(
     steps = 0
     while abs(a) > accel_tolerance and steps < max_steps:
         _, a = force_balance(
-            v, k, mass, cg_height, wheelbase, cda, cla, air_density, tire,
-            power_limit, ratio, count, efficiency, motor.torque_speed_w, motor.torque_speed_m, battery,
+            v,
+            k,
+            mass,
+            cg_height,
+            wheelbase,
+            cda,
+            cla,
+            air_density,
+            tire,
+            power_limit,
+            ratio,
+            count,
+            efficiency,
+            motor.torque_speed_w,
+            motor.torque_speed_m,
+            battery,
         )
         v = v + a * time_step
         steps += 1
@@ -100,9 +149,28 @@ def corner_speed_limit(
 
 
 def _march(
-    direction, start_idx, v0, dx, t, limits_snapshot, max_steps, curvature_by_point,
-    mass, cg_height, wheelbase, cda, cla, air_density, tire,
-    power_limit, ratio, count, efficiency, motor_w, motor_m, battery,
+    direction,
+    start_idx,
+    v0,
+    dx,
+    t,
+    limits_snapshot,
+    max_steps,
+    curvature_by_point,
+    mass,
+    cg_height,
+    wheelbase,
+    cda,
+    cla,
+    air_density,
+    tire,
+    power_limit,
+    ratio,
+    count,
+    efficiency,
+    motor_w,
+    motor_m,
+    battery,
 ):
     """Forward (accel) or backward (brake) march from `start_idx`, until the profile
     rejoins `limits_snapshot`. Returns a full-length array equal to `limits_snapshot`
@@ -113,14 +181,28 @@ def _march(
     idx = start_idx
     v = v0
     step = dx if direction > 0 else -dx
-    a0 = 0.0
     steps = 0
 
     while v <= limits_snapshot[idx] and steps < max_steps:
         k = curvature_by_point[idx]
         brake, accel = force_balance(
-            v, k, mass, cg_height, wheelbase, cda, cla, air_density, tire,
-            power_limit, ratio, count, efficiency, motor_w, motor_m, battery, t,
+            v,
+            k,
+            mass,
+            cg_height,
+            wheelbase,
+            cda,
+            cla,
+            air_density,
+            tire,
+            power_limit,
+            ratio,
+            count,
+            efficiency,
+            motor_w,
+            motor_m,
+            battery,
+            t,
         )
         a = accel if direction > 0 else brake
         v_sq = v * v + 2.0 * a * step
@@ -132,9 +214,23 @@ def _march(
 
 
 def trace_speed_profile(
-    point_limit, curvature_by_point, seg_idx_per_point, track_limits, dx,
-    mass, cg_height, wheelbase, cda, cla, air_density, tire,
-    power_limit, ratio, count, efficiency, motor,
+    point_limit,
+    curvature_by_point,
+    seg_idx_per_point,
+    track_limits,
+    dx,
+    mass,
+    cg_height,
+    wheelbase,
+    cda,
+    cla,
+    air_density,
+    tire,
+    power_limit,
+    ratio,
+    count,
+    efficiency,
+    motor,
 ):
     """The feasible speed trace around one lap, battery-blind (no `battery` param at
     all
@@ -152,28 +248,80 @@ def trace_speed_profile(
     t = 0.0
     for i in range(n):
         p = (i - 1) % n
-        max_steps = n-i
+        max_steps = n - i
         if point_limit[p] < point_limit[i]:
             profile = _march(
-                1, i, point_limit[p], dx, t, vv, max_steps, curvature_by_point,
-                mass, cg_height, wheelbase, cda, cla, air_density, tire,
-                power_limit, ratio, count, efficiency, motor.torque_speed_w, motor.torque_speed_m, None,
+                1,
+                i,
+                point_limit[p],
+                dx,
+                t,
+                vv,
+                max_steps,
+                curvature_by_point,
+                mass,
+                cg_height,
+                wheelbase,
+                cda,
+                cla,
+                air_density,
+                tire,
+                power_limit,
+                ratio,
+                count,
+                efficiency,
+                motor.torque_speed_w,
+                motor.torque_speed_m,
+                None,
             )
             vv = np.minimum(vv, profile)
         elif point_limit[p] > point_limit[i]:
             profile = _march(
-                -1, p, point_limit[i], dx, t, vv, max_steps, curvature_by_point,
-                mass, cg_height, wheelbase, cda, cla, air_density, tire,
-                power_limit, ratio, count, efficiency, motor.torque_speed_w, motor.torque_speed_m, None,
+                -1,
+                p,
+                point_limit[i],
+                dx,
+                t,
+                vv,
+                max_steps,
+                curvature_by_point,
+                mass,
+                cg_height,
+                wheelbase,
+                cda,
+                cla,
+                air_density,
+                tire,
+                power_limit,
+                ratio,
+                count,
+                efficiency,
+                motor.torque_speed_w,
+                motor.torque_speed_m,
+                None,
             )
             vv = np.minimum(vv, profile)
     return vv
 
 
 def battery_forward_pass(
-    vv_base, curvature_by_point, dx,
-    mass, cg_height, wheelbase, cda, cla, air_density, tire,
-    power_limit, ratio, count, efficiency, motor, battery, ecms=None,
+    vv_base,
+    curvature_by_point,
+    dx,
+    mass,
+    cg_height,
+    wheelbase,
+    cda,
+    cla,
+    air_density,
+    tire,
+    power_limit,
+    ratio,
+    count,
+    efficiency,
+    motor,
+    battery,
+    ecms=None,
 ):
     """Overlay battery-limited acceleration onto an already-resolved, battery-blind
     speed trace `vv_base` (no regen, braking never depends on the battery, so
@@ -207,25 +355,43 @@ def battery_forward_pass(
         battery_power_override = None
         if ecms is not None:
             dt_i = dx / vv_base[i] if vv_base[i] > 0.0 else np.inf
-            accel_request = (vv_base[i]**2 - vv_base[p]**2) / (2.0 * dx)
-            f_drag_i = 0.5 * air_density * cda * vv_base[i]**2
+            accel_request = (vv_base[i] ** 2 - vv_base[p] ** 2) / (2.0 * dx)
+            f_drag_i = 0.5 * air_density * cda * vv_base[i] ** 2
             f_tract_request = accel_request * mass + f_drag_i
             power_request = f_tract_request * vv_base[i] if f_tract_request > 0.0 else 0.0
             i_request = power_request / battery.voltage
 
-            i_ecms = ecms.command_current(battery, i_request, battery.batt_ocv, battery.batt_r0, dt_i)
+            i_ecms = ecms.command_current(
+                battery, i_request, battery.batt_ocv, battery.batt_r0, dt_i
+            )
             battery_power_override = i_ecms * battery.voltage
 
         _, accel = force_balance(
-            vv[p], curvature_by_point[p], mass, cg_height, wheelbase, cda, cla, air_density, tire,
-            power_limit, ratio, count, efficiency, motor.torque_speed_w, motor.torque_speed_m, battery,
+            vv[p],
+            curvature_by_point[p],
+            mass,
+            cg_height,
+            wheelbase,
+            cda,
+            cla,
+            air_density,
+            tire,
+            power_limit,
+            ratio,
+            count,
+            efficiency,
+            motor.torque_speed_w,
+            motor.torque_speed_m,
+            battery,
             battery_power_override=battery_power_override,
         )
         v_sq = vv[p] * vv[p] + 2.0 * accel * dx
         v_candidate = np.sqrt(v_sq) if v_sq > 0.0 else 0.0
         vv[i] = min(v_candidate, vv_base[i])
 
-        batt_i[i] = step_battery(battery, motor, vv, dx, mass, i, p, cda, air_density, efficiency, tire, ratio)
+        batt_i[i] = step_battery(
+            battery, motor, vv, dx, mass, i, p, cda, air_density, efficiency, tire, ratio
+        )
         batt_v[i] = battery.voltage
         batt_soc[i] = battery.soc
         cell_t[i] = battery.cell_T
@@ -240,11 +406,11 @@ def battery_forward_pass(
 
 
 def step_battery(battery, motor, vv, dx, mass, i, p, cda, air_density, efficiency, tire, ratio):
-    dt = dx/vv[i]
-    ax = (vv[i] - vv[p])/dt
-    f_drag = 0.5 * cda * air_density * vv[i]**2
+    dt = dx / vv[i]
+    ax = (vv[i] - vv[p]) / dt
+    f_drag = 0.5 * cda * air_density * vv[i] ** 2
     f_tract = ax * mass + f_drag
-    power = f_tract * vv[i] if  f_tract > 0.0 else 0.0
+    power = f_tract * vv[i] if f_tract > 0.0 else 0.0
     power = power / efficiency
     tmotor = f_tract * tire.radius / ratio / efficiency if f_tract > 0.0 else 0.0
     wmotor = vv[i] / tire.radius * ratio
@@ -255,15 +421,29 @@ def step_battery(battery, motor, vv, dx, mass, i, p, cda, air_density, efficienc
     return current
 
 
-def power_and_energy(vv, dx, curvature_by_point, mass, cda, air_density, ratio,
-                      efficiency, tire, motor, battery, batt_i, batt_v, batt_soc, cell_T,
-                      batt_p_limit):
+def power_and_energy(
+    vv,
+    dx,
+    curvature_by_point,
+    mass,
+    cda,
+    air_density,
+    ratio,
+    efficiency,
+    tire,
+    motor,
+    battery,
+    batt_i,
+    batt_v,
+    batt_soc,
+    cell_T,
+    batt_p_limit,
+):
     """Per-point power/energy accounting for a finished speed trace `vv`.
 
     Returns a dict of per-point arrays plus lap-average figures. Vectorized (not
     JIT-compiled) since it is a single pass with no sequential dependency.
     """
-    n = vv.shape[0]
     dt = dx / vv
     tt = np.cumsum(dt)
 
@@ -292,7 +472,9 @@ def power_and_energy(vv, dx, curvature_by_point, mass, cda, air_density, ratio,
     pelectric = np.where(traction_mask, pmotor / numotor, 0.0)
     pbrakes = np.where(~traction_mask, ft * vv, 0.0)
 
-    batt_energy_usage = None if battery is None else float(np.sum(batt_i * batt_v * dt)) / 3.6e6  # J -> kWh
+    batt_energy_usage = (
+        None if battery is None else float(np.sum(batt_i * batt_v * dt)) / 3.6e6
+    )  # J -> kWh
 
     def time_avg(power):
         return float(np.sum(dt * power) / np.sum(dt))

@@ -5,12 +5,13 @@ copy-pasted (with tiny variations) across `point_mass_sim_gear_ratio.m`,
 `point_mass_sim_mass_powerlim208.m`, and `point_mass_sim_mass_endur.m`: run the accel,
 skidpad, and endurance events for a given car/ruleset and score the result.
 """
+
 from __future__ import annotations
 
 import itertools
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Callable
 
 import numpy as np
 import pandas as pd
@@ -49,7 +50,10 @@ class CompetitionEvaluator:
         autocross_time = endurance_time * 0.8 / self.laps
 
         score = self.scorer.score(
-            accel_time, skidpad_time, autocross_time, endurance_time,
+            accel_time,
+            skidpad_time,
+            autocross_time,
+            endurance_time,
             energy_wh if include_efficiency else None,
         )
         return {
@@ -75,7 +79,9 @@ class PowerEnergySearch:
     power_step: float = 3e3
     peak_power_limit: float = 80e3
 
-    def find(self, base_car: Car, base_regulations: Regulations, mass: float, energy_target_wh: float) -> dict:
+    def find(
+        self, base_car: Car, base_regulations: Regulations, mass: float, energy_target_wh: float
+    ) -> dict:
         car = base_car.replace(mass=mass)
         power = car.drivetrain.motor.hard_power_limit
         peak_power = float("inf")
@@ -87,11 +93,18 @@ class PowerEnergySearch:
             result = self.evaluator.evaluate(car, regulations, include_efficiency=True)
             peak_power = result["peak_electric_w"]
             energy_wh = result["energy_wh"]
-        result = {**result, "power_limit": power, "mass": mass, "energy_target_wh": energy_target_wh}
+        result = {
+            **result,
+            "power_limit": power,
+            "mass": mass,
+            "energy_target_wh": energy_target_wh,
+        }
         return result
 
 
-def grid_sweep(param_grid: dict, evaluate_fn: Callable[..., dict], n_workers: int = 1) -> pd.DataFrame:
+def grid_sweep(
+    param_grid: dict, evaluate_fn: Callable[..., dict], n_workers: int = 1
+) -> pd.DataFrame:
     """Evaluate `evaluate_fn(**params)` over every combination in `param_grid`.
 
     Replaces the `meshgrid` + `arrayfun` + `reshape` pattern used for the power-limit x
@@ -106,7 +119,9 @@ def grid_sweep(param_grid: dict, evaluate_fn: Callable[..., dict], n_workers: in
     closure defined inside another function can't be sent to a worker process.
     """
     keys = list(param_grid.keys())
-    param_dicts = [dict(zip(keys, combo)) for combo in itertools.product(*(param_grid[k] for k in keys))]
+    param_dicts = [
+        dict(zip(keys, combo)) for combo in itertools.product(*(param_grid[k] for k in keys))
+    ]
 
     if n_workers == 1:
         results = [evaluate_fn(**params) for params in param_dicts]

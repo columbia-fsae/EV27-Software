@@ -5,6 +5,7 @@ Shared by `plotting.plot_track_map` (colored by simulated speed) and
 underlying arc-integration: walk forward in constant-length steps, following a circular
 arc of the given (signed) curvature at each step, or a straight line where curvature is 0.
 """
+
 from __future__ import annotations
 
 import numpy as np

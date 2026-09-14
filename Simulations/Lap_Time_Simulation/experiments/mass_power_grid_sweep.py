@@ -6,6 +6,7 @@ This is a genuinely large sweep (21 power limits x 21 masses x 3 events each, wi
 endurance event alone at dx=0.005 m over a 1000 m lap = ~200k simulation points) -- it
 was slow in the original MATLAB too. Expect this to take a while to run in full.
 """
+
 import sys
 from pathlib import Path
 
@@ -15,8 +16,16 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lap_sim import (
-    ACCEL_EVENT, EMRAX_208, ENDURANCE_EVENT, EV25, FSAE_EV, SKIDPAD_EVENT,
-    CompetitionEvaluator, CompetitionScorer, grid_sweep, plotting,
+    ACCEL_EVENT,
+    EMRAX_208,
+    ENDURANCE_EVENT,
+    EV25,
+    FSAE_EV,
+    SKIDPAD_EVENT,
+    CompetitionEvaluator,
+    CompetitionScorer,
+    grid_sweep,
+    plotting,
 )
 from lap_sim.vehicle import Aero, Car, Drivetrain, HighVoltageSystem
 
@@ -33,13 +42,15 @@ def build_ev26b() -> Car:
         tire=EV25.tire,
         drivetrain=Drivetrain(motor=EMRAX_208, ratio=4.9, efficiency=0.96, count=1),
         hv=HighVoltageSystem(vmax=300, vnom=260),
-        l=1.530,
+        l_base=1.530,
     )
 
 
 def main():
     baseline = build_ev26b()
-    evaluator = CompetitionEvaluator(ACCEL_EVENT, SKIDPAD_EVENT, ENDURANCE_EVENT, CompetitionScorer(), dx=DX)
+    evaluator = CompetitionEvaluator(
+        ACCEL_EVENT, SKIDPAD_EVENT, ENDURANCE_EVENT, CompetitionScorer(), dx=DX
+    )
 
     power_limits = FSAE_EV.power_limit + np.arange(-69500.0, -18500.0, 2500.0)
     masses = baseline.mass + np.arange(-40.0, 41.0, 4.0)
@@ -62,19 +73,39 @@ def main():
     x_vals, y_vals = score_pivot.columns.values, score_pivot.index.values
 
     plotting.plot_heatmap(
-        x_vals, y_vals, score_pivot.values, "Power Limit (W)", "Mass (kg)", "Points",
+        x_vals,
+        y_vals,
+        score_pivot.values,
+        "Power Limit (W)",
+        "Mass (kg)",
+        "Points",
         "Mass & Power Limit to Points (Single Emrax 208)",
     )
     plotting.plot_heatmap(
-        x_vals, y_vals, peak_pivot.values / 1e3, "Power Limit (W)", "Mass (kg)",
-        "Peak Power (kW)", "Mass & Power Limit to Peak Power (Single Emrax 208)",
+        x_vals,
+        y_vals,
+        peak_pivot.values / 1e3,
+        "Power Limit (W)",
+        "Mass (kg)",
+        "Peak Power (kW)",
+        "Mass & Power Limit to Peak Power (Single Emrax 208)",
     )
     plotting.plot_heatmap(
-        x_vals, y_vals, avg_pivot.values / 1e3, "Power Limit (W)", "Mass (kg)",
-        "Average Power (kW)", "Mass & Power Limit to Avg Power (Single Emrax 208)",
+        x_vals,
+        y_vals,
+        avg_pivot.values / 1e3,
+        "Power Limit (W)",
+        "Mass (kg)",
+        "Average Power (kW)",
+        "Mass & Power Limit to Avg Power (Single Emrax 208)",
     )
     plotting.plot_surface(
-        x_vals, y_vals, score_pivot.values, "Power Limit (W)", "Mass (kg)", "Points",
+        x_vals,
+        y_vals,
+        score_pivot.values,
+        "Power Limit (W)",
+        "Mass (kg)",
+        "Points",
         "Mass & Power Limit to Points (Single Emrax 208)",
     )
 

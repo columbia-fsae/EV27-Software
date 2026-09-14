@@ -11,6 +11,7 @@ Usage:
     python experiments/tdms_battery_validation.py path/to/log1.tdms path/to/log2.tdms
     python experiments/tdms_battery_validation.py log.tdms --series 105 --parallel 4
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -53,7 +54,14 @@ def load_tdms(path: Path) -> dict:
             temp_avg = np.mean([c[:].astype(float) for c in temp_channels], axis=0)
             temps = (t_temp, temp_avg)
 
-    return {"t": t, "dt": dt, "voltage": voltage, "current": current, "energy": energy, "temps": temps}
+    return {
+        "t": t,
+        "dt": dt,
+        "voltage": voltage,
+        "current": current,
+        "energy": energy,
+        "temps": temps,
+    }
 
 
 def estimate_initial_soc(battery: Battery, voltage: np.ndarray, current: np.ndarray) -> float:
@@ -64,7 +72,7 @@ def estimate_initial_soc(battery: Battery, voltage: np.ndarray, current: np.ndar
     voltage right before the pack starts drawing real current.
     """
     idle = np.argmax(np.abs(current) > 5.0) if np.any(np.abs(current) > 5.0) else 0
-    window = voltage[max(0, idle - 50):max(1, idle)]
+    window = voltage[max(0, idle - 50) : max(1, idle)]
     pack_v0 = float(np.median(window)) if len(window) else voltage[0]
 
     cell_v0 = pack_v0 / battery._series
@@ -136,7 +144,9 @@ def plot_validation(path: Path, log: dict, sim: dict, series: int) -> plt.Figure
 
     ax = axes[2, 1]
     ax.plot(t, log["energy"], label="Measured", linewidth=1)
-    model_energy = np.concatenate([[0.0], np.cumsum(sim["voltage"][:-1] * log["current"][:-1]) * log["dt"] / 3600])
+    model_energy = np.concatenate(
+        [[0.0], np.cumsum(sim["voltage"][:-1] * log["current"][:-1]) * log["dt"] / 3600]
+    )
     ax.plot(t, log["energy"][0] + model_energy, label="Model", linewidth=1, linestyle="--")
     ax.set_ylabel("Energy (Wh)")
     ax.set_xlabel("Time (s)")
@@ -149,35 +159,54 @@ def plot_validation(path: Path, log: dict, sim: dict, series: int) -> plt.Figure
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("tdms_files", nargs="+", type=Path, help="One or more TDMS log files")
     parser.add_argument("--series", type=int, default=DEFAULT_SERIES)
     parser.add_argument("--parallel", type=int, default=DEFAULT_PARALLEL)
     parser.add_argument("--cell-type", default=DEFAULT_CELL_TYPE)
     parser.add_argument("--initial-temp", type=float, default=25.0, help="Starting cell temp (C)")
-    parser.add_argument("--initial-soc", type=float, default=None,
-                         help="Starting SOC (0-1); default estimates it from the first logged voltage")
-    parser.add_argument("--save-dir", type=Path, default=None, help="Save PNGs here instead of showing plots")
+    parser.add_argument(
+        "--initial-soc",
+        type=float,
+        default=None,
+        help="Starting SOC (0-1); default estimates it from the first logged voltage",
+    )
+    parser.add_argument(
+        "--save-dir", type=Path, default=None, help="Save PNGs here instead of showing plots"
+    )
     args = parser.parse_args()
 
     for path in args.tdms_files:
         print(f"[tdms_battery_validation] loading {path.name} ...")
         log = load_tdms(path)
         n = len(log["voltage"])
-        print(f"[tdms_battery_validation] {n} samples at dt={log['dt']}s "
-              f"({n * log['dt'] / 60:.1f} min); running battery model ...")
+        print(
+            f"[tdms_battery_validation] {n} samples at dt={log['dt']}s "
+            f"({n * log['dt'] / 60:.1f} min); running battery model ..."
+        )
 
         battery = Battery(series=args.series, parallel=args.parallel, cell_type=args.cell_type)
         battery._T = args.initial_temp
-        soc0 = args.initial_soc if args.initial_soc is not None else estimate_initial_soc(battery, log["voltage"], log["current"])
+        soc0 = (
+            args.initial_soc
+            if args.initial_soc is not None
+            else estimate_initial_soc(battery, log["voltage"], log["current"])
+        )
         battery._x[0] = soc0
         battery._soc = soc0
-        print(f"[tdms_battery_validation] initial SOC = {soc0 * 100:.1f}%, initial temp = {args.initial_temp} C")
+        print(
+            f"[tdms_battery_validation] initial SOC = {soc0 * 100:.1f}%, \
+                initial temp = {args.initial_temp} C"
+        )
 
         sim = simulate(battery, log["current"], log["dt"])
         rmse = np.sqrt(np.mean((log["voltage"] - sim["voltage"]) ** 2))
-        print(f"[tdms_battery_validation] done: voltage RMSE = {rmse:.2f} V, "
-              f"final SOC = {sim['soc'][-1] * 100:.1f}%, final cell temp = {sim['temp'][-1]:.1f} C")
+        print(
+            f"[tdms_battery_validation] done: voltage RMSE = {rmse:.2f} V, "
+            f"final SOC = {sim['soc'][-1] * 100:.1f}%, final cell temp = {sim['temp'][-1]:.1f} C"
+        )
 
         fig = plot_validation(path, log, sim, args.series)
         if args.save_dir is not None:

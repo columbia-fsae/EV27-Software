@@ -3,9 +3,10 @@
 Ported from the `emrax208` / `emrax228` / `emrax268` / `dhx_k40` structs shared across
 the original MATLAB scripts.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -34,7 +35,7 @@ class Motor:
 
     def max_power(self, omega: np.ndarray) -> np.ndarray:
         """Max available power (W) at motor angular speed(s) `omega` (rad/s)."""
-        return self.max_torque(omega)*omega
+        return self.max_torque(omega) * omega
 
     def efficiency(self, omega: np.ndarray, torque: np.ndarray) -> np.ndarray:
         """Efficiency (0-1) at motor angular speed(s)/torque(s), clamped to the map."""

@@ -7,6 +7,7 @@ from the endurance energy consumption. Both are reproduced here via `Competition
 call `.score(..., energy_wh=None)` for the old behavior, or pass an energy figure for the
 new one.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -66,7 +67,9 @@ class CompetitionScorer:
             return float(max_points)
         worst = max_ratio * best
         if time < worst:
-            return min_points + (max_points - min_points) * ((worst / time) - 1) / ((worst / best) - 1)
+            return min_points + (max_points - min_points) * ((worst / time) - 1) / (
+                (worst / best) - 1
+            )
         return float(min_points)
 
     def _skidpad_score(self, time):
@@ -97,7 +100,9 @@ class CompetitionScorer:
         efficiency_factor = (62.270 / (endurance_time / laps)) * (
             (3.275 * 0.65 / laps) / (energy_wh / 1000 * 0.65 / laps)
         )
-        score = 100 * (efficiency_factor - self.efficiency_factor_min) / (
-            self.efficiency_factor_max - self.efficiency_factor_min
+        score = (
+            100
+            * (efficiency_factor - self.efficiency_factor_min)
+            / (self.efficiency_factor_max - self.efficiency_factor_min)
         )
         return score

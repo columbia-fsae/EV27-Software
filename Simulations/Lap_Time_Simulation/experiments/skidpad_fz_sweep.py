@@ -1,6 +1,7 @@
 """Runs the skidpad event for a range of car masses and plots the resulting vertical
 tire load (Fz = mass*g + aero downforce) against speed for each mass.
 """
+
 import sys
 from pathlib import Path
 
@@ -26,7 +27,7 @@ def build_car(mass: float) -> Car:
         tire=EV27.tire,
         drivetrain=Drivetrain(motor=EMRAX_208, ratio=4.3, efficiency=0.96, count=1),
         hv=HighVoltageSystem(vmax=255, vnom=216),
-        l=1.530,
+        l_base=1.530,
         battery=None,  # not needed for the skidpad's steady-state cornering speed
     )
 

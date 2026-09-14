@@ -12,16 +12,16 @@ this car doesn't get anywhere near 60 C under a lax budget) holding the SOC loop
 best-found stage-1 settings. `k`/`k_temp` are swept alongside stage 1 since they set the
 overall scale both loops operate at.
 """
+
 import sys
 import time
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from lap_sim import ENDURANCE_EVENT, FSAE_EV, EcmsController, LapSimulator, grid_sweep
+from lap_sim import ENDURANCE_EVENT, FSAE_EV, EcmsController, LapSimulator
 from lap_sim.ecms import linear_soc_schedule, linear_temp_schedule
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -86,13 +86,19 @@ def run_trial(ecms_kwargs: dict, temp_end: float = 60.0) -> dict:
     endur_car = car.replace(ecms=ecms)
     t0 = time.time()
     try:
-        endur = LapSimulator(FSAE_EV, ENDURANCE_EVENT, endur_car, dx=DX_ENDURANCE).run_multi_lap(LAPS)
+        endur = LapSimulator(FSAE_EV, ENDURANCE_EVENT, endur_car, dx=DX_ENDURANCE).run_multi_lap(
+            LAPS
+        )
     except Exception as exc:
         return {"ok": False, "error": str(exc), "elapsed": time.time() - t0}
     return {
-        "ok": True, "elapsed": time.time() - t0,
-        "lap_time": endur.lap_time, "final_soc": endur.stats.batt_soc[-1],
-        "max_temp": endur.stats.cell_T.max(), "final_s1": ecms.s1, "final_s2": ecms.s2,
+        "ok": True,
+        "elapsed": time.time() - t0,
+        "lap_time": endur.lap_time,
+        "final_soc": endur.stats.batt_soc[-1],
+        "max_temp": endur.stats.cell_T.max(),
+        "final_s1": ecms.s1,
+        "final_s2": ecms.s2,
         "avg_kw": endur.stats.avg_electric / 1e3,
     }
 
@@ -110,8 +116,11 @@ def soc_score(final_soc: float) -> float:
 
 
 def stage1_soc_loop():
-    print("[tune_ecms] Stage 1: SOC loop (s1_kp, s1_ki, s1_0) + k, thermal loop inert, "
-          f"s1_max derived per-k to guarantee >= {MIN_CURRENT_FRACTION:.0%} of i_request always gets through...")
+    print(
+        "[tune_ecms] Stage 1: SOC loop (s1_kp, s1_ki, s1_0) + k, thermal loop inert, "
+        f"s1_max derived per-k to guarantee >= {MIN_CURRENT_FRACTION:.0%} \
+            of i_request always gets through..."
+    )
     k_values = [150.0, 200.0, 300.0]
     s1_kp_values = [10.0, 30.0, 60.0]
     s1_ki_values = [0.5, 2.0]
@@ -127,15 +136,39 @@ def stage1_soc_loop():
                 for s1_0 in s1_0_values:
                     count += 1
                     ecms_kwargs = dict(
-                        k=k, k_temp=1.0,  # thermal loop inert this stage, k_temp irrelevant while s2_max~0
-                        s1_kp=s1_kp, s1_ki=s1_ki, s1_0=s1_0, s1_max=s1_max,
-                        s2_kp=0.0, s2_ki=0.0, s2_0=1.0, s2_max=1e-9,
+                        k=k,
+                        k_temp=1.0,  # thermal loop inert this stage, k_temp inactive while s2_max~0
+                        s1_kp=s1_kp,
+                        s1_ki=s1_ki,
+                        s1_0=s1_0,
+                        s1_max=s1_max,
+                        s2_kp=0.0,
+                        s2_ki=0.0,
+                        s2_0=1.0,
+                        s2_max=1e-9,
                     )
                     result = run_trial(ecms_kwargs, temp_end=60.0)
-                    print(f"[tune_ecms]  ({count}/{n_total}) k={k:.0f} (s1_max={s1_max:.1f}) s1_kp={s1_kp} s1_ki={s1_ki} s1_0={s1_0} "
-                          f"-> {'OK' if result['ok'] else 'FAIL'} "
-                          f"{'lap_time=%.0fs final_soc=%.3f' % (result['lap_time'], result['final_soc']) if result['ok'] else result.get('error')}")
-                    rows.append({"k": k, "s1_max": s1_max, "s1_kp": s1_kp, "s1_ki": s1_ki, "s1_0": s1_0, **result})
+                    print(
+                        f"[tune_ecms]  ({count}/{n_total}) k={k:.0f} (s1_max={s1_max:.1f})"
+                        f"s1_kp={s1_kp} s1_ki={s1_ki} s1_0={s1_0} "
+                        f"-> {'OK' if result['ok'] else 'FAIL'} "
+                        f"{
+                            'lap_time=%.0fs final_soc=%.3f'
+                            % (result['lap_time'], result['final_soc'])
+                            if result['ok']
+                            else result.get('error')
+                        }"
+                    )
+                    rows.append(
+                        {
+                            "k": k,
+                            "s1_max": s1_max,
+                            "s1_kp": s1_kp,
+                            "s1_ki": s1_ki,
+                            "s1_0": s1_0,
+                            **result,
+                        }
+                    )
 
     df = pd.DataFrame(rows)
     ok = df[df["ok"]].copy()
@@ -144,14 +177,19 @@ def stage1_soc_loop():
         return None, df
     ok["score"] = ok["lap_time"] + ok["final_soc"].apply(soc_score) * ok["lap_time"]
     best = ok.loc[ok["score"].idxmin()]
-    print(f"[tune_ecms] Stage 1 best: k={best.k:.0f} s1_kp={best.s1_kp} s1_ki={best.s1_ki} s1_0={best.s1_0} "
-          f"-> lap_time={best.lap_time:.0f}s final_soc={best.final_soc:.3f}")
+    print(
+        f"[tune_ecms] Stage 1 best: k={best.k:.0f} s1_kp={best.s1_kp} s1_ki={best.s1_ki} \
+        s1_0={best.s1_0} "
+        f"-> lap_time={best.lap_time:.0f}s final_soc={best.final_soc:.3f}"
+    )
     return best, df
 
 
 def stage2_temp_loop(best_stage1):
-    print("\n[tune_ecms] Stage 2: thermal loop (s2_kp, s2_ki, s2_0), SOC loop fixed at stage-1 best, "
-          "temp_end lowered to 40 C to force it to actually engage...")
+    print(
+        "\n[tune_ecms] Stage 2: thermal loop (s2_kp, s2_ki, s2_0), SOC loop fixed at stage-1 best, "
+        "temp_end lowered to 40 C to force it to actually engage..."
+    )
     k = best_stage1.k
     k_temp = k_temp_for(k)
     s2_max = safe_s2_max(k, k_temp)
@@ -162,20 +200,36 @@ def stage2_temp_loop(best_stage1):
     rows = []
     n_total = len(s2_kp_values) * len(s2_ki_values) * len(s2_0_values)
     count = 0
-    print(f"[tune_ecms]   k_temp={k_temp:.1f}, s2_max={s2_max:.2f} (pole at {2*s2_max:.2f})")
+    print(f"[tune_ecms]   k_temp={k_temp:.1f}, s2_max={s2_max:.2f} (pole at {2 * s2_max:.2f})")
     for s2_kp in s2_kp_values:
         for s2_ki in s2_ki_values:
             for s2_0 in s2_0_values:
                 count += 1
                 ecms_kwargs = dict(
-                    k=k, k_temp=k_temp,
-                    s1_kp=best_stage1.s1_kp, s1_ki=best_stage1.s1_ki, s1_0=best_stage1.s1_0, s1_max=best_stage1.s1_max,
-                    s2_kp=s2_kp, s2_ki=s2_ki, s2_0=s2_0, s2_max=s2_max,
+                    k=k,
+                    k_temp=k_temp,
+                    s1_kp=best_stage1.s1_kp,
+                    s1_ki=best_stage1.s1_ki,
+                    s1_0=best_stage1.s1_0,
+                    s1_max=best_stage1.s1_max,
+                    s2_kp=s2_kp,
+                    s2_ki=s2_ki,
+                    s2_0=s2_0,
+                    s2_max=s2_max,
                 )
-                result = run_trial(ecms_kwargs, temp_end=40.0)  # artificially tight to force engagement
-                print(f"[tune_ecms]  ({count}/{n_total}) s2_kp={s2_kp} s2_ki={s2_ki} s2_0={s2_0} "
-                      f"-> {'OK' if result['ok'] else 'FAIL'} "
-                      f"{'lap_time=%.0fs max_temp=%.1fC final_s2=%.2f' % (result['lap_time'], result['max_temp'], result['final_s2']) if result['ok'] else result.get('error')}")
+                result = run_trial(
+                    ecms_kwargs, temp_end=40.0
+                )  # artificially tight to force engagement
+                print(
+                    f"[tune_ecms]  ({count}/{n_total}) s2_kp={s2_kp} s2_ki={s2_ki} s2_0={s2_0} "
+                    f"-> {'OK' if result['ok'] else 'FAIL'} "
+                    f"{
+                        'lap_time=%.0fs max_temp=%.1fC final_s2=%.2f'
+                        % (result['lap_time'], result['max_temp'], result['final_s2'])
+                        if result['ok']
+                        else result.get('error')
+                    }"
+                )
                 rows.append({"s2_kp": s2_kp, "s2_ki": s2_ki, "s2_0": s2_0, **result})
 
     df = pd.DataFrame(rows)
@@ -188,8 +242,10 @@ def stage2_temp_loop(best_stage1):
     ok["overshoot"] = (ok["max_temp"] - 40.0).clip(lower=0.0)
     ok["score"] = ok["overshoot"] * 1000 + ok["lap_time"]
     best = ok.loc[ok["score"].idxmin()]
-    print(f"[tune_ecms] Stage 2 best: s2_kp={best.s2_kp} s2_ki={best.s2_ki} s2_0={best.s2_0} "
-          f"-> max_temp={best.max_temp:.1f}C (budget 40C) lap_time={best.lap_time:.0f}s")
+    print(
+        f"[tune_ecms] Stage 2 best: s2_kp={best.s2_kp} s2_ki={best.s2_ki} s2_0={best.s2_0} "
+        f"-> max_temp={best.max_temp:.1f}C (budget 40C) lap_time={best.lap_time:.0f}s"
+    )
     return best, df
 
 

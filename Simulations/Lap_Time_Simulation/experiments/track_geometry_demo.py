@@ -1,6 +1,7 @@
 """Reproduces track_layout.m: reconstruct and plot a track's (x, y) centerline directly
 from its segment lengths/curvatures, without running any lap simulation.
 """
+
 import sys
 from pathlib import Path
 
@@ -8,8 +9,7 @@ import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from lap_sim import ENDURANCE_EVENT, ICAHN_LOOP
-from lap_sim import plotting
+from lap_sim import ENDURANCE_EVENT, ICAHN_LOOP, plotting
 
 
 def main():

@@ -1,4 +1,5 @@
 """Competition regulations relevant to the point-mass model: the electrical power cap."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
