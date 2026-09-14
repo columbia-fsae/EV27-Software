@@ -2,8 +2,7 @@
 
 Runs the **real, unmodified** embedded SOC estimator (`kalman_soc.c` + `battery_model.c`
 from the ADBMS6830 firmware) against a CSV of logged current/voltage data, compiled as a
-native program and driven exactly the way the firmware drives it -- not a Python
-reimplementation of the Kalman filter.
+native program and driven exactly the way the firmware drives it
 
 ## Layout
 
@@ -39,8 +38,7 @@ A header row followed by data rows with these columns (any order):
 
 Current/voltage are per the real firmware's own convention (`cic`/`cell`-level voltage,
 pack-level current) and `kalman_soc.c`'s sign convention (SOC decreases when current is
-positive) -- no conversion is applied, so make sure your log matches this before feeding
-it in.
+positive)
 
 ## Usage
 
