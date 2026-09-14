@@ -1,6 +1,9 @@
 # settings
 .settings/
 
+# clangd local compile-db pointer (flips between build/Debug and build/Release)
+.clangd
+
 # metadata
 .metadata/
 
@@ -147,6 +150,8 @@ CMakeUserPresets.json
 
 # VS Code — ignore personal, keep shared project config
 .vscode/*
-!.vscode/c_cpp_properties.json
+!.vscode/settings.json
 !.vscode/launch.json
 !.vscode/extensions.json
+# c_cpp_properties.json is IDE-generated (STM32CubeIDE) and flips between
+# build/Debug and build/Release locally, so it's personal, not shared.
