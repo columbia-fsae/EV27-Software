@@ -119,6 +119,16 @@ jobs:
           tidy-checks: ''        # use repo-root .clang-tidy
           database: ${{ matrix.path }}/build/Debug
           files-changed-only: true
+          # Only gate on lines this PR actually touches, not pre-existing
+          # findings elsewhere in a changed file. To see every clang-tidy
+          # finding in a file regardless of what changed (e.g. to work
+          # through legacy findings as their own effort, outside any PR):
+          #   pip install clang-tidy==21.1.6
+          #   cmake --preset Debug   (from the project's directory, e.g.
+          #                          High_Voltage/Charging_Cart/UI/STM32)
+          #   clang-tidy -p <project>/build/Debug <path/to/file.cpp>
+          # (picks up the repo-root .clang-tidy automatically)
+          lines-changed-only: true
           ignore: ${{ matrix.ignore }}
           thread-comments: ${{ github.event_name == 'pull_request' && 'update' || false }}
           step-summary: true
