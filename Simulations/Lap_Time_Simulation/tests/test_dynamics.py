@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from lap_sim import ACCEL_EVENT, EV25, FSAE_EV, LapSimulator
 from lap_sim.dynamics import GRAVITY, corner_speed_limit
+from lap_sim.motors import EMRAX_208
 from lap_sim.tire import Tire
 
 
@@ -30,8 +31,6 @@ def _flat_args(
     efficiency=1.0,
     tire_radius=0.2032,
 ):
-    motor_w = np.array([0.0, 10000.0])
-    motor_m = np.array([1e6, 1e6])  # effectively unlimited torque
     tire = Tire(mu_x=mux, mu_y=muy, radius=tire_radius)
     # battery=None: these are dynamics-core sanity checks, not battery ones, so leave the
     # car's electrical draw unbounded, same as the effectively-infinite power_limit above.
@@ -47,8 +46,7 @@ def _flat_args(
         ratio,
         count,
         efficiency,
-        motor_w,
-        motor_m,
+        EMRAX_208,
         None,
     )
 
