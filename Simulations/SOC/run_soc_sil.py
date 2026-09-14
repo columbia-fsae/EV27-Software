@@ -11,6 +11,7 @@ Usage:
 With no arguments, runs against the bundled synthetic example
 (generate it first with `python generate_example_data.py`).
 """
+
 import argparse
 import shutil
 import subprocess
@@ -53,10 +54,15 @@ def build(force: bool = False) -> Path:
 
     compiler = find_compiler()
     cmd = [
-        compiler, "-O2", "-std=c11", "-Wall", "-Wextra",
+        compiler,
+        "-O2",
+        "-std=c11",
+        "-Wall",
+        "-Wextra",
         f"-I{C_SRC}",
         *[str(s) for s in sources],
-        "-o", str(EXECUTABLE),
+        "-o",
+        str(EXECUTABLE),
         "-lm",
     ]
     print("Building:", " ".join(cmd))
@@ -82,7 +88,9 @@ def add_diagnostics(df: pd.DataFrame) -> pd.DataFrame:
     """
     df = df.copy()
     ocv_from_soc = df["voltage_ocv"]  # BatteryModel_GetOcv(soc), already computed post-update
-    df["predicted_terminal_v"] = ocv_from_soc - df["v_ct"] - df["v_dif"] - df["r0"] * df["input_current"]
+    df["predicted_terminal_v"] = (
+        ocv_from_soc - df["v_ct"] - df["v_dif"] - df["r0"] * df["input_current"]
+    )
     df["voltage_innovation_mV"] = (df["input_voltage"] - df["predicted_terminal_v"]) * 1000.0
     return df
 
@@ -111,12 +119,12 @@ def plot_results(df: pd.DataFrame, title: str):
     ax.set_title("Input Current (+ = discharge)")
 
     ax = axes[1, 1]
-    l1, = ax.plot(t_s, df["r0"] * 1000.0, color="tab:blue", label="R0 (mOhm)")
+    (l1,) = ax.plot(t_s, df["r0"] * 1000.0, color="tab:blue", label="R0 (mOhm)")
     ax.set_ylabel("R0 (mOhm)")
-    ax_soh = ax.twinx()
-   # l2, = ax_soh.plot(t_s, df["soh_percent"], color="tab:green", label="SOH (%)")
-   # ax_soh.set_ylabel("SOH (%)")
-   # ax.set_title("Estimated R0 & State of Health")
+    # ax_soh = ax.twinx()
+    # l2, = ax_soh.plot(t_s, df["soh_percent"], color="tab:green", label="SOH (%)")
+    # ax_soh.set_ylabel("SOH (%)")
+    # ax.set_title("Estimated R0 & State of Health")
     ax.legend(handles=[l1], fontsize=8)
 
     ax = axes[2, 0]
@@ -146,7 +154,7 @@ def plot_results(df: pd.DataFrame, title: str):
     ax.set_ylabel("Innovation (mV)")
     ax.set_xlabel("Time (s)")
     ax.set_title("Measured - Predicted (watch this at current-stop transitions)")
-    '''
+    """
     ax = axes[4, 0]
     ax.axhline(0, color="gray", linewidth=0.8)
     ax.plot(t_s, df["capacity_ah"], color="tab:red", linewidth=1)
@@ -162,21 +170,30 @@ def plot_results(df: pd.DataFrame, title: str):
     ax.set_ylabel("Bypassed")
     ax.set_xlabel("Time (s)")
     ax.set_title(f"Innovation Gate Bypass Events (n={int(df['bypassed'].sum())})")
-    '''
+    """
     fig.suptitle(title)
     fig.tight_layout()
     return fig
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
-        "input_csv", nargs="?", type=Path,
+        "input_csv",
+        nargs="?",
+        type=Path,
         default=ROOT / "example_data" / "synthetic_drive_cycle.csv",
         help="CSV with time_ms, voltage, current[, temperature] columns",
     )
-    parser.add_argument("-o", "--output", type=Path, default=None,
-                         help="Where to write the SOC estimator's output CSV")
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        default=None,
+        help="Where to write the SOC estimator's output CSV",
+    )
     parser.add_argument("--rebuild", action="store_true", help="Force recompiling the SIL harness")
     args = parser.parse_args()
 
@@ -189,7 +206,7 @@ def main():
     output_csv = args.output or (ROOT / "example_data" / f"{args.input_csv.stem}_soc_output.csv")
     df = run_sil(args.input_csv, output_csv, force_rebuild=args.rebuild)
 
-    print(df[["soc_percent", "r0", "soh_percent", "uncertainty","capacity_ah"]].describe())
+    print(df[["soc_percent", "r0", "soh_percent", "uncertainty", "capacity_ah"]].describe())
 
     plot_results(df, f"SOC Estimator SIL Run: {args.input_csv.name}")
     plt.show()
