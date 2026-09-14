@@ -15,7 +15,8 @@ name: C/C++ Lint
 # keep those in sync with the same-named hooks in .pre-commit-config.yaml.
 #
 # To add a new CubeMX/CMake project: add a filter entry under `changes.filter`
-# below, and a matching `project`/`path` pair in `lint.strategy.matrix.include`.
+# below, and a matching `project`/`path` pair in the `changes` job's
+# "Build project/path matrix" step.
 
 on:
   push:
@@ -29,7 +30,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.filter.outputs.changes }}
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -47,6 +48,26 @@ jobs:
               - '.clang-tidy'
               - '.github/workflows/cpp-linter.yml'
 
+      # dorny/paths-filter only tells us WHICH projects changed, as a list of
+      # names. Build the {project, path} pairs the lint matrix actually needs
+      # here, so only changed projects appear in the matrix. Feeding a static
+      # `include:` list alongside a dynamic `project:` array (the previous
+      # approach) doesn't work: GitHub Actions adds any `include` entry whose
+      # keys don't match an existing combination as a BRAND NEW job, instead
+      # of dropping it — so every project in `include` always ran, regardless
+      # of what actually changed.
+      - name: Build project/path matrix
+        id: build-matrix
+        run: |
+          matrix='[]'
+          if [ "${{ steps.filter.outputs.Tractive_Battery }}" = "true" ]; then
+            matrix=$(echo "$matrix" | jq -c '. + [{"project":"Tractive_Battery","path":"High_Voltage/Tractive_Battery"}]')
+          fi
+          if [ "${{ steps.filter.outputs.Charging_Cart_UI }}" = "true" ]; then
+            matrix=$(echo "$matrix" | jq -c '. + [{"project":"Charging_Cart_UI","path":"High_Voltage/Charging_Cart/UI/STM32"}]')
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   # ──────────────── Lint changed firmware projects ────────────────
   lint:
     needs: changes
@@ -56,12 +77,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: ${{ fromJSON(needs.changes.outputs.matrix) }}
-        include:
-          - project: Tractive_Battery
-            path: High_Voltage/Tractive_Battery
-          - project: Charging_Cart_UI
-            path: High_Voltage/Charging_Cart/UI/STM32
+        include: ${{ fromJSON(needs.changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
