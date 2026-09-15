@@ -14,17 +14,14 @@
 
 # ──────────────── High Voltage ────────────────
 /High_Voltage/                    @fordrollhaus @levinben3
-/High_Voltage/Tractive_Battery/   @levinben3
-/High_Voltage/Charging_Cart/      @fordrollhaus
+/High_Voltage/Tractive_Battery/   @levinben3 @fordrollhaus
+/High_Voltage/Charging_Cart/      @fordrollhaus @fordrollhaus
 
 # ──────────────── Other subsystems ────────────────
-/BMS/                               @levinben3
-/Controls/                          @levinben3
-/CAN/                               @levinben3
-/Low_Voltage/                       @levinben3
-/MoTeC/                             @levinben3
-/Exploration/                       @levinben3
-
+/CAN/                               @levinben3 @fordrollhaus
+/Low_Voltage/                       @levinben3 @fordrollhaus
+/MoTeC/                             @levinben3 @fordrollhaus
+/Simulations/                       @levinben3 @fordrollhaus
 # ──────────────── Build / CI infrastructure ────────────────
 # Tooling, CI, and repo config owned by whoever maintains the build system.
 /.github/                           @fordrollhaus @levinben3
