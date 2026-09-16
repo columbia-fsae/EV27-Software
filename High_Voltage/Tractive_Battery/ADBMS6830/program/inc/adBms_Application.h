@@ -76,7 +76,8 @@ void adBms6830_read_aux_voltages(uint8_t tIC, cell_asic* ic);
 void adBms6830_start_raux_voltage_measurment(uint8_t tIC, cell_asic* ic);
 void adBms6830_read_raux_voltages(uint8_t tIC, cell_asic* ic);
 void adBms6830_read_status_registers(uint8_t tIC, cell_asic* ic);
-void measurement_loop(volatile CAN_Inputs_t* can_data);
+void measurement_loop(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,
+                      SegmentData_t* localSegment);
 void adBms6830_read_device_sid(uint8_t tIC, cell_asic* ic);
 void adBms6830_set_reset_gpio_pins(uint8_t tIC, cell_asic* ic);
 void adBms6830_enable_mute(uint8_t tIC, cell_asic* ic);
@@ -127,7 +128,8 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data);
 void adBms_main_run(volatile CAN_Inputs_t* can_data, GPIO_Info_t* gpio_data);
 
 // SOC Functions
-void adBms6830_soc_run(volatile CAN_Inputs_t* can_data);
+void adBms6830_soc_run(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,
+                       SegmentData_t* localSegment);
 void adBms6830_soc_init(void);
 void adBms6830_soc_update(int cic, int cell, float cell_voltage, float pack_current,
                           float cell_temp);
