@@ -27,6 +27,7 @@ and its licensor.
 #include "adbms_main.h"
 #include "common_types.h"
 #include "kalman_soc.h"
+#include "main.h"
 
 #define TOTAL_IC 6
 
@@ -125,7 +126,8 @@ void adBms6830_read_rdasall_voltage(uint8_t tIC, cell_asic* ic);
 
 // Main Functions
 void adbms_main_init(volatile CAN_Inputs_t* can_data);
-void adBms_main_run(volatile CAN_Inputs_t* can_data, GPIO_Info_t* gpio_data);
+void adBms_main_run(volatile CAN_Inputs_t* can_data, GPIO_Info_t* gpio_data,
+                    Mutex_Struct_t* mutex_struct);
 
 // SOC Functions
 void adBms6830_soc_run(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,

@@ -11,6 +11,7 @@
 #include "adBms6830CmdList.h"
 #include "adBms6830GenericType.h"
 #include "adbms_main.h"
+#include "cmsis_os2.h"
 #include "common.h"
 #include "common_types.h"
 #include "main.h"
@@ -502,7 +503,8 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
     // printf("Configuration Written. Starting loop.\r\n");
 }
 
-void adBms_main_run(volatile CAN_Inputs_t* can_data, GPIO_Info_t* gpio_data) {
+void adBms_main_run(volatile CAN_Inputs_t* can_data, GPIO_Info_t* gpio_data,
+                    Mutex_Struct_t* mutex_struct) {
     TotalPack_t localPack;
     SegmentData_t localSegment[TOTAL_MODULES];
     GPIO_Info_t local_gpio;
@@ -513,6 +515,22 @@ void adBms_main_run(volatile CAN_Inputs_t* can_data, GPIO_Info_t* gpio_data) {
     Update_BMS_OK_Output(gpio_data,
                          &localSegment);  // drives PC9 (BMS fault) based on PackSegments + charger
     adBms6830_soc_run(can_data, &localPack, &localSegment);  // update SOC
+
+    osMutexAcquire(mutex_struct->total_pack_key, osWaitForever);
+    TotalPack = localPack;
+    osMutexRelease(mutex_struct->total_pack_key);
+
+    osMutexAcquire(mutex_struct->pack_segments_key, osWaitForever);
+    PackSegments = localSegment;
+    osMutexRelease(mutex_struct->pack_segments_key);
+
+    osMutexAcquire(mutex_struct->gpio_data_key, osWaitForever);
+    gpio_data = local_gpio;
+    osMutexRelease(mutex_struct->gpio_data_key);
+
+    osMutexAcquire(mutex_struct->soc_estimate_key, osWaitForever);
+    g_soc_estimate = local_g_soc_estimate;
+    osMutexRelease(mutex_struct->soc_estimate_key);
 }
 
 // SOC Run, called in main BMS loop

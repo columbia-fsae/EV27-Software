@@ -19,10 +19,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
+#include "adBms6830Data.h"
 #include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -30,7 +32,9 @@
 #include "adc_management.h"
 #include "bsm.h"
 #include "can_management.h"
+#include "cmsis_os2.h"
 #include "common.h"
+#include "common_types.h"
 #include "gpio_management.h"
 /* USER CODE END Includes */
 
@@ -280,6 +284,8 @@ int main(void) {
     bsm_init(&bsm);
 
     adbms_main_init(&can_data);
+
+    Mutex_Struct_t mutex_struct;
     /* USER CODE END 2 */
 
     /* Init scheduler */
@@ -308,6 +314,14 @@ int main(void) {
 
     /* USER CODE BEGIN RTOS_MUTEX */
     /* add mutexes, ... */
+    mutex_struct.bsm_key = bsm_keyHandle;
+    mutex_struct.gpio_data_key = gpio_data_keyHandle;
+    mutex_struct.adc_data_key = adc_data_keyHandle;
+    mutex_struct.soc_estimate_key = g_soc_estimate_keyHandle;
+    mutex_struct.pack_segments_key = PackSegments_keyHandle;
+    mutex_struct.total_pack_key = TotalPack_keyHandle;
+    mutex_struct.error_info_key = error_info_keyHandle;
+
     /* USER CODE END RTOS_MUTEX */
 
     /* USER CODE BEGIN RTOS_SEMAPHORES */
@@ -998,9 +1012,13 @@ GETCHAR_PROTOTYPE {
 /* USER CODE END Header_Start_GPIO_Read */
 void Start_GPIO_Read(void* argument) {
     /* USER CODE BEGIN 5 */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        osMutexAcquire(gpio_data_keyHandle, osWaitForever);
+        GPIO_Read(&gpio_data);
+        osDelayUntil(curr_tick + GPIO_READ_TIME);
+        curr_tick += GPIO_READ_TIME;
     }
     /* USER CODE END 5 */
 }
@@ -1014,9 +1032,12 @@ void Start_GPIO_Read(void* argument) {
 /* USER CODE END Header_Start_BMS_Read */
 void Start_BMS_Read(void* argument) {
     /* USER CODE BEGIN Start_BMS_Read */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        adBms_main_run(&can_data, &gpio_data, &mutex_struct);
+        osDelayUntil(curr_tick + BMS_RUN_TIME);
+        curr_tick += BMS_RUN_TIME;
     }
     /* USER CODE END Start_BMS_Read */
 }
@@ -1030,9 +1051,12 @@ void Start_BMS_Read(void* argument) {
 /* USER CODE END Header_Start_BSM_Run */
 void Start_BSM_Run(void* argument) {
     /* USER CODE BEGIN Start_BSM_Run */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        bsm_run(&bsm, &gpio_data, &adc_data);
+        osDelayUntil(curr_tick + BSM_RUN_TIME);
+        curr_tick += BSM_RUN_TIME;
     }
     /* USER CODE END Start_BSM_Run */
 }
@@ -1048,6 +1072,7 @@ void Start_Error_CAN(void* argument) {
     /* USER CODE BEGIN Start_Error_CAN */
     /* Infinite loop */
     for (;;) {
+        error_can(&hfdcan1);
         osDelay(1);
     }
     /* USER CODE END Start_Error_CAN */
@@ -1064,6 +1089,7 @@ void Start_ADC_Read(void* argument) {
     /* USER CODE BEGIN Start_ADC_Read */
     /* Infinite loop */
     for (;;) {
+        adc_can(&adc_data, &hfdcan1);
         osDelay(1);
     }
     /* USER CODE END Start_ADC_Read */
@@ -1080,6 +1106,7 @@ void Start_BSM_CAN(void* argument) {
     /* USER CODE BEGIN Start_BSM_CAN */
     /* Infinite loop */
     for (;;) {
+        bsm_can(&bsm, &gpio_data, &hfdcan1);
         osDelay(1);
     }
     /* USER CODE END Start_BSM_CAN */

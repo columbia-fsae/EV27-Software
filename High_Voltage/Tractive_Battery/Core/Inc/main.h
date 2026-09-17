@@ -22,6 +22,7 @@
 #ifndef __MAIN_H
 #define __MAIN_H
 
+#include "common_types.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -129,6 +130,10 @@ void Error_Handler(void);
 #define CAN_Charger_Data_TSeg_1 23
 #define CAN_Charger_Data_TSeg_2 16
 
+#define GPIO_READ_TIME 10
+#define BMS_RUN_TIME 10
+#define BSM_RUN_TIME 10
+
 void reset_counter_init(void);
 
 // Reset counter definitions for software reset
@@ -142,6 +147,19 @@ extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 extern DMA_HandleTypeDef hdma_adc1;
 extern DMA_HandleTypeDef hdma_adc2;
+
+typedef struct MutexHolder {
+    osMutexId_t bsm_key;
+    osMutexId_t gpio_data_key;
+    osMutexId_t adc_data_key;
+    osMutexId_t soc_estimate_key;
+    osMutexId_t pack_segments_key;
+    osMutexId_t total_pack_key;
+    osMutexId_t error_info_key;
+} Mutex_Struct_t;
+
+extern Mutex_Struct_t mutex_struct;
+extern bsm_obj bsm;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus
