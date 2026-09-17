@@ -29,16 +29,16 @@ P.cla     = 3.1;        % C_L * A  [m^2]  (downforce coeff x frontal area)
 P.cp      = 0.4;        % aero balance: fraction of downforce on the FRONT axle
 
 % ---- Mass / environment (SET THESE to your car) ----
-P.m_total = 264;        % total mass incl. driver [kg]            
+P.m_total = 264;        % total mass incl. driver [kg]
 P.g       = 9.81;       % gravity [m/s^2]
 P.rho     = 1.20;       % air density [kg/m^3]
 
 % ---- Operating point used to set the MEAN corner loads ----
-P.V_op    = 15;         % representative cornering speed [m/s]     
-P.Ay      = 1.2;        % lateral accel at the operating point [g] 
+P.V_op    = 15;         % representative cornering speed [m/s]
+P.Ay      = 1.2;        % lateral accel at the operating point [g]
 
 % ---- Suspension / tyre vertical (per corner) ----
-P.m_u     = 5.7;         % unsprung mass per corner [kg]            
+P.m_u     = 5.7;         % unsprung mass per corner [kg]
 P.k_t     = 110e3;      % tyre vertical stiffness [N/m] (~90-130 N/mm) <-- CONFIRM
 P.zeta    = 0.7;       % body-mode damping ratio (held constant in sweep)
 
@@ -133,18 +133,18 @@ G0   = P.w_lat*muY0 + P.w_long*muX0;
 
 %% ===== Plots =================================================================
 % figure('Color','w','Position',[80 80 1100 760]);
-% 
+%
 % subplot(1,3,1);
 % plot(Fz_grid,muX,'-o','LineWidth',1.4); hold on; plot(Fz_grid,muY,'-s','LineWidth',1.4);
 % xline(mean(Fz_corner),'k--','mean Fz'); grid on;
 % xlabel('F_z [N]'); ylabel('peak \mu'); legend('\mu_x','\mu_y','Location','best');
 % title('1) Tyre load sensitivity (from model)');
-% 
+%
 % subplot(1,3,2);
 % plot(fride_f, mean(sig_Fz./Fz_corner,2)*100,'-','LineWidth',1.6); grid on;
 % xlabel('front ride freq [Hz]'); ylabel('\sigma_{Fz}/F_z  [%]');
 % title('2) CPL variation vs spring rate');
-% 
+%
 % subplot(1,3,3);
 % plot(fride_f,muX_car,'-','LineWidth',1.6); hold on;
 % plot(fride_f,muY_car,'-','LineWidth',1.6); grid on;

@@ -41,7 +41,7 @@ cla_of_rh = @(RH) interp1(RH_tab, -ClA_tab, ...
 RH_static = 1.1;
 
 % ---- Spring sweep: per-corner WHEEL rates [N/m], both axles scaled together
-kw_f0 = 30e3;  kw_r0 = 30e3;            
+kw_f0 = 30e3;  kw_r0 = 30e3;
 scale = linspace(0.5, 2.3, 22);
 
 % ---- Vertical tyre / unsprung
@@ -134,7 +134,7 @@ fprintf('\nOptimum: scale %.2f (f_ride %.2f Hz, RH_op %.2f) -> autox %.3fs\n',..
 % plot(RH_op(iopt),cla_eff(iopt),'rp','MarkerFaceColor','r','MarkerSize',12);
 % xlabel('ride height (native)'); ylabel('CLA (downforce +)');
 % title('Your map + optimum operating pt');
-% 
+%
 % subplot(1,3,2); hold on; grid on;       % the two channels
 % yyaxis left;  plot(fride,g_mech,'-o','LineWidth',1.6); ylabel('g_{mech} (lat grip mult)');
 % yyaxis right; plot(fride,cla_eff,'-s','LineWidth',1.6); ylabel('effective CLA');

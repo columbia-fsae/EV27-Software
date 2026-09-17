@@ -1,14 +1,14 @@
 %% Setup
 close all; clear
-m = 264; % 
-m_s = m - 14; 
+m = 264; %
+m_s = m - 14;
 g = 9.81;   % gravitational accel
 w = m*g;    % vehicle weight in N
 frontbias = 0.5;         % percent of longitudinal weight distribution - front
 rearbias  = 1-frontbias; % percent of longitudinal weight distribution - rear
 
 h_RH = 0.04; %
-% antidive = 0.14; 
+% antidive = 0.14;
 
 frontweight = w*frontbias; % weight on front axle
 rearweight = w*rearbias;   % weight on rear axle
@@ -67,7 +67,7 @@ rg = (w*H)/kphi_sum*180/pi;
 w_static_f = w * frontbias/2;
 w_static_r = w * (1 - frontbias)/2;
 SR_list = linspace(0, 0.4, 30);
-v = 20; 
+v = 20;
 ax_max = 0;
 cp = 0.45; % maybe 20% shift forward (max?) according to william, ignore migration for now??
 cla = 3.121;
@@ -109,7 +109,7 @@ long_moment_elastic = ax_braking * w * (cgh) * 0.86 - F_drag * cp_z * 0.86;
 long_LT = long_moment_elastic/wb;
 
 braking_travel_f = (long_LT + F_df_f)/kr_f; % assuming dampers have 0 mass
-braking_travel_r = (long_LT - F_df_r)/kr_r; % flip sign 
+braking_travel_r = (long_LT - F_df_r)/kr_r; % flip sign
 
 spring_compression_f = braking_travel_f * mr_f;
 spring_compression_tot = spring_compression_f + w/4/kr_f;
@@ -117,7 +117,7 @@ spring_compression_tot = spring_compression_f + w/4/kr_f;
 l_fw = 0.8782; % distance of frontmost fw to front axle
 FBH_travel = braking_travel_f + l_fw * (braking_travel_f + braking_travel_r)/wb;
 pitch_angle = rad2deg(atan((braking_travel_f + braking_travel_r)/wb));
-pitch_gradient = pitch_angle/ax_braking; % assuming linearity 
+pitch_gradient = pitch_angle/ax_braking; % assuming linearity
 h_FBH = (h_RH - FBH_travel) * 1000; % height of FBH above ground in mm
 fprintf('FW height above ground under full braking: %f mm \n', h_FBH)
 

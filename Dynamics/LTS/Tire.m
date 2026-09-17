@@ -59,4 +59,3 @@ classdef Tire
         end
     end
 end
-          

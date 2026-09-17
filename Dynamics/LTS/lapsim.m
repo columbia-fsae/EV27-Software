@@ -17,7 +17,7 @@ function sim = lapsim(track, car)
 end
 
 function [dx, xx, vv] = base_sim(track, car)
-    fprintf("Simulating %s\n", track.description)    
+    fprintf("Simulating %s\n", track.description)
     N = length(track.segments.lengths);
     cumlength = cumsum(track.segments.lengths);
     total_length = cumlength(end);
@@ -170,7 +170,7 @@ function [long_error, lateral_error] = steady_state_limit(track, car, k, v, a)
     lateral_error = (yf + yr) - abs(Fy);
     rear_lateral_necessary = max(0, abs(Fy) - yf);
     rear_long_available = sqrt(max(0, 1 - (rear_lateral_necessary / yr)^2));
-    
+
     long_error = rear_long_available * xr - Fx;
 end
 
@@ -211,7 +211,7 @@ function a = max_brake(track, car, k, v, limit)
 
     mux = effective_mux(track, car, k, v, limit);
     %mux = car.tires.model.mux() * car.tires.factor_x;
-    
+
     a = (-mux * (car.mass * 9.806 + downforce) - drag) / car.mass; % for now
 end
 
@@ -251,7 +251,7 @@ function [fr, rr, rl, fl] = corner_weights(car, Mx, My, Fz)
         1    1    1   1;   % Fz = sum corners
         rlt -flt flt -rlt  % 0 = rlltd * lltf - flltd * lltr
     ];
-    
+
     corners = M \ [Mx; My; Fz; 0];
 
     fr = corners(1);
@@ -262,7 +262,7 @@ end
 
 %% Statistics
 function [dt, tt, splits] = laptime(dx, xx, vv, track)
-    cumlength = cumsum(track.segments.lengths);    
+    cumlength = cumsum(track.segments.lengths);
     tt = 0 * xx;
     dt = 0 * xx;
     splits = 0 * track.segments.lengths;
@@ -275,13 +275,13 @@ function [dt, tt, splits] = laptime(dx, xx, vv, track)
 end
 
 function stats = calculate_power(track, car, ii, xx, vv, dt, tt, time)
-    cumlength = cumsum(track.segments.lengths);    
+    cumlength = cumsum(track.segments.lengths);
     stats.ptraction = xx * 0;
     stats.pbrakes = xx * 0;
     stats.pdrag = xx * 0;
     stats.pkinetic = xx * 0;
     stats.pelectric = xx * 0;
-    stats.pmotor = xx * 0;  
+    stats.pmotor = xx * 0;
     stats.tmotor = xx * 0;
     stats.wmotor = vv / car.tires.radius * car.drive.ratio;
     stats.ax = xx * 0;

@@ -69,22 +69,22 @@ classdef YMDSolver
             % Sweep parameters
             delta_isolist = linspace(-10, 10, 20); % steering angle (degrees) # changed to get rid of weird lines?
             beta_isolist = linspace(-5, 5, 20);     % sideslip angle (degrees)
-            
+
             % % Check if we need combined slip (ax_target != 0)
             % % NOTE: Combined slip requires Fx() and Fy_combined() methods in tire model
             % use_combined_slip = (abs(ax_target) > 1e-6);
-            % 
+            %
             % if use_combined_slip
             %     warning('Combined slip requested but tire model lacks Fx() and Fy_combined() methods. Using pure lateral only.');
             %     use_combined_slip = false;
             % end
-            
+
             % Plot Beta Isolines (constant beta, varying delta)
             for beta = beta_isolist
                 ay_list = zeros(1, length(delta_isolist));
                 Mz_list = zeros(1, length(delta_isolist));
                 ay_idx = 1;
-                
+
                 for delta = delta_isolist
                     [ay_converged, Mz_converged] = obj.solve_combined_slip(beta, delta);
                     fprintf("delta = %.2f ", delta)
@@ -92,33 +92,33 @@ classdef YMDSolver
                     Mz_list(ay_idx) = Mz_converged;
                     ay_idx = ay_idx + 1;
                 end
-                
+
                 plot(ay_list, Mz_list, 'Color', color, 'LineWidth', 1.5)
                 hold on
-        
+
                 % text(ay_list(end), Mz_list(end), ...
                 %  sprintf('\\beta = %.1f°', beta), ...
                 %  'Color', color, ...
                 %  'FontSize', 8)
             end
-            
+
             % Plot Delta Isolines (constant delta, varying beta)
             for delta = delta_isolist
                 ay_list = zeros(1, length(beta_isolist));
                 Mz_list = zeros(1, length(beta_isolist));
                 ay_idx = 1;
-                
+
                 for beta = beta_isolist
                     [ay_converged, Mz_converged] = obj.solve_combined_slip(beta, delta);
-                    fprintf("beta = %.2f ", beta)            
+                    fprintf("beta = %.2f ", beta)
                     ay_list(ay_idx) = ay_converged;
                     Mz_list(ay_idx) = Mz_converged;
                     ay_idx = ay_idx + 1;
                 end
-                
+
                 plot(ay_list, Mz_list, 'Color', color, 'LineWidth', 1.5)
                 hold on
-        
+
                 % text(ay_list(end), Mz_list(end), ...
                 %  sprintf('\\delta = %.1f°', delta), ...
                 %  'Color', color, ...
@@ -128,7 +128,7 @@ classdef YMDSolver
             xlabel("A_y/g", "FontSize",14)
             ylabel("Mz/Nm", "FontSize",14)
         end
-        
+
         %% control & stability derivatives
         function [N_beta, N_delta] = cs_derivatives(obj, beta, delta)
             d_beta = 0.01;
@@ -142,36 +142,36 @@ classdef YMDSolver
             N_beta = (mz_beta_f - mz_beta_i)/d_beta;
             N_delta = (mz_delta_f - mz_delta_i)/d_delta;
         end
-        
+
         %% Combined slip solver
         function [ay_converged, Mz_converged, FY_vehicle_frame, FZ] = solve_combined_slip(obj, beta, delta)
-            
+
             ay_current = 1;  % initial guess
             diff_ay = 1;
-            
+
             % Slip ratio search range
             if obj.ax_target < 0
                 sr_range = linspace(-0.11, 0, 100);  % braking
             else
                 sr_range = linspace(0, 0.11, 100);   % accelerating
             end
-        
+
             iter = 0;
             max_iter = 400;
 
-            chi = 1/obj.b_bias - 1; % defined so that f_r = chi * f_f for braking torque, so don't do 0% brake bias 
+            chi = 1/obj.b_bias - 1; % defined so that f_r = chi * f_f for braking torque, so don't do 0% brake bias
 
             pure_lateral = abs(obj.ax_target) < 1e-6; % no longitudinal target -> SR stays zero, skip the sr scan
-            
+
             while diff_ay > 1e-3 && iter < max_iter
                 % Longitudinal load transfer
                 longLT = obj.w * obj.ax_target * obj.cgh / obj.wb;
-                
+
                 % Lateral load transfer
                 LLT = obj.w * ay_current * obj.cgh / obj.tw;
                 F_LLT = obj.FLLTD * LLT;
                 R_LLT = LLT - F_LLT;
-                
+
                 % Vertical loads (static + lateral + longitudinal + aero)
                 Fz_fl = obj.w_static_f + F_LLT - longLT / 2 + obj.F_df_f / 2;
                 Fz_fr = obj.w_static_f - F_LLT - longLT / 2 + obj.F_df_f / 2;
@@ -179,11 +179,11 @@ classdef YMDSolver
                 Fz_rr = obj.w_static_r - R_LLT + longLT / 2 + obj.F_df_r / 2;
                 FZ = [Fz_fl, Fz_fr, Fz_rl, Fz_rr];
                 FZ = max(FZ, 0); % clamp: a lifted/unloaded tire makes ~0 force, not sign-flipped force
-                
+
                 Delta = [delta - obj.toe_f, delta + obj.toe_f, -obj.toe_r, obj.toe_r];
                 r_target = ay_current * obj.g / (obj.v * cos(deg2rad(beta))); % ay_current is in g's -> convert to m/s^2 for physical yaw rate
                 Alpha = YMDSolver.slip_ang(beta, obj.v, r_target, Delta(1), Delta(2), Delta(3), Delta(4), obj.a, obj.b, obj.tw);
-                
+
                 best_sr = 0;
                 min_ax_error = inf;
 
@@ -193,9 +193,9 @@ classdef YMDSolver
                     for sr_test = sr_range
                         if sr_test < 0
                             % in the case of braking, sr_test is sr_front
-                            sr_rear_test = chi * sr_test; 
-                            SR = [sr_test, sr_test, sr_rear_test, sr_rear_test]; 
-                        else 
+                            sr_rear_test = chi * sr_test;
+                            SR = [sr_test, sr_test, sr_rear_test, sr_rear_test];
+                        else
                             SR = [0, 0, sr_test, sr_test];
                         end
 
@@ -226,19 +226,19 @@ classdef YMDSolver
                 else
                     SR = [0, 0, best_sr, best_sr];
                 end
-        
+
                 FX_vehicle_frame = zeros(1, 4);
                 FY_vehicle_frame = zeros(1, 4);
-                
+
                 for tire_idx = 1:4
                     [fx, fy, ~, ~, ~, ~] = brushTireForce(SR(tire_idx), deg2rad(Alpha(tire_idx)), -FZ(tire_idx));
                     % fprintf("slip angle is %.2f deg \n", Alpha(tire_idx));
                     % fprintf("fy at tire is %.2f N \n", fy);
                     FY_vehicle_frame(tire_idx) = fx * sin(deg2rad(Delta(tire_idx))) + (-fy) * cos(deg2rad(Delta(tire_idx))); % newton's 3rd
                     % fprintf("tire %d produce fy_veh of %.2f N with slip angle %.2f \n", tire_idx, FY_vehicle_frame(tire_idx), Alpha(tire_idx));
-                    FX_vehicle_frame(tire_idx) = fx * cos(deg2rad(Delta(tire_idx))) - (-fy) * sin(deg2rad(Delta(tire_idx))); 
+                    FX_vehicle_frame(tire_idx) = fx * cos(deg2rad(Delta(tire_idx))) - (-fy) * sin(deg2rad(Delta(tire_idx)));
                 end
-                
+
                 ay_new = sum(FY_vehicle_frame) / obj.w;
                 % fprintf("fy_total is %.2f \n", sum(FY_vehicle_frame));
                 diff_ay = abs(ay_new - ay_current);
@@ -246,12 +246,12 @@ classdef YMDSolver
                 ay_current = lambda * ay_new + (1 - lambda) * ay_current;
                 iter = iter + 1;
             end
-            
+
             % disp("Fz and Fy");
             % disp(FZ);
             % disp(FY_vehicle_frame);
 
-        
+
             if iter >= max_iter
                 warning('ay solver did not converge');
             % else
@@ -266,11 +266,11 @@ classdef YMDSolver
                 Mz_converged = nan;
                 return
             end
-            
+
             Mz = (FY_vehicle_frame(1) + FY_vehicle_frame(2)) * obj.a - ...
                  (FY_vehicle_frame(3) + FY_vehicle_frame(4)) * obj.b +  ...
                  (FX_vehicle_frame(1) + FX_vehicle_frame(3) - FX_vehicle_frame(2) - FX_vehicle_frame(4)) * obj.tw/2;
-            
+
             ay_converged = ay_current;
             Mz_converged = Mz;
         end
@@ -282,13 +282,13 @@ classdef YMDSolver
             beta_rad = deg2rad(beta);
             ydot = v * sin(beta_rad);
             xdot = v * cos(beta_rad);
-            
+
             alpha_fl = atan((ydot + a * r) / (xdot + r * tw / 2)) - deg2rad(delta_fl);
             alpha_fr = atan((ydot + a * r) / (xdot - r * tw / 2)) - deg2rad(delta_fr);
             alpha_rl = atan((ydot - b * r) / (xdot + r * tw / 2)) - deg2rad(delta_rl);
             alpha_rr = atan((ydot - b * r) / (xdot - r * tw / 2)) - deg2rad(delta_rr);
-            
+
             alpha = rad2deg([alpha_fl, alpha_fr, alpha_rl, alpha_rr]);
-        end 
+        end
     end
 end

@@ -7,7 +7,7 @@ function [xx, yy] = track_map(sim, channel)
 
     xx = zeros(size(sim.ii));
     yy = zeros(size(sim.ii));
-    
+
     for j=1:length(sim.ii)
         i = sim.ii(j);
         if sim.stats.k(i) == 0
@@ -19,10 +19,10 @@ function [xx, yy] = track_map(sim, channel)
 
             cx = x - radius * sin(theta);
             cy = y + radius * cos(theta);
-            
+
             x = cx + radius * sin(theta + delta_theta);
             y = cy - radius * cos(theta + delta_theta);
-            
+
             theta = theta + delta_theta;
         end
 
@@ -31,21 +31,21 @@ function [xx, yy] = track_map(sim, channel)
     end
 
     hold on;
-    
-    %I = imread('2025endurance_rot.png'); 
-    %h = image([-29,51.5],[-4.5,6.5],I); 
+
+    %I = imread('2025endurance_rot.png');
+    %h = image([-29,51.5],[-4.5,6.5],I);
     %uistack(h,'bottom')
-    
+
     grid on;
     daspect([1 1 1])
-    
+
     xticks(min(xx)-100:100:max(xx)+100);
     yticks(min(yy)-100:100:max(yy)+100);
     %fnplt(cscvn(xy), 'r', 2);
-    
+
     % hold off;
     % axis equal;
-    % 
+    %
     % %figure(2)
     % hold on;
     % axis equal;

@@ -6,7 +6,7 @@ P.cgh     = 0.247;      % CG height [m]
 
 
 % ---- Mass / environment (SET THESE to your car) ----
-P.m_total = 264;        % total mass incl. driver [kg]            
+P.m_total = 264;        % total mass incl. driver [kg]
 P.g       = 9.81;       % gravity [m/s^2]
 P.rho     = 1.20;       % air density [kg/m^3]
 
@@ -25,7 +25,7 @@ P.w_iso = 2.0;          % PSD waviness exponent
 P.n_lo  = 0.02;  P.n_hi = 12;  P.n_pts = 4000;   % spatial-freq integration grid
 
 
-P.m_u = 5.7;         % unsprung mass per corner [kg]            
+P.m_u = 5.7;         % unsprung mass per corner [kg]
 P.kw_front_base = 3.7843e4;
 P.m_s = P.m_total/4 - P.m_u;
 P.zeta = 0.3;
@@ -47,7 +47,7 @@ for x = sweep_arr
     % P.m_s = P.m_total/4 - P.m_u;
 
     sig_arr(i) = sigma_Fz(P.kw_front_base, P.m_s, P);
-    i = i + 1; 
+    i = i + 1;
 end
 
 set(groot, 'defaultAxesFontSize', 16)
@@ -61,7 +61,7 @@ ylabel("\sigma_{F_z}[N]", Rotation=0)
 title("Sensitivity of CPL Variation on Crit Damping %")
 
 %% Effective mu parameter sweep
-Fz_grid = linspace(100, 1600, 160);      
+Fz_grid = linspace(100, 1600, 160);
 k_sweep = linspace(0, 0.25, 60);        % slip-ratio sweep for longitudinal peak
 a_sweep = deg2rad(linspace(0, 14, 60)); % slip-angle  sweep for lateral peak
 

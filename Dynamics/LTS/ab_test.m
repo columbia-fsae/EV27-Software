@@ -12,7 +12,7 @@ carb = ev26b;
 % figure(Name="Acceleration");
 % plot_lap(sima, simb);
 % accel_times = arrayfun(@(s) s.time, accel)
-% 
+%
 % %% Skidpad Experiment
 % t = skid_event;
 % sima = lapsim(t, cara);
@@ -56,7 +56,7 @@ function plot_lap(sima, simb)
     hold on
     plot(simb.xx(simb.ii), simb.vv(simb.ii) * 3.6);
     hold off
-    
+
     subplot(M,N,P); P = P + 1;
     plot(sima.xx(sima.ii), sima.stats.pbrakes(sima.ii) * 1e-3);
     xlabel("Distance (m)")
@@ -65,7 +65,7 @@ function plot_lap(sima, simb)
     plot(simb.xx(simb.ii), simb.stats.pbrakes(simb.ii) * 1e-3);
     legend(["A" "B"])
     hold off
-    
+
     subplot(M,N,P); P = P + 1;
     plot(sima.xx(sima.ii), sima.stats.ptraction(sima.ii) * 1e-3);
     xlabel("Distance (m)")
@@ -73,7 +73,7 @@ function plot_lap(sima, simb)
     hold on
     plot(simb.xx(simb.ii), simb.stats.ptraction(simb.ii) * 1e-3);
     hold off
-    
+
     subplot(M,N,P); P = P + 1;
     plot(sima.xx(sima.ii), sima.stats.pelectric(sima.ii) * 1e-3);
     xlabel("Distance (m)")
@@ -81,7 +81,7 @@ function plot_lap(sima, simb)
     hold on
     plot(simb.xx(simb.ii), simb.stats.pelectric(simb.ii) * 1e-3);
     hold off
-    
+
     subplot(M,N,P); P = P + 1;
     plot(sima.xx(sima.ii), sima.stats.ax(sima.ii) / 9.806);
     xlabel("Distance (m)")
@@ -90,7 +90,7 @@ function plot_lap(sima, simb)
     hold on
     plot(simb.xx(simb.ii), simb.stats.ax(simb.ii) / 9.806);
     hold off
-    
+
     subplot(M,N,P); P = P + 1;
     plot(sima.xx(sima.ii), sima.stats.ay(sima.ii) / 9.806);
     xlabel("Distance (m)")
