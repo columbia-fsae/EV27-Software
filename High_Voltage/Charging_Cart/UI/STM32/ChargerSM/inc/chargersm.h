@@ -5,16 +5,8 @@
 #include <stdint.h>
 
 #include "can.h"
+#include "chargersm_config.h"
 #include "stm32f0xx_hal.h"
-
-#define CHARGE_WAIT 600000
-#define WAIT 10000
-#define BALANCING_THRESH 0.9f
-#define BALANCING_THRESH_MIN 0.85f
-
-#define BSM_TIMEOUT 5000
-#define ELCON_TIMEOUT 5000
-#define CELL_V_LIMIT 4200  // in mv
 
 #ifdef __cplusplus
 extern "C" {
@@ -52,7 +44,6 @@ typedef struct {
     bool charging;
 } chargersm_obj;
 
-#define NUM_FAULTS 11
 // error_flags:
 // bits 0-4: elcon faults (see datasheet)
 // bit 5: Elcon CAN Timeout

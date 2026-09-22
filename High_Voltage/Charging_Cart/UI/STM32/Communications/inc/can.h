@@ -4,50 +4,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "can_config.h"
 #include "main.h"
 #include "stm32f0xx_hal.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#define TOTAL_IC 12
-#define TOTAL_SEGMENTS (TOTAL_IC / 2)  // E.g., 12 ICs = 6 Segments
-#define TOTAL_MODULES 144
-#define MOD_PER_SEG 24
-#define MAX_CURRENT 250.0f
-
-// Send Errors
-#define CHARGER_TO_PACK_ERROR 0
-
-// Receive Errors
-#define CAN_RECEPTION_ERROR 0
-#define CAN_NOTIFICATION_ERROR 1
-#define ADC_ERROR 2
-
-// Init and STM Errors
-#define INIT_CAN_SEND_ERROR 0
-#define INIT_ERROR 1
-
-// CAN IDS
-#define CAN_ID_BSM 2
-
-#define CAN_ID_BMS_DATA_START 200
-#define CAN_ID_BMS_DATA_END 235
-
-#define CAN_ID_BATTERY_PACK 236
-#define CAN_ID_BMS_STATS 237
-#define CAN_ID_BMS_AVGS 238
-#define CAN_ID_SOC_PACK 240
-
-#define CAN_ID_SOC_DATA_START 241
-#define CAN_ID_SOC_DATA_END 258
-
-#define CAN_ID_CHARGING_TO_ELCON 0x1806E7F4  // These should either be E5, E7, E8, or E9
-#define CAN_ID_ELCON_TO_CHARGING 0x18FF50E7
-
-#define CAN_CHARGING_TO_PACK 20
-#define CAN_ID_CHARGER_ERRORS 21
 
 typedef struct {
     volatile uint8_t maxTempVal, minTempVal, maxVoltVal, minVoltVal, nomTempVal, nomVoltVal;

@@ -19,7 +19,6 @@ and its licensor.
 #include "mcuWrapper.h"
 
 #include "common.h"
-#define WAKEUP_DELAY 1 /* BMS ic wakeup delay  */
 #define TIM_EN 0
 
 #ifdef MBED
@@ -198,10 +197,6 @@ uint32_t getTimCount() {
 
 #else
 
-#define SPI_TIME_OUT 500            /* SPI Time out delay   */
-#define UART_TIME_OUT HAL_MAX_DELAY /* UART Time out delay  */
-#define I2C_TIME_OUT HAL_MAX_DELAY  /* I2C Time out delay   */
-
 SPI_HandleTypeDef* hspi = &hspi1; /* MUC SPI Handler      */
 extern UART_HandleTypeDef huart2;
 UART_HandleTypeDef* huart = &huart2; /* MUC UART Handler     */
@@ -292,7 +287,7 @@ void spiWriteReadBytes(
     uint8_t* rx_data, /*Input: array that will store the data read by the SPI port*/
     uint16_t size     /*Option: number of bytes*/
 ) {
-    HAL_SPI_Transmit(hspi, tx_data, 4, SPI_TIME_OUT);
+    HAL_SPI_Transmit(hspi, tx_data, ADBMS_CMD_HEADER_BYTES, SPI_TIME_OUT);
     HAL_SPI_Receive(hspi, rx_data, size, SPI_TIME_OUT);
 }
 
