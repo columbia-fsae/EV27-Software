@@ -1,0 +1,53 @@
+name: Auto-open PR on new branch
+
+# Fires when a new branch is first pushed to the remote (the "create" event,
+# not every subsequent push) and opens a pull request for it against the
+# default branch, pre-filled with .github/pull_request_template.md.
+#
+# Skips:
+#   - the default branch itself
+#   - branches that already have an open/closed PR (e.g. re-pushed after
+#     the branch was deleted and recreated)
+#   - branches with no commits ahead of base yet (created but nothing
+#     pushed to them)
+
+on:
+  create
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  open-pr:
+    if: github.event.ref_type == 'branch' && github.event.ref != github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Open pull request from template
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_BRANCH: ${{ github.event.ref }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          EXISTING=$(gh pr list --head "$HEAD_BRANCH" --base "$BASE_BRANCH" --state all --json number --jq '.[0].number')
+          if [[ -n "$EXISTING" ]]; then
+            echo "PR #$EXISTING already exists for '$HEAD_BRANCH', skipping."
+            exit 0
+          fi
+
+          AHEAD=$(git rev-list --count "origin/${BASE_BRANCH}..origin/${HEAD_BRANCH}")
+          if [[ "$AHEAD" -eq 0 ]]; then
+            echo "'$HEAD_BRANCH' has no commits ahead of '$BASE_BRANCH' yet, skipping."
+            exit 0
+          fi
+
+          gh pr create \
+            --head "$HEAD_BRANCH" \
+            --base "$BASE_BRANCH" \
+            --title "$HEAD_BRANCH" \
+            --body-file .github/pull_request_template.md

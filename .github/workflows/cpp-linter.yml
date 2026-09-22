@@ -15,7 +15,8 @@ name: C/C++ Lint
 # keep those in sync with the same-named hooks in .pre-commit-config.yaml.
 #
 # To add a new CubeMX/CMake project: add a filter entry under `changes.filter`
-# below, and a matching `project`/`path` pair in `lint.strategy.matrix.include`.
+# below, and a matching `project`/`path` pair in the `changes` job's
+# "Build project/path matrix" step.
 
 on:
   push:
@@ -29,7 +30,7 @@ jobs:
   changes:
     runs-on: ubuntu-latest
     outputs:
-      matrix: ${{ steps.filter.outputs.changes }}
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -47,6 +48,40 @@ jobs:
               - '.clang-tidy'
               - '.github/workflows/cpp-linter.yml'
 
+      # dorny/paths-filter only tells us WHICH projects changed, as a list of
+      # names. Build the {project, path, ignore} triples the lint matrix
+      # actually needs here, so only changed projects appear in the matrix.
+      # Feeding a static `include:` list alongside a dynamic `project:` array
+      # (the previous approach) doesn't work: GitHub Actions adds any
+      # `include` entry whose keys don't match an existing combination as a
+      # BRAND NEW job, instead of dropping it — so every project in `include`
+      # always ran, regardless of what actually changed.
+      #
+      # `ignore` is every OTHER known project's path, joined with `.github`.
+      # cpp-linter-action's files-changed-only fetches the WHOLE PR's changed
+      # files (not just this job's matrix.path), so without this, a PR that
+      # touches both projects' files — or just .clang-format/cpp-linter.yml,
+      # which puts every project in the matrix — has each job linting the
+      # other project's files too, against its own (wrong) compile database.
+      - name: Build project/path matrix
+        id: build-matrix
+        run: |
+          all_paths='High_Voltage/Tractive_Battery|High_Voltage/Charging_Cart/UI/STM32'
+          matrix='[]'
+          if [ "${{ steps.filter.outputs.Tractive_Battery }}" = "true" ]; then
+            path='High_Voltage/Tractive_Battery'
+            ignore=".github|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
+              '. + [{"project":"Tractive_Battery","path":$path,"ignore":$ignore}]')
+          fi
+          if [ "${{ steps.filter.outputs.Charging_Cart_UI }}" = "true" ]; then
+            path='High_Voltage/Charging_Cart/UI/STM32'
+            ignore=".github|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
+              '. + [{"project":"Charging_Cart_UI","path":$path,"ignore":$ignore}]')
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   # ──────────────── Lint changed firmware projects ────────────────
   lint:
     needs: changes
@@ -56,12 +91,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: ${{ fromJSON(needs.changes.outputs.matrix) }}
-        include:
-          - project: Tractive_Battery
-            path: High_Voltage/Tractive_Battery
-          - project: Charging_Cart_UI
-            path: High_Voltage/Charging_Cart/UI/STM32
+        include: ${{ fromJSON(needs.changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -89,6 +119,17 @@ jobs:
           tidy-checks: ''        # use repo-root .clang-tidy
           database: ${{ matrix.path }}/build/Debug
           files-changed-only: true
+          # Only gate on lines this PR actually touches, not pre-existing
+          # findings elsewhere in a changed file. To see every clang-tidy
+          # finding in a file regardless of what changed (e.g. to work
+          # through legacy findings as their own effort, outside any PR):
+          #   pip install clang-tidy==21.1.6
+          #   cmake --preset Debug   (from the project's directory, e.g.
+          #                          High_Voltage/Charging_Cart/UI/STM32)
+          #   clang-tidy -p <project>/build/Debug <path/to/file.cpp>
+          # (picks up the repo-root .clang-tidy automatically)
+          lines-changed-only: true
+          ignore: ${{ matrix.ignore }}
           thread-comments: ${{ github.event_name == 'pull_request' && 'update' || false }}
           step-summary: true
 

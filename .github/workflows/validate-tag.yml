@@ -1,0 +1,52 @@
+name: Validate tag format
+
+# Runs whenever a tag is pushed. Fails the run if the tag name does not
+# match the required format:  v<major>.<minor>.<patch>-<YYYY>-<MM>-<DD>
+# Example of a valid tag:  v1.0.0-2026-09-15
+#
+# Unlike a ruleset regex, this also checks that the date is a REAL calendar
+# date (rejects things like 2026-13-45).
+
+on:
+  push:
+    tags:
+      - '**'   # trigger on every tag; the script decides pass/fail
+
+permissions:
+  contents: read
+
+jobs:
+  check-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate tag name
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          echo "Checking tag: $TAG"
+
+          # 1) Structural check: v1.2.3-YYYY-MM-DD
+          PATTERN='^v[0-9]+\.[0-9]+\.[0-9]+-[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+          if [[ ! "$TAG" =~ $PATTERN ]]; then
+            echo "::error::Tag '$TAG' does not match required format vMAJOR.MINOR.PATCH-YYYY-MM-DD (e.g. v1.0.0-2026-09-15)."
+            exit 1
+          fi
+
+          # 2) Extract the date part (last 10 chars: YYYY-MM-DD)
+          DATE_PART="${TAG: -10}"
+
+          # 3) Real-calendar-date check using GNU date.
+          #    'date -d' fails on impossible dates like 2026-02-30 or 2026-13-01.
+          if ! date -d "$DATE_PART" >/dev/null 2>&1; then
+            echo "::error::Tag '$TAG' has an invalid calendar date '$DATE_PART'."
+            exit 1
+          fi
+
+          # 4) Guard against date normalization (e.g. 2026-02-29 -> 2026-03-01).
+          #    Re-format the parsed date and compare it back to the input.
+          NORMALIZED="$(date -d "$DATE_PART" +%Y-%m-%d)"
+          if [[ "$NORMALIZED" != "$DATE_PART" ]]; then
+            echo "::error::Tag '$TAG' contains a non-existent date '$DATE_PART' (normalizes to '$NORMALIZED')."
+            exit 1
+          fi
+
+          echo "Tag '$TAG' is valid."

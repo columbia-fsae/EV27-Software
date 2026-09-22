@@ -23,10 +23,14 @@ repos:
     rev: v1.6.0
     hooks:
       - id: clang-format
-        args: [--style=file]
+        # Pinned to match cpp-linter.yml's CI version exactly — different
+        # clang-format majors can disagree on formatting for the same file
+        # and config, so an unpinned local hook silently drifts from CI.
+        args: [--style=file, --version=21]
       - id: clang-tidy
         # Needs a CMake compile_commands.json to resolve includes correctly,
         # which this repo only generates in the cpp-linter.yml CI workflow.
         # Run manually (`pre-commit run --hook-stage manual clang-tidy`)
         # after a `cmake --preset Debug` configure if you want it locally.
+        args: [--version=21]
         stages: [manual]

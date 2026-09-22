@@ -1,14 +1,20 @@
-#settings
+# settings
 .settings/
 
-#metadata
+# clangd local compile-db pointer (flips between build/Debug and build/Release)
+.clangd
+
+# metadata
 .metadata/
 
-#Debug
+# Debug
 Debug/
 debug/
 Release/
 release
+
+# Simulations
+output_data/
 
 # Prerequisites
 *.d
@@ -72,6 +78,10 @@ projectfiles
 __pycache__/
 mbed-os
 BUILD
+
+# Python virtual environments
+.venv/
+venv/
 
 # Windows default autosave extension
 *.asv
@@ -141,6 +151,7 @@ CMakeUserPresets.json
 # VS Code — ignore personal, keep shared project config
 .vscode/*
 !.vscode/settings.json
-!.vscode/c_cpp_properties.json
 !.vscode/launch.json
 !.vscode/extensions.json
+# c_cpp_properties.json is IDE-generated (STM32CubeIDE) and flips between
+# build/Debug and build/Release locally, so it's personal, not shared.
