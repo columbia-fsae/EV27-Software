@@ -1016,7 +1016,7 @@ void Start_GPIO_Read(void* argument) {
     /* Infinite loop */
     for (;;) {
         osMutexAcquire(gpio_data_keyHandle, osWaitForever);
-        GPIO_Read(&gpio_data);
+        GPIO_R ead(&gpio_data);
         osDelayUntil(curr_tick + GPIO_READ_TIME);
         curr_tick += GPIO_READ_TIME;
     }
