@@ -36,7 +36,7 @@ BS_:
 BU_: IOX_RR IOX_RL IOX_FR IOX_FL
 
 
-BO_ 37 M037_IMU: 3 Vector__XXX
+BO_ 37 M037_IMU: 4 Vector__XXX
  SG_ IMU_Angular_Rate : 16|16@1- (0.01,0) [-327.68|327.67] "" Vector__XXX
  SG_ IMU_Accel : 0|16@1- (0.01,0) [-327.68|327.67] "" Vector__XXX
 
@@ -228,13 +228,13 @@ BO_ 3 M003_Br_Temp_FL_3: 8 IOX_FL
  SG_ FL_Br_Temp_10 : 16|16@1+ (0.02,0) [0|1310.7] "" Vector__XXX
  SG_ FL_Br_Temp_9 : 0|16@1+ (0.02,0) [0|1310.7] "" Vector__XXX
 
-BO_ 2 M002_Br_Temp_FL_2: 2 IOX_FL
+BO_ 2 M002_Br_Temp_FL_2: 8 IOX_FL
  SG_ FL_Br_Temp_8 : 48|16@1+ (0.02,0) [0|1310.7] "" Vector__XXX
  SG_ FL_Br_Temp_7 : 32|16@1+ (0.02,0) [0|1310.7] "" Vector__XXX
  SG_ FL_Br_Temp_6 : 16|16@1+ (0.02,0) [0|1310.7] "" Vector__XXX
  SG_ FL_Br_Temp_5 : 0|16@1+ (0.02,0) [0|1310.7] "" Vector__XXX
 
-BO_ 1 M001_Br_Temp_FL_1: 7 IOX_FL
+BO_ 1 M001_Br_Temp_FL_1: 8 IOX_FL
  SG_ FL_Br_Temp_4 : 48|16@1+ (0.02,0) [0|1310.7] "" Vector__XXX
  SG_ FL_Br_Temp_3 : 32|16@1+ (0.02,0) [0|1310.7] "" Vector__XXX
  SG_ FL_Br_Temp_2 : 16|16@1+ (0.02,0) [0|1310.7] "" Vector__XXX

@@ -1,11 +1,11 @@
 *//////////////////////////////////////////////////////////////////////
 * (C) National Semiconductor, Inc.
 * Models developed and under copyright by:
-* National Semiconductor, Inc.  
+* National Semiconductor, Inc.
 
 */////////////////////////////////////////////////////////////////////
 * Legal Notice: This material is intended for free software support.
-* The file may be copied, and distributed; however, reselling the 
+* The file may be copied, and distributed; however, reselling the
 *  material is illegal
 
 *////////////////////////////////////////////////////////////////////
@@ -46,7 +46,7 @@
 *Low offset voltage =                 .5mV
 *Low supply current =                1.8mA
 *
-****************INPUT STAGE************** 
+****************INPUT STAGE**************
 *
 *IOS 2 1 25.0P
 IOS 2 1 0
@@ -61,7 +61,7 @@ J2 6 7 4 JX
 R3 5 50 650
 R4 6 50 650
 *Fp2=28 MHZ
-C4 5 6 4.372P 
+C4 5 6 4.372P
 *
 ***********COMMON MODE EFFECT***********
 *
@@ -121,4 +121,3 @@ D3  15 24 DX
 .MODEL JX PJF(BETA=1.183E-3 VTO=-.65 IS=50E-12)
 *
 .ENDS
-
