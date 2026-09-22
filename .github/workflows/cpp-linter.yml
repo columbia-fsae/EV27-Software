@@ -1,15 +1,12 @@
 name: C/C++ Lint
 
 # Runs clang-format + clang-tidy (via cpp-linter-action) against changed
-# firmware files only. The CPP Lint Gate job ALWAYS runs (so it's safe to
-# require in branch protection on every PR, not just firmware ones), while
+# firmware files only. The CPP Lint Gate job ALWAYS runs, while
 # the matrix lint job only runs for projects whose files actually changed.
 # Require "CPP Lint Gate" in branch protection — not "Lint <project>".
 #
 # Each project gets its own CMake configure step first so clang-tidy has a
-# real compile_commands.json to resolve includes from — without it, it can't
-# find STM32 HAL/CMSIS headers and produces spurious "file not found" errors
-# instead of real findings.
+# real compile_commands.json to resolve includes from
 #
 # Style/checks come from the repo-root .clang-format and .clang-tidy files —
 # keep those in sync with the same-named hooks in .pre-commit-config.yaml.
@@ -48,21 +45,16 @@ jobs:
               - '.clang-tidy'
               - '.github/workflows/cpp-linter.yml'
 
-      # dorny/paths-filter only tells us WHICH projects changed, as a list of
-      # names. Build the {project, path, ignore} triples the lint matrix
-      # actually needs here, so only changed projects appear in the matrix.
-      # Feeding a static `include:` list alongside a dynamic `project:` array
-      # (the previous approach) doesn't work: GitHub Actions adds any
-      # `include` entry whose keys don't match an existing combination as a
-      # BRAND NEW job, instead of dropping it — so every project in `include`
-      # always ran, regardless of what actually changed.
+      # dorny/paths-filter only tells us WHICH projects changed\
       #
       # `ignore` is every OTHER known project's path, joined with `.github`.
       # cpp-linter-action's files-changed-only fetches the WHOLE PR's changed
-      # files (not just this job's matrix.path), so without this, a PR that
-      # touches both projects' files — or just .clang-format/cpp-linter.yml,
-      # which puts every project in the matrix — has each job linting the
-      # other project's files too, against its own (wrong) compile database.
+      # files (not just this job's matrix.path)
+      #
+      # Each project's own $path/Drivers (vendor CMSIS/HAL) and
+      # $path/cmake/stm32cubemx (CubeMX-generated glue) are also ignored —
+      # same generated-code exclusion .pre-commit-config.yaml already
+      # applies
       - name: Build project/path matrix
         id: build-matrix
         run: |
@@ -70,13 +62,13 @@ jobs:
           matrix='[]'
           if [ "${{ steps.filter.outputs.Tractive_Battery }}" = "true" ]; then
             path='High_Voltage/Tractive_Battery'
-            ignore=".github|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            ignore=".github|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Tractive_Battery","path":$path,"ignore":$ignore}]')
           fi
           if [ "${{ steps.filter.outputs.Charging_Cart_UI }}" = "true" ]; then
             path='High_Voltage/Charging_Cart/UI/STM32'
-            ignore=".github|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            ignore=".github|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Charging_Cart_UI","path":$path,"ignore":$ignore}]')
           fi
@@ -100,6 +92,18 @@ jobs:
         with:
           release: '14.2.Rel1'
 
+      # --gcc-toolchain=<root> (passed to clang-tidy below via extra-arg)
+      # points it at the install so it picks the right multilib
+      # (cortex-m0 => armv6-m/nofp) automatically.
+      - name: Resolve ARM GCC toolchain root
+        id: arm-gcc-root
+        run: |
+          arm_cxx="$(command -v arm-none-eabi-g++)"
+          root="$(dirname "$(dirname "$arm_cxx")")"
+          echo "ARM C++ compiler: $arm_cxx"
+          echo "Toolchain root:   $root"
+          echo "root=$root" >> "$GITHUB_OUTPUT"
+
       - name: Install CMake and Ninja
         run: |
           sudo apt-get update
@@ -121,8 +125,7 @@ jobs:
           files-changed-only: true
           # Only gate on lines this PR actually touches, not pre-existing
           # findings elsewhere in a changed file. To see every clang-tidy
-          # finding in a file regardless of what changed (e.g. to work
-          # through legacy findings as their own effort, outside any PR):
+          # finding in a file regardless of what changed
           #   pip install clang-tidy==21.1.6
           #   cmake --preset Debug   (from the project's directory, e.g.
           #                          High_Voltage/Charging_Cart/UI/STM32)
@@ -132,6 +135,9 @@ jobs:
           ignore: ${{ matrix.ignore }}
           thread-comments: ${{ github.event_name == 'pull_request' && 'update' || false }}
           step-summary: true
+          # See "Resolve ARM GCC toolchain root" above — lets clang-tidy find
+          # arm-none-eabi-g++'s bundled <cstdio>/<cstdint>/etc.
+          extra-arg: --gcc-toolchain=${{ steps.arm-gcc-root.outputs.root }}
 
       - name: Fail on lint errors
         if: steps.linter.outputs.checks-failed > 0

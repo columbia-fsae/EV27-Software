@@ -1,7 +1,5 @@
 # Vendor/generated firmware code (STM32 CMSIS/HAL drivers, CubeMX glue) is
-# excluded from every hook below via this global pattern — it's not ours to
-# reformat, and running unscoped hooks against it once already reformatted
-# ~450 files repo-wide during setup.
+# excluded from every hook below via this global pattern
 exclude: '(^|/)(Drivers|build|Debug)/|/cmake/stm32cubemx/|\.(ld|ioc|s|S)$'
 
 repos:
@@ -10,7 +8,23 @@ repos:
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
+        # CAN .dbc files are never touched by reformatting hooks
+        exclude: '\.dbc$'
       - id: trailing-whitespace
+        exclude: '\.dbc$'
+
+  - repo: local
+    hooks:
+      - id: dbc-validate
+        name: Validate CAN .dbc files parse
+        description: >-
+          Parses every changed .dbc with cantools to catch malformed CAN
+          database syntax (unparseable BO_/SG_ defs, duplicate message IDs,
+          etc.) without ever rewriting the file.
+        entry: python3 -c "import sys, cantools; [cantools.database.load_file(f, strict=True) for f in sys.argv[1:]]"
+        language: python
+        additional_dependencies: ['cantools']
+        files: '\.dbc$'
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.4
