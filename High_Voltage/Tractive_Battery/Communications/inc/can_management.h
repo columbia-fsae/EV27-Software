@@ -14,6 +14,8 @@ typedef struct {
     uint8_t message_send_errors;
     uint8_t message_receive_errors;
     uint8_t message_init_send_errors;
+    uint8_t can_queue_errors;
+    uint8_t queue_info;
 } Errors;
 
 extern Errors error_info;
@@ -30,6 +32,7 @@ extern Errors error_info;
 
 // CAN Receive Errors Bits
 #define CAN_RECEPTION_ERROR 0
+// UNUSED:
 #define CAN_NOTIFICATION_ERROR 1
 #define ADC_ERROR 2
 
@@ -38,18 +41,24 @@ extern Errors error_info;
 // INIT Error
 #define INIT_ERROR 1
 
+// CAN Queue Errors
+#define QUEUE_ADD_FULL 0
+#define QUEUE_POP_EMPTY 1
+#define QUEUE_POP_ERROR 2
+
 // CAN IDS
-#define CAN_ID_BSM 2
-#define CAN_ID_PACK_SENSE 6
-#define CAN_ID_ERRORS 10
-#define CAN_ID_CHARGER 20
-#define CAN_ID_INVERTER_CURRENT 166
-#define CAN_ID_INVERTER_VOLTAGE 167
-#define CAN_ID_BMS_INIT 200
-#define CAN_ID_BMS_PACK 236
-#define CAN_ID_BMS_STATS 237
-#define CAN_ID_BMS_IDS 238
-#define CAN_ID_SOC_INIT 240
+#define CAN_ID_BSM ((uint16_t)2)
+#define CAN_ID_PACK_SENSE ((uint16_t)6)
+#define CAN_ID_ERRORS ((uint16_t)10)
+#define CAN_ID_CHARGER ((uint16_t)20)
+#define CAN_ID_INVERTER_CURRENT ((uint16_t)166)
+#define CAN_ID_INVERTER_VOLTAGE ((uint16_t)167)
+#define CAN_ID_BMS_INIT ((uint16_t)200)
+#define CAN_ID_BMS_PACK ((uint16_t)236)
+#define CAN_ID_BMS_STATS ((uint16_t)237)
+#define CAN_ID_BMS_IDS ((uint16_t)238)
+#define CAN_ID_SOC_STATS ((uint16_t)240)
+#define CAN_ID_SOC_INIT ((uint16_t)241)
 #define CAN_ID_ELCON_CURRENT 0x18FF50E7
 
 // ADC CAN Scalars
@@ -95,5 +104,27 @@ static inline int16_t clamp_i16(float value, float min, float max) {
     if (value < min) value = min;
     if (value > max) value = max;
     return (int16_t)value;
+}
+
+static uint8_t msg_to_error_bit(uint16_t id) {
+    if (id == CAN_ID_BSM) {
+        return (uint8_t)BSM_CAN_ERROR;
+    } else if (id == CAN_ID_BMS_PACK) {
+        return (uint8_t)BMS_CAN_PACK_ERROR;
+    } else if (id == CAN_ID_BMS_STATS) {
+        return (uint8_t)BMS_CAN_STATS_ERROR;
+    } else if (id == CAN_ID_BMS_IDS) {
+        return (uint8_t)BMS_CAN_IDS_ERROR;
+    } else if (id >= CAN_ID_BMS_INIT && id < CAN_ID_BMS_PACK) {
+        return (uint8_t)BMS_CAN_ERROR;
+    } else if (id == CAN_ID_SOC_STATS) {
+        return (uint8_t)SOC_CAN_PACK_ERROR;
+    } else if (id >= CAN_ID_SOC_INIT && id < 300) {
+        return (uint8_t)SOC_CAN_ERROR;
+    } else if (id == CAN_ID_PACK_SENSE) {
+        return (uint8_t)PACK_SENSE_ERROR;
+    } else {
+        return (uint8_t)0;
+    }
 }
 #endif

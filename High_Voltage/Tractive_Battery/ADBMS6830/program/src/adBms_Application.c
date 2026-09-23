@@ -146,7 +146,7 @@ static void Update_Charger_Status(void) {
     g_charger_present = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_6) == GPIO_PIN_SET);
 }
 
-static void Update_BMS_OK_Output(GPIO_Info_t* local_gpio_data, SegmentData_t* localSegments) {
+static void Update_BMS_OK_Output(TotalPack_t* local_pack, SegmentData_t* localSegments) {
     bool any_fault = false;
 
     // Check all segments for ANY fault flags
@@ -160,10 +160,10 @@ static void Update_BMS_OK_Output(GPIO_Info_t* local_gpio_data, SegmentData_t* lo
     // BMS_OK = 1 only if no faults.
     if (!any_fault) {
         HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);  // BMS_OK = High
-        local_gpio_data->bms_ok_OUT = true;
+        local_pack->bms_ok_OUT = true;
     } else {
         HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);  // BMS_OK = Low
-        local_gpio_data->bms_ok_OUT = false;
+        local_pack->bms_ok_OUT = false;
     }
 }
 
@@ -503,34 +503,23 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
     // printf("Configuration Written. Starting loop.\r\n");
 }
 
-void adBms_main_run(volatile CAN_Inputs_t* can_data, GPIO_Info_t* gpio_data,
-                    Mutex_Struct_t* mutex_struct) {
+void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struct) {
     TotalPack_t localPack;
     SegmentData_t localSegment[TOTAL_MODULES];
-    GPIO_Info_t local_gpio;
     SOC_Estimate local_g_soc_estimate[TOTAL_MODULES][TOTAL_CELLS];
+    CAN_Inputs_t local_can;
 
-    Update_Charger_Status();  // sample PC6, true if charger plugged in
-    measurement_loop(can_data, &localPack, &localSegment);  // reads ADBMS, updates PackSegments
-    Update_BMS_OK_Output(gpio_data,
+    copyWithMutex(mutex_struct->can_data_key, &local_can, &can_data)
+
+        Update_Charger_Status();  // sample PC6, true if charger plugged in
+    measurement_loop(&local_can, &localPack, &localSegment);  // reads ADBMS, updates PackSegments
+    Update_BMS_OK_Output(&localPack,
                          &localSegment);  // drives PC9 (BMS fault) based on PackSegments + charger
-    adBms6830_soc_run(can_data, &localPack, &localSegment);  // update SOC
+    adBms6830_soc_run(local_can, &localPack, &localSegment);  // update SOC
 
-    osMutexAcquire(mutex_struct->total_pack_key, osWaitForever);
-    TotalPack = localPack;
-    osMutexRelease(mutex_struct->total_pack_key);
-
-    osMutexAcquire(mutex_struct->pack_segments_key, osWaitForever);
-    PackSegments = localSegment;
-    osMutexRelease(mutex_struct->pack_segments_key);
-
-    osMutexAcquire(mutex_struct->gpio_data_key, osWaitForever);
-    gpio_data = local_gpio;
-    osMutexRelease(mutex_struct->gpio_data_key);
-
-    osMutexAcquire(mutex_struct->soc_estimate_key, osWaitForever);
-    g_soc_estimate = local_g_soc_estimate;
-    osMutexRelease(mutex_struct->soc_estimate_key);
+    copyWithMutex(mutex_struct->total_pack_key, &TotalPack, &localPack);
+    copyWithMutex(mutex_struct->pack_segments_key, &PackSegments, &localSegment);
+    copyWithMutex(mutex_struct->soc_estimate_key, &g_soc_estimate, &local_g_soc_estimate);
 }
 
 // SOC Run, called in main BMS loop

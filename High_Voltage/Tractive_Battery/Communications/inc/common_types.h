@@ -2,8 +2,15 @@
 #ifndef COMMON_TYPES_H
 #define COMMON_TYPES_H
 
+#include "cmsis_os.h"
+#include "cmsis_os2.h"
 #define CELLS_PER_MOD 10
 #define TEMP_PER_MOD 10
+
+#define CAN_TX_QUEUE_LOW_PRIO 0
+#define CAN_TX_QUEUE_NORM_PRIO 1
+#define cAN_TX_QUEUE_MED_PRIO 2
+#define CAN_TX_QUEUE_HIGH_PRIO 3
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -14,7 +21,6 @@ typedef struct {
     bool ir_minus_aux;
     bool slow_CAN;
     bool sdc_ok;
-    bool bms_ok_OUT;
     bool mcu_mhs;
     bool mcu_mls;
 } GPIO_Info_t;
@@ -38,6 +44,12 @@ typedef struct {
     volatile bool balancing_enable;
 } CAN_Inputs_t;
 
+typedef struct {
+    uint8_t[8] data;
+    uint16_t id;
+    uint32_t length;
+} can_msg;
+
 /* --- GLOBAL PACK STATUS  */
 typedef struct {
     uint16_t cell_v_mV[CELLS_PER_MOD];  // Voltages scaled to millivolts (e.g., 4125 = 4.125V)
@@ -54,9 +66,10 @@ typedef struct {
     float avg_voltage;
     float temp;
     bool balancing_done;
+    bool bms_ok_OUT
 
-    // SOC
-    float soc;
+        // SOC
+        float soc;
     float capacity;
     float uncertainty;
 } TotalPack_t;
@@ -83,5 +96,31 @@ typedef struct {
 } SOC_Estimate;
 
 extern volatile CAN_Inputs_t can_data;
+
+#define COPY_STRUCT(dest_ptr, src_ptr) genericCopy(dest_ptr, src_ptr, sizeof(*(dest_ptr)))
+
+void genericCopy(void* dest_ptr, void* src_ptr, size_t size) {
+    if (dest_ptr != NULL && src_ptr != NULL) {
+        memcpy(dest_ptr, src_ptr, size);
+    }
+}
+
+void copyWithMutex(osMutexId_t* mutex, void* dest_ptr, void* src_ptr) {
+    osMutexAcquire(mutex, osWaitForever);
+    COPY_STRUCT(dest_ptr, src_ptr);
+    osMutexRelease(mutex, osWaitForever);
+}
+
+void bitwiseAndWithMutex(osMutexId_t* mutex, uint8_t* dest_ptr, uint8_t bit) {
+    osMutexAcquire(mutex, osWaitForever);
+    dest_ptr &= ~(1 << bit);
+    osMutexRelease(mutex, osWaitForever);
+}
+
+void bitwiseOrWithMutex(osMutexId_t* mutex, uint8_t* dest_ptr, uint8_t bit) {
+    osMutexAcquire(mutex, osWaitForever);
+    dest_ptr |= (1 << bit);
+    osMutexRelease(mutex, osWaitForever);
+}
 
 #endif

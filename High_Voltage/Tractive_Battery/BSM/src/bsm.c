@@ -16,22 +16,17 @@ void bsm_init(bsm_obj* me) {
     TRAN(me, start_dis);
 }
 
-void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, Mutex_Struct_t* mutex_struct) {
+void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, TotalPack_t* pack,
+             Mutex_Struct_t* mutex_struct) {
     GPIO_Info_t local_gpio_data;
     ADC_Inputs_t local_adc_inputs;
+    TotalPack_t local_pack;
     bsm_obj local_bsm;
 
-    osMutexAcquire(mutex_struct->gpio_data_key, osWaitForever);
-    local_gpio_data = gpio;
-    osMutexRelease(mutex_struct->gpio_data_key);
-
-    osMutexAcquire(mutex_struct->adc_data_key, osWaitForever);
-    local_adc_inputs = adc;
-    osMutexRelease(mutex_struct->adc_data_key);
-
-    osMutexAcquire(mutex_struct->bsm_key, osWaitForever);
-    local_bsm = me;
-    osMutexRelease(mutex_struct->bsm_key);
+    copyWithMutex(mutex_struct->gpio_data_key, &local_gpio_data, &gpio);
+    copyWithMutex(mutex_struct->adc_data_key, &local_adc_inputs, &adc);
+    copyWithMutex(mutex_struct->bsm_key, &local_bsm, &bsm);
+    copyWithMutex(mutex_struct->pack_segments_key, &local_pack, &pack);
 
     switch (local_bsm.state) {
         case start_dis: {
@@ -41,7 +36,7 @@ void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, Mutex_Struct_t* 
             local_bsm.ir_plus_enable = false;
 
             // Check for Transition
-            if (local_gpio_data.sdc_ok && local_gpio_data.bms_ok_OUT) {
+            if (local_gpio_data.sdc_ok && local_pack.bms_ok_OUT) {
                 TRAN(local_bsm, ir_minus_close);
             }
             break;
@@ -54,7 +49,7 @@ void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, Mutex_Struct_t* 
             local_bsm.ir_plus_enable = false;
 
             // Check for Transition
-            if (!(local_gpio_data.sdc_ok && local_gpio_data.bms_ok_OUT)) {
+            if (!(local_gpio_data.sdc_ok && local_pack.bms_ok_OUT)) {
                 TRAN(local_bsm, start_dis);
             } else if (local_gpio_data.ir_minus_aux) {
                 TRAN(local_bsm, precharge);
@@ -70,7 +65,7 @@ void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, Mutex_Struct_t* 
             local_bsm.ir_plus_enable = false;
 
             // Check for Transition
-            if (!(local_gpio_data.sdc_ok && local_gpio_data.bms_ok_OUT)) {
+            if (!(local_gpio_data.sdc_ok && local_pack.bms_ok_OUT)) {
                 TRAN(local_bsm, start_dis);
             } else if (local_adc_inputs.ts_vsense >
                            (local_adc_inputs.bat_vsense * 0.905) &&  // TODO
@@ -90,7 +85,7 @@ void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, Mutex_Struct_t* 
             local_bsm.ir_plus_enable = true;
 
             // Check for Transition
-            if (!(local_gpio_data.sdc_ok && local_gpio_data.bms_ok_OUT)) {
+            if (!(local_gpio_data.sdc_ok && local_pack.bms_ok_OUT)) {
                 TRAN(local_bsm, start_dis);
             } else if (local_gpio_data.ir_plus_aux) {
                 TRAN(local_bsm, delay_post_pc);
@@ -106,7 +101,7 @@ void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, Mutex_Struct_t* 
             local_bsm.ir_plus_enable = true;
 
             // Check for Transition
-            if (!(local_gpio_data.sdc_ok && local_gpio_data.bms_ok_OUT)) {
+            if (!(local_gpio_data.sdc_ok && local_pack.bms_ok_OUT)) {
                 TRAN(local_bsm, start_dis);
             } else if (HAL_GetTick() > (local_bsm.timer + PRECHARGE_POST_DELAY_MS)) {
                 TRAN(local_bsm, driving);
@@ -124,7 +119,7 @@ void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, Mutex_Struct_t* 
             local_bsm.ir_minus_enable = true;
             local_bsm.ir_plus_enable = true;
             // Check for Transition
-            if (!(local_gpio_data.sdc_ok && local_gpio_data.bms_ok_OUT)) {
+            if (!(local_gpio_data.sdc_ok && local_pack.bms_ok_OUT)) {
                 TRAN(local_bsm, start_dis);
             } else if (!(local_gpio_data.ir_minus_aux && local_gpio_data.ir_plus_aux)) {
                 TRAN(local_bsm, FAULT);
@@ -139,7 +134,5 @@ void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, Mutex_Struct_t* 
             break;
         }
     }
-    osMutexAcquire(mutex_struct->bsm_key, osWaitForever);
-    bsm = local_bsm;
-    osMutexRelease(mutex_struct->bsm_key);
+    copyWithMutex(mutex_struct->bsm_key, &bsm, &local_bsm);
 }

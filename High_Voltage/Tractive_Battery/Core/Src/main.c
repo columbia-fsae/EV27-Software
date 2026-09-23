@@ -19,7 +19,6 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
-#include "adBms6830Data.h"
 #include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -135,6 +134,10 @@ const osThreadAttr_t GPIO_Write_attributes = {
 osThreadId_t Track_UsageHandle;
 const osThreadAttr_t Track_Usage_attributes = {
     .name = "Track_Usage", .priority = (osPriority_t)osPriorityLow, .stack_size = 128 * 4};
+/* Definitions for CAN_Send */
+osThreadId_t CAN_SendHandle;
+const osThreadAttr_t CAN_Send_attributes = {
+    .name = "CAN_Send", .priority = (osPriority_t)osPriorityHigh, .stack_size = 128 * 4};
 /* Definitions for Queue_CAN_Tx */
 osMessageQueueId_t Queue_CAN_TxHandle;
 const osMessageQueueAttr_t Queue_CAN_Tx_attributes = {.name = "Queue_CAN_Tx"};
@@ -193,6 +196,7 @@ void Start_BMS_CAN_Data(void* argument);
 void Start_SOC_CAN_Data(void* argument);
 void Start_GPIO_Write(void* argument);
 void Start_Track_Usage(void* argument);
+void Start_CAN_Send(void* argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -230,10 +234,6 @@ int main(void) {
      */
     bsm_obj bsm;
     g_bsm_ptr = &bsm;
-
-    // GPIO Storage Structure
-    // Stores BMS OK out, although does not directly set the output pin (done directly in BMS)
-    GPIO_Info_t gpio_data = {0};
 
     /* USER CODE END 1 */
 
@@ -385,6 +385,9 @@ int main(void) {
 
     /* creation of Track_Usage */
     Track_UsageHandle = osThreadNew(Start_Track_Usage, NULL, &Track_Usage_attributes);
+
+    /* creation of CAN_Send */
+    CAN_SendHandle = osThreadNew(Start_CAN_Send, NULL, &CAN_Send_attributes);
 
     /* USER CODE BEGIN RTOS_THREADS */
     /* add threads, ... */
@@ -1015,8 +1018,7 @@ void Start_GPIO_Read(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osMutexAcquire(gpio_data_keyHandle, osWaitForever);
-        GPIO_R ead(&gpio_data);
+        GPIO_Read(&gpio_data);
         osDelayUntil(curr_tick + GPIO_READ_TIME);
         curr_tick += GPIO_READ_TIME;
     }
@@ -1238,6 +1240,22 @@ void Start_Track_Usage(void* argument) {
         osDelay(1);
     }
     /* USER CODE END Start_Track_Usage */
+}
+
+/* USER CODE BEGIN Header_Start_CAN_Send */
+/**
+ * @brief Function implementing the CAN_Send thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_CAN_Send */
+void Start_CAN_Send(void* argument) {
+    /* USER CODE BEGIN Start_CAN_Send */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_CAN_Send */
 }
 
 /**

@@ -126,8 +126,7 @@ void adBms6830_read_rdasall_voltage(uint8_t tIC, cell_asic* ic);
 
 // Main Functions
 void adbms_main_init(volatile CAN_Inputs_t* can_data);
-void adBms_main_run(volatile CAN_Inputs_t* can_data, GPIO_Info_t* gpio_data,
-                    Mutex_Struct_t* mutex_struct);
+void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struct);
 
 // SOC Functions
 void adBms6830_soc_run(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,

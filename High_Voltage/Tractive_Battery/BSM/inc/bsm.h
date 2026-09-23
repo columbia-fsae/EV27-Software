@@ -42,6 +42,7 @@ static inline void TRAN(bsm_obj* me, uint8_t Target_) {
 #define PRECHARGE_BAT_MIN_V 20.0f
 
 void bsm_init(bsm_obj* me);
-void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, Mutex_Struct_t* mutex_struct);
+void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, TotalPack_t* pack,
+             Mutex_Struct_t* mutex_struct);
 
 #endif

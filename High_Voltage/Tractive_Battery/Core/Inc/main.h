@@ -22,7 +22,6 @@
 #ifndef __MAIN_H
 #define __MAIN_H
 
-#include "common_types.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -156,6 +155,7 @@ typedef struct MutexHolder {
     osMutexId_t pack_segments_key;
     osMutexId_t total_pack_key;
     osMutexId_t error_info_key;
+    osMutexId_t can_data_key;
 } Mutex_Struct_t;
 
 extern Mutex_Struct_t mutex_struct;
