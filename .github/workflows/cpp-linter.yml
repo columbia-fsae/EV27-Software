@@ -5,6 +5,10 @@ name: C/C++ Lint
 # the matrix lint job only runs for projects whose files actually changed.
 # Require "CPP Lint Gate" in branch protection — not "Lint <project>".
 #
+# On PRs, clang-tidy findings on changed lines are also posted as an inline
+# PR review (platisd/clang-tidy-pr-comments) — fixable ones come with a
+# "Commit suggestion" button in the Files changed tab.
+#
 # Each project gets its own CMake configure step first so clang-tidy has a
 # real compile_commands.json to resolve includes from
 #
@@ -80,12 +84,20 @@ jobs:
     if: needs.changes.outputs.matrix != '[]'
     runs-on: ubuntu-latest
     name: Lint ${{ matrix.project }}
+    permissions:
+      contents: write        # lets the review action auto-resolve fixed comments
+      pull-requests: write   # PR review + cpp-linter thread comment
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.matrix) }}
     steps:
+      # PR head (not the merge commit) so review comments land on the
+      # lines as they appear in the PR; full history for the merge-base diff
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
 
       - name: Install ARM GCC toolchain
         uses: carlosperate/arm-none-eabi-gcc-action@v1
@@ -138,6 +150,45 @@ jobs:
           # See "Resolve ARM GCC toolchain root" above — lets clang-tidy find
           # arm-none-eabi-g++'s bundled <cstdio>/<cstdint>/etc.
           extra-arg: --gcc-toolchain=${{ steps.arm-gcc-root.outputs.root }}
+
+      # clang-tidy-pr-comments doesn't run clang-tidy itself — it needs a
+      # --export-fixes YAML. clang-tidy-diff.py reruns clang-tidy (same
+      # version as local pre-commit) on only the PR's changed lines, same
+      # scope as lines-changed-only above. Findings don't fail this step;
+      # "Fail on lint errors" below is still what gates the PR.
+      # Skipped for fork PRs, whose GITHUB_TOKEN can't post reviews.
+      - name: Export clang-tidy fixes for changed lines
+        id: tidy-fixes
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # changed C/C++ files in this project, minus vendor/CubeMX code
+          FILE_REGEX: ${{ matrix.path }}/(?!Drivers/|cmake/stm32cubemx/).*\.(c|cc|cpp|cxx|h|hpp)
+        run: |
+          pip install clang-tidy==21.1.6 pyyaml
+          curl -fsSL -o clang-tidy-diff.py \
+            https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-21.1.6/clang-tools-extra/clang-tidy/tool/clang-tidy-diff.py
+          mkdir -p clang-tidy-result
+          git diff -U0 "$(git merge-base HEAD "$BASE_SHA")" \
+            | python3 clang-tidy-diff.py -p1 \
+                -clang-tidy-binary "$(command -v clang-tidy)" \
+                -path "${{ matrix.path }}/build/Debug" \
+                -iregex "$FILE_REGEX" \
+                -extra-arg=--gcc-toolchain=${{ steps.arm-gcc-root.outputs.root }} \
+                -export-fixes clang-tidy-result/fixes.yml || true
+          # clang-tidy-diff writes nothing when no relevant lines changed
+          if [ -s clang-tidy-result/fixes.yml ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post clang-tidy review comments
+        if: steps.tidy-fixes.outputs.found == 'true'
+        uses: platisd/clang-tidy-pr-comments@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          clang_tidy_fixes: clang-tidy-result/fixes.yml
+          request_changes: true
+          suggestions_per_comment: 10
 
       - name: Fail on lint errors
         if: steps.linter.outputs.checks-failed > 0
