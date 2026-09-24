@@ -132,6 +132,18 @@ void Error_Handler(void);
 #define GPIO_READ_TIME 10
 #define BMS_RUN_TIME 10
 #define BSM_RUN_TIME 10
+#define ERROR_CAN_RUN_TIME 10
+#define ADC_CAN_RUN_TIME 10
+#define BSM_CAN_RUN_TIME 10
+#define BMS_CAN_STATS_RUN_TIME 10
+#define BMS_CAN_FAULTS_RUN_TIME 10
+#define SOC_CAN_STATS_RUN_TIME 10
+#define BMS_CAN_IDS_RUN_TIME 10
+#define BMS_CAN_DATA_RUN_TIME 10
+#define SOC_CAN_DATA_RUN_TIME 10
+#define GPIO_WRITE_RUN_TIME 10
+#define TRACK_USAGE_RUN_TIME 10
+#define CAN_SEND_RUN_TIME 10
 
 void reset_counter_init(void);
 
@@ -160,6 +172,10 @@ typedef struct MutexHolder {
 
 extern Mutex_Struct_t mutex_struct;
 extern bsm_obj bsm;
+extern osMessageQueueId_t Queue_CAN_TxHandle;
+extern uint32_t bms_mod_counter;
+extern uint32_t bms_segment_counter;
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

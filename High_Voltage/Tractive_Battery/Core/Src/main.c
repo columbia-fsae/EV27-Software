@@ -1018,7 +1018,7 @@ void Start_GPIO_Read(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        GPIO_Read(&gpio_data);
+        GPIO_Read(&gpio_data, &mutex_struct);
         osDelayUntil(curr_tick + GPIO_READ_TIME);
         curr_tick += GPIO_READ_TIME;
     }
@@ -1072,10 +1072,12 @@ void Start_BSM_Run(void* argument) {
 /* USER CODE END Header_Start_Error_CAN */
 void Start_Error_CAN(void* argument) {
     /* USER CODE BEGIN Start_Error_CAN */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        error_can(&hfdcan1);
-        osDelay(1);
+        error_can(&Queue_CAN_TxHandle, &mutex_struct);
+        osDelayUntil(curr_tick + ERROR_CAN_RUN_TIME);
+        curr_tick += ERROR_CAN_RUN_TIME;
     }
     /* USER CODE END Start_Error_CAN */
 }
@@ -1089,10 +1091,12 @@ void Start_Error_CAN(void* argument) {
 /* USER CODE END Header_Start_ADC_Read */
 void Start_ADC_Read(void* argument) {
     /* USER CODE BEGIN Start_ADC_Read */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        adc_can(&adc_data, &hfdcan1);
-        osDelay(1);
+        adc_can(&adc_data, &Queue_CAN_TxHandle, &mutex_struct);
+        osDelayUntil(curr_tick + ADC_CAN_RUN_TIME);
+        curr_tick += ADC_CAN_RUN_TIME;
     }
     /* USER CODE END Start_ADC_Read */
 }
@@ -1106,10 +1110,12 @@ void Start_ADC_Read(void* argument) {
 /* USER CODE END Header_Start_BSM_CAN */
 void Start_BSM_CAN(void* argument) {
     /* USER CODE BEGIN Start_BSM_CAN */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        bsm_can(&bsm, &gpio_data, &hfdcan1);
-        osDelay(1);
+        bsm_can(&bsm, &gpio_data, &Queue_CAN_TxHandle, &mutex_struct);
+        osDelayUntil(curr_tick + BSM_CAN_RUN_TIME);
+        curr_tick += BSM_CAN_RUN_TIME;
     }
     /* USER CODE END Start_BSM_CAN */
 }
@@ -1123,9 +1129,12 @@ void Start_BSM_CAN(void* argument) {
 /* USER CODE END Header_Start_BMS_CAN_Stats */
 void Start_BMS_CAN_Stats(void* argument) {
     /* USER CODE BEGIN Start_BMS_CAN_Stats */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        bms_can_stats(&PackSegments, &Queue_CAN_TxHandle, &mutex_struct);
+        osDelayUntil(curr_tick + BMS_CAN_STATS_RUN_TIME);
+        curr_tick += BMS_CAN_STATS_RUN_TIME;
     }
     /* USER CODE END Start_BMS_CAN_Stats */
 }
@@ -1139,9 +1148,12 @@ void Start_BMS_CAN_Stats(void* argument) {
 /* USER CODE END Header_Start_BMS_CAN_Faults */
 void Start_BMS_CAN_Faults(void* argument) {
     /* USER CODE BEGIN Start_BMS_CAN_Faults */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        bms_can_faults(&PackSegments, &TotalPack, &Queue_CAN_TxHandle, &mutex_struct);
+        osDelayUntil(curr_tick + BMS_CAN_FAULTS_RUN_TIME);
+        curr_tick += BMS_CAN_FAULTS_RUN_TIME;
     }
     /* USER CODE END Start_BMS_CAN_Faults */
 }
@@ -1155,9 +1167,12 @@ void Start_BMS_CAN_Faults(void* argument) {
 /* USER CODE END Header_Start_SOC_CAN_Stats */
 void Start_SOC_CAN_Stats(void* argument) {
     /* USER CODE BEGIN Start_SOC_CAN_Stats */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        soc_can_stats(&TotalPack, &Queue_CAN_TxHandle, &mutex_struct);
+        osDelayUntil(curr_tick + SOC_CAN_STATS_RUN_TIME);
+        curr_tick += SOC_CAN_STATS_RUN_TIME;
     }
     /* USER CODE END Start_SOC_CAN_Stats */
 }
@@ -1171,9 +1186,12 @@ void Start_SOC_CAN_Stats(void* argument) {
 /* USER CODE END Header_Start_BMS_CAN_IDS */
 void Start_BMS_CAN_IDS(void* argument) {
     /* USER CODE BEGIN Start_BMS_CAN_IDS */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        bms_can_ids(&PackSegments, &TotalPack, &Queue_CAN_TxHandle, &mutex_struct);
+        osDelayUntil(curr_tick + BMS_CAN_IDS_RUN_TIME);
+        curr_tick += BMS_CAN_IDS_RUN_TIME;
     }
     /* USER CODE END Start_BMS_CAN_IDS */
 }
@@ -1187,9 +1205,13 @@ void Start_BMS_CAN_IDS(void* argument) {
 /* USER CODE END Header_Start_BMS_CAN_Data */
 void Start_BMS_CAN_Data(void* argument) {
     /* USER CODE BEGIN Start_BMS_CAN_Data */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        bms_can_data(&PackSegments, &bms_mod_counter, &bms_segment_counter, &Queue_CAN_TxHandle,
+                     &mutex_struct);
+        osDelayUntil(curr_tick + BMS_CAN_DATA_RUN_TIME);
+        curr_tick += BMS_CAN_DATA_RUN_TIME;
     }
     /* USER CODE END Start_BMS_CAN_Data */
 }
@@ -1203,9 +1225,13 @@ void Start_BMS_CAN_Data(void* argument) {
 /* USER CODE END Header_Start_SOC_CAN_Data */
 void Start_SOC_CAN_Data(void* argument) {
     /* USER CODE BEGIN Start_SOC_CAN_Data */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        soc_can_data(&g_soc_estimate, &soc_mod_counter, &soc_segment_counter, &Queue_CAN_TxHandle,
+                     &mutex_struct);
+        osDelayUntil(curr_tick + SOC_CAN_DATA_RUN_TIME);
+        curr_tick += SOC_CAN_DATA_RUN_TIME
     }
     /* USER CODE END Start_SOC_CAN_Data */
 }
@@ -1219,9 +1245,12 @@ void Start_SOC_CAN_Data(void* argument) {
 /* USER CODE END Header_Start_GPIO_Write */
 void Start_GPIO_Write(void* argument) {
     /* USER CODE BEGIN Start_GPIO_Write */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        GPIO_Write(&bsm, &mutex_struct);
+        osDelayUntil(curr_tick + GPIO_WRITE_RUN_TIME);
+        curr_tick + GPIO_WRITE_RUN_TIME;
     }
     /* USER CODE END Start_GPIO_Write */
 }
@@ -1235,9 +1264,11 @@ void Start_GPIO_Write(void* argument) {
 /* USER CODE END Header_Start_Track_Usage */
 void Start_Track_Usage(void* argument) {
     /* USER CODE BEGIN Start_Track_Usage */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        osDelay(curr_tick + TRACK_USAGE_RUN_TIME);
+        curr_tick += TRACK_USAGE_RUN_TIME;
     }
     /* USER CODE END Start_Track_Usage */
 }
@@ -1251,9 +1282,12 @@ void Start_Track_Usage(void* argument) {
 /* USER CODE END Header_Start_CAN_Send */
 void Start_CAN_Send(void* argument) {
     /* USER CODE BEGIN Start_CAN_Send */
+    uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelay(1);
+        CAN_SendData(&Queue_CAN_TxHandle, &hfdcan1);
+        osDelay(curr_tick + CAN_SEND_RUN_TIME);
+        curr_tick += CAN_SEND_RUN_TIME
     }
     /* USER CODE END Start_CAN_Send */
 }
