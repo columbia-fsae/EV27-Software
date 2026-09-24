@@ -51,6 +51,11 @@ jobs:
       # cpp-linter-action's files-changed-only fetches the WHOLE PR's changed
       # files (not just this job's matrix.path)
       #
+      # `non_firmware` covers C/C++ that isn't part of any CMake project
+      # (Arduino sketches, simulations). It's not in any compile_commands.json,
+      # so clang-tidy can't resolve its includes (e.g. Arduino.h) and would
+      # fail the job. Add new non-CMake C/C++ directories here.
+      #
       # Each project's own $path/Drivers (vendor CMSIS/HAL) and
       # $path/cmake/stm32cubemx (CubeMX-generated glue) are also ignored —
       # same generated-code exclusion .pre-commit-config.yaml already
@@ -59,16 +64,17 @@ jobs:
         id: build-matrix
         run: |
           all_paths='High_Voltage/Tractive_Battery|High_Voltage/Charging_Cart/UI/STM32'
+          non_firmware='Low_Voltage|Simulations'
           matrix='[]'
           if [ "${{ steps.filter.outputs.Tractive_Battery }}" = "true" ]; then
             path='High_Voltage/Tractive_Battery'
-            ignore=".github|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            ignore=".github|$non_firmware|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Tractive_Battery","path":$path,"ignore":$ignore}]')
           fi
           if [ "${{ steps.filter.outputs.Charging_Cart_UI }}" = "true" ]; then
             path='High_Voltage/Charging_Cart/UI/STM32'
-            ignore=".github|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            ignore=".github|$non_firmware|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Charging_Cart_UI","path":$path,"ignore":$ignore}]')
           fi
@@ -137,7 +143,7 @@ jobs:
           step-summary: true
           # See "Resolve ARM GCC toolchain root" above — lets clang-tidy find
           # arm-none-eabi-g++'s bundled <cstdio>/<cstdint>/etc.
-          extra-arg: --gcc-toolchain=${{ steps.arm-gcc-root.outputs.root }}
+          extra-args: --gcc-toolchain=${{ steps.arm-gcc-root.outputs.root }}
 
       - name: Fail on lint errors
         if: steps.linter.outputs.checks-failed > 0
