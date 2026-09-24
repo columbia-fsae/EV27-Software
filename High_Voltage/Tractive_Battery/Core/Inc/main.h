@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "core_config.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -110,33 +110,12 @@ void Error_Handler(void);
 #define MCU_MLS_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-// CAN DEFINITIONS for 1 MBPS (Car) for 250 KBPS (Charger)
-#define CAN_CAR_Nominal_Prescaler 1
-#define CAN_CAR_Nominal_TSeg_1 136
-#define CAN_CAR_Nominal_TSeg_2 33
-#define CAN_CAR_Nominal_SJW 33
-#define CAN_CAR_Data_Prescaler 17
-#define CAN_CAR_Data_SJW 3
-#define CAN_CAR_Data_TSeg_1 6
-#define CAN_CAR_Data_TSeg_2 3
-
-#define CAN_Charger_Nominal_Prescaler 5
-#define CAN_Charger_Nominal_TSeg_1 108
-#define CAN_Charger_Nominal_TSeg_2 27
-#define CAN_Charger_Nominal_SJW 27
-#define CAN_Charger_Data_Prescaler 17
-#define CAN_Charger_Data_SJW 16
-#define CAN_Charger_Data_TSeg_1 23
-#define CAN_Charger_Data_TSeg_2 16
-
+// CAN bit timing lives in comms_config.h; reset and scheduling constants in core_config.h
 void reset_counter_init(void);
 
 // Reset counter definitions for software reset
 extern uint32_t reset_counter;
 extern uint32_t reset_counter_magic;
-
-// Memory access reset counter upon reset of the system
-#define RESET_COUNTER_MAGIC 0xCAFEBABE
 
 extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;

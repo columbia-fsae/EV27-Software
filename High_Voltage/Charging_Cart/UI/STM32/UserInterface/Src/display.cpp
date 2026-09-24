@@ -4,24 +4,7 @@
 
 #include "interfaceTemplate.h"
 #include "stm32f0xx_hal.h"
-
-// DISPLAY COMMANDS https://www.hpinfotech.ro/ST7565.pdf
-#define CMD_DISPLAY_OFF 0b10101110
-#define CMD_DISPLAY_ON 0b10101111
-#define CMD_DISPLAY_ALL_ON 0b10100101
-
-// initialization commands
-#define CMD_LCD_BIAS 0b10100010
-#define CMD_ADC_SELECT 0b10100000   // 0b10100000 for normal, 0b10100001 for reverse
-#define CMD_COM_OUTPUT 0b11001000   // 0b11000000 for normal, 0b11001000 for reverse
-#define CMD_REG_DIVIDER 0b00100101  // last three bits are the ratio
-#define CMD_VOLUME_MODE 0b10000001
-#define CMD_SET_VOLUME 0b00011011  // last five bits are volume level
-#define CMD_POWER_CNFG 0b00101111  // all stages enabled (last three bits)
-
-#define CMD_SET_PAGE_0 0b10110000   // last four bits are page number
-#define CMD_SET_COL_U_0 0b00010000  // last four bits are upper col address
-#define CMD_SET_COL_L_0 0b00000000  // last four bits are lower
+#include "ui_config.h"
 
 Display::Display(SPI_HandleTypeDef* SPI_HANDLE, GPIO_TypeDef* CS_PORT, const uint16_t CS_PIN,
                  GPIO_TypeDef* A0_PORT, const uint16_t A0_PIN, GPIO_TypeDef* RST_PORT,
@@ -45,9 +28,9 @@ Display::~Display() {}
 void Display::init() {
     // Reset display
     HAL_GPIO_WritePin(RST_PORT, RST_PIN, GPIO_PIN_RESET);
-    HAL_Delay(10);
+    HAL_Delay(DISPLAY_RESET_DELAY_MS);
     HAL_GPIO_WritePin(RST_PORT, RST_PIN, GPIO_PIN_SET);
-    HAL_Delay(10);
+    HAL_Delay(DISPLAY_RESET_DELAY_MS);
 
     uint8_t cmd[] = {
         CMD_LCD_BIAS,    CMD_ADC_SELECT,  CMD_COM_OUTPUT,

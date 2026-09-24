@@ -51,8 +51,8 @@ void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc) {
             // Check for Transition
             if (!(gpio->sdc_ok && gpio->bms_ok_OUT)) {
                 TRAN(me, start_dis);
-            } else if (adc->ts_vsense > (adc->bat_vsense * 0.905) &&  // TODO
-                       adc->ts_vsense < (adc->bat_vsense * 1.05) &&
+            } else if (adc->ts_vsense > (adc->bat_vsense * PRECHARGE_TS_MIN_RATIO) &&  // TODO
+                       adc->ts_vsense < (adc->bat_vsense * PRECHARGE_TS_MAX_RATIO) &&
                        adc->bat_vsense > PRECHARGE_BAT_MIN_V &&
                        HAL_GetTick() > (me->timer + PRECHARGE_MIN_TIME_MS)) {
                 TRAN(me, ir_plus_close);

@@ -5,12 +5,7 @@
 
 #include "interfaceTemplate.h"
 #include "stm32f0xx_hal.h"
-
-// constants
-#define FULL_REFRESH 0b11111111
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define PAGE_SIZE 8
+#include "ui_config.h"
 
 class Display {
    public:

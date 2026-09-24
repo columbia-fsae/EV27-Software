@@ -5,8 +5,7 @@
 #include <stdint.h>
 
 #include "stm32f0xx_hal.h"
-
-#define DETENT_THRESHOLD 4
+#include "ui_config.h"
 
 typedef uint32_t ROTARY_ENCODER_BUFFER_TYPE;
 

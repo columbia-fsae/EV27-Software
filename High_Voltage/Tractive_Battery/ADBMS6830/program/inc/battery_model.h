@@ -19,9 +19,6 @@
 // SOC-OCV LOOKUP TABLE (50 points - optimized from original 4964)
 // ============================================================================
 
-// Number of points in lookup table
-#define OCV_LUT_SIZE 11
-
 // Lookup table structure
 typedef struct {
     float soc;    // State of charge (0.0 to 1.0)

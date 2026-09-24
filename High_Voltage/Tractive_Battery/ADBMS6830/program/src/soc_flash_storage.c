@@ -22,9 +22,9 @@
 // Flash address for SOC storage
 // Bank 1, Page 127 (last page before Bank 2)
 // Address = 0x08000000 + (127 * 2048) = 0x0803F800
-#define SOC_FLASH_ADDRESS 0x0803F800UL
-#define SOC_FLASH_PAGE 127
-#define SOC_FLASH_BANK FLASH_BANK_1
+#define SOC_FLASH_ADDRESS FLASH_SOC_STORAGE_ADDRESS
+#define SOC_FLASH_PAGE FLASH_SOC_STORAGE_PAGE
+#define SOC_FLASH_BANK FLASH_SOC_STORAGE_BANK
 
 bool SOC_Flash_Save(const KalmanSOC_PersistentState* persistent) {
 #ifdef STM32G4

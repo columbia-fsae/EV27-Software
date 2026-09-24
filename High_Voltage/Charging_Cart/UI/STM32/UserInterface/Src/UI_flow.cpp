@@ -6,6 +6,7 @@
 #include "display.hpp"
 #include "interfaceTemplate.h"
 #include "rotary_encoder.hpp"
+#include "ui_config.h"
 
 // mod that is guaranteed to return a positive value
 uint8_t mod_pos(int8_t value, int8_t mod) { return ((value % mod) + mod) % mod; }
@@ -49,12 +50,12 @@ int16_t clamp_user_var(int16_t value, InfoType type) {
 
     switch (type) {
         case CURRENT_LIMIT:
-            minVal = 0;
-            maxVal = 140;  // 14A
+            minVal = CURRENT_LIMIT_MIN;
+            maxVal = CURRENT_LIMIT_MAX;
             break;
         case VOLTAGE_LIMIT:
-            minVal = 150;
-            maxVal = 252;
+            minVal = VOLTAGE_LIMIT_MIN;
+            maxVal = VOLTAGE_LIMIT_MAX;
             break;
         case STATUS:
             // For status, the valid values depend on the chargersm state and are handled
@@ -86,7 +87,7 @@ bool processUI(UserInputState& userInputState, int16_t* userVars, chargersm_obj*
 
     // if no input and we're currently editing, check for timeout to exit edit mode
     if (!hasInput) {
-        if (userInputState != Edit_None && (HAL_GetTick() - editTimeoutTick) > 5000) {
+        if (userInputState != Edit_None && (HAL_GetTick() - editTimeoutTick) > UI_EDIT_TIMEOUT_MS) {
             InfoType info = infoFromState(userInputState);
             display.boxInfo(info, false);
             display.invertInfo(info, false);
@@ -215,12 +216,8 @@ bool processUI(UserInputState& userInputState, int16_t* userVars, chargersm_obj*
 // bit 9: SDC
 // bit 10: Cell overvoltage
 
-const char* faultMsgs[] = {
-    // ABCDEFGHIJK
-    "E HARDWARE",  "E TEMP",    "E INPUT",      "E BATTERY", "E COMMS",  "E CAN T\\O",
-    "TBP NOT RDY", "BSM FAULT", "BSM CAN T\\O", "SDC",       "CELL O\\V"};
+const char* faultMsgs[] = {FAULT_MSG_LIST};
 
-#define FAULT_DISPLAY_TIME 1500  // ms to display each fault message
 void setFaultMsg(Display& disp, chargersm_obj* me) {
     static uint8_t last_fault_index = 0xFF;
     static uint16_t last_fault_mask = 0;
@@ -238,7 +235,7 @@ void setFaultMsg(Display& disp, chargersm_obj* me) {
 
     // unknown error
     if (num_faults == 0) {
-        disp.setStatus("UNKNOWN ERROR");
+        disp.setStatus(FAULT_MSG_UNKNOWN);
         return;
     }
 
@@ -259,15 +256,17 @@ void setFaultMsg(Display& disp, chargersm_obj* me) {
             last_fault_index %= NUM_FAULTS;
         } while (!(me->error_flags & (1 << last_fault_index)));
 
-        disp.setStatus("ERR");
-        disp.setStatus(faultMsgs[last_fault_index], 4, true);  // display fault message
+        disp.setStatus(FAULT_MSG_PREFIX);
+        disp.setStatus(faultMsgs[last_fault_index], FAULT_MSG_OFFSET,
+                       true);  // display fault message
 
-        disp.setStatus("[ \\ ]", 16, false);                     // display fault count in brackets
+        disp.setStatus(FAULT_COUNT_BRACKETS, FAULT_COUNT_BRACKETS_OFFSET,
+                       false);                                   // display fault count in brackets
         char i[2] = {static_cast<char>(fault_num + '0'), '\0'};  // convert fault_num to char
-        disp.setStatus(i, 17, false);                            // display fault number in brackets
+        disp.setStatus(i, FAULT_COUNT_INDEX_OFFSET, false);      // display fault number in brackets
 
         i[0] = static_cast<char>(num_faults + '0');
-        disp.setStatus(i, 19, false);  // display total number of faults
+        disp.setStatus(i, FAULT_COUNT_TOTAL_OFFSET, false);  // display total number of faults
 
         last_fault_msg_change_tick = HAL_GetTick();
         fault_num = (fault_num % num_faults) + 1;
@@ -313,7 +312,7 @@ void updateDisplayInfo(Display& disp, const CANInfo& info, chargersm_obj& charge
         disp.setInfo(TIME_PAST, timeDisplay(HAL_GetTick() - chargersm.timeSinceCharge));
 
         // DO SOMETHING WITH SOC
-        disp.setInfo(TIME_REMAINING, 1234);
+        disp.setInfo(TIME_REMAINING, TIME_REMAINING_PLACEHOLDER);
     } else {
         // not changing could be nice for data collection
         // disp.setInfo(TIME_PAST, 0);
