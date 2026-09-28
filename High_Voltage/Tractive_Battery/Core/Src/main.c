@@ -19,6 +19,8 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
+#include "cmsis_os.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
@@ -70,6 +72,92 @@ UART_HandleTypeDef hlpuart1;
 
 SPI_HandleTypeDef hspi1;
 
+/* Definitions for GPIO_Read */
+osThreadId_t GPIO_ReadHandle;
+const osThreadAttr_t GPIO_Read_attributes = {
+    .name = "GPIO_Read", .priority = (osPriority_t)osPriorityLow1, .stack_size = 128 * 4};
+/* Definitions for BMS_Read */
+osThreadId_t BMS_ReadHandle;
+const osThreadAttr_t BMS_Read_attributes = {
+    .name = "BMS_Read", .priority = (osPriority_t)osPriorityHigh, .stack_size = 128 * 4};
+/* Definitions for BSM_Run */
+osThreadId_t BSM_RunHandle;
+const osThreadAttr_t BSM_Run_attributes = {
+    .name = "BSM_Run", .priority = (osPriority_t)osPriorityHigh1, .stack_size = 128 * 4};
+/* Definitions for Error_CAN */
+osThreadId_t Error_CANHandle;
+const osThreadAttr_t Error_CAN_attributes = {
+    .name = "Error_CAN", .priority = (osPriority_t)osPriorityNormal, .stack_size = 128 * 4};
+/* Definitions for ADC_Read */
+osThreadId_t ADC_ReadHandle;
+const osThreadAttr_t ADC_Read_attributes = {
+    .name = "ADC_Read", .priority = (osPriority_t)osPriorityNormal1, .stack_size = 128 * 4};
+/* Definitions for BSM_CAN */
+osThreadId_t BSM_CANHandle;
+const osThreadAttr_t BSM_CAN_attributes = {
+    .name = "BSM_CAN", .priority = (osPriority_t)osPriorityBelowNormal1, .stack_size = 128 * 4};
+/* Definitions for BMS_CAN_Stats */
+osThreadId_t BMS_CAN_StatsHandle;
+const osThreadAttr_t BMS_CAN_Stats_attributes = {
+    .name = "BMS_CAN_Stats", .priority = (osPriority_t)osPriorityNormal, .stack_size = 128 * 4};
+/* Definitions for BMS_CAN_Faults */
+osThreadId_t BMS_CAN_FaultsHandle;
+const osThreadAttr_t BMS_CAN_Faults_attributes = {.name = "BMS_CAN_Faults",
+                                                  .priority = (osPriority_t)osPriorityAboveNormal1,
+                                                  .stack_size = 128 * 4};
+/* Definitions for SOC_CAN_Stats */
+osThreadId_t SOC_CAN_StatsHandle;
+const osThreadAttr_t SOC_CAN_Stats_attributes = {.name = "SOC_CAN_Stats",
+                                                 .priority = (osPriority_t)osPriorityBelowNormal2,
+                                                 .stack_size = 128 * 4};
+/* Definitions for BMS_CAN_IDS */
+osThreadId_t BMS_CAN_IDSHandle;
+const osThreadAttr_t BMS_CAN_IDS_attributes = {
+    .name = "BMS_CAN_IDS", .priority = (osPriority_t)osPriorityLow, .stack_size = 128 * 4};
+/* Definitions for BMS_CAN_Data */
+osThreadId_t BMS_CAN_DataHandle;
+const osThreadAttr_t BMS_CAN_Data_attributes = {
+    .name = "BMS_CAN_Data", .priority = (osPriority_t)osPriorityAboveNormal, .stack_size = 128 * 4};
+/* Definitions for SOC_CAN_Data */
+osThreadId_t SOC_CAN_DataHandle;
+const osThreadAttr_t SOC_CAN_Data_attributes = {.name = "SOC_CAN_Data",
+                                                .priority = (osPriority_t)osPriorityBelowNormal3,
+                                                .stack_size = 128 * 4};
+/* Definitions for GPIO_Write */
+osThreadId_t GPIO_WriteHandle;
+const osThreadAttr_t GPIO_Write_attributes = {
+    .name = "GPIO_Write", .priority = (osPriority_t)osPriorityLow, .stack_size = 128 * 4};
+/* Definitions for Track_Usage */
+osThreadId_t Track_UsageHandle;
+const osThreadAttr_t Track_Usage_attributes = {
+    .name = "Track_Usage", .priority = (osPriority_t)osPriorityLow, .stack_size = 128 * 4};
+/* Definitions for Queue_CAN_Tx */
+osMessageQueueId_t Queue_CAN_TxHandle;
+const osMessageQueueAttr_t Queue_CAN_Tx_attributes = {.name = "Queue_CAN_Tx"};
+/* Definitions for Queue_CAN_Rx */
+osMessageQueueId_t Queue_CAN_RxHandle;
+const osMessageQueueAttr_t Queue_CAN_Rx_attributes = {.name = "Queue_CAN_Rx"};
+/* Definitions for bsm_key */
+osMutexId_t bsm_keyHandle;
+const osMutexAttr_t bsm_key_attributes = {.name = "bsm_key"};
+/* Definitions for gpio_data_key */
+osMutexId_t gpio_data_keyHandle;
+const osMutexAttr_t gpio_data_key_attributes = {.name = "gpio_data_key"};
+/* Definitions for adc_data_key */
+osMutexId_t adc_data_keyHandle;
+const osMutexAttr_t adc_data_key_attributes = {.name = "adc_data_key"};
+/* Definitions for g_soc_estimate_key */
+osMutexId_t g_soc_estimate_keyHandle;
+const osMutexAttr_t g_soc_estimate_key_attributes = {.name = "g_soc_estimate_key"};
+/* Definitions for PackSegments_key */
+osMutexId_t PackSegments_keyHandle;
+const osMutexAttr_t PackSegments_key_attributes = {.name = "PackSegments_key"};
+/* Definitions for TotalPack_key */
+osMutexId_t TotalPack_keyHandle;
+const osMutexAttr_t TotalPack_key_attributes = {.name = "TotalPack_key"};
+/* Definitions for error_info_key */
+osMutexId_t error_info_keyHandle;
+const osMutexAttr_t error_info_key_attributes = {.name = "error_info_key"};
 /* USER CODE BEGIN PV */
 uint8_t HeaderTxBuffer[] =
     "****SPI - Two Boards communication based on Polling **** SPI Message ******** SPI Message "
@@ -87,6 +175,21 @@ static void MX_LPUART1_UART_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_FDCAN1_Init(void);
 static void MX_ADC2_Init(void);
+void Start_GPIO_Read(void* argument);
+void Start_BMS_Read(void* argument);
+void Start_BSM_Run(void* argument);
+void Start_Error_CAN(void* argument);
+void Start_ADC_Read(void* argument);
+void Start_BSM_CAN(void* argument);
+void Start_BMS_CAN_Stats(void* argument);
+void Start_BMS_CAN_Faults(void* argument);
+void Start_SOC_CAN_Stats(void* argument);
+void Start_BMS_CAN_IDS(void* argument);
+void Start_BMS_CAN_Data(void* argument);
+void Start_SOC_CAN_Data(void* argument);
+void Start_GPIO_Write(void* argument);
+void Start_Track_Usage(void* argument);
+
 /* USER CODE BEGIN PFP */
 
 #if defined(__ICCARM__)
@@ -147,7 +250,6 @@ int main(void) {
     /* USER CODE END SysInit */
 
     /* Initialize all configured peripherals */
-    /*
     MX_GPIO_Init();
     MX_DMA_Init();
     MX_ADC1_Init();
@@ -156,7 +258,6 @@ int main(void) {
     MX_SPI1_Init();
     MX_FDCAN1_Init();
     MX_ADC2_Init();
-    */
     /* USER CODE BEGIN 2 */
     // TODO: COMMENT OUT STATEMENTS BEFORE IF NEW CODE FROM MX
     MX_GPIO_Init();
@@ -180,6 +281,109 @@ int main(void) {
 
     adbms_main_init(&can_data);
     /* USER CODE END 2 */
+
+    /* Init scheduler */
+    osKernelInitialize();
+    /* Create the mutex(es) */
+    /* creation of bsm_key */
+    bsm_keyHandle = osMutexNew(&bsm_key_attributes);
+
+    /* creation of gpio_data_key */
+    gpio_data_keyHandle = osMutexNew(&gpio_data_key_attributes);
+
+    /* creation of adc_data_key */
+    adc_data_keyHandle = osMutexNew(&adc_data_key_attributes);
+
+    /* creation of g_soc_estimate_key */
+    g_soc_estimate_keyHandle = osMutexNew(&g_soc_estimate_key_attributes);
+
+    /* creation of PackSegments_key */
+    PackSegments_keyHandle = osMutexNew(&PackSegments_key_attributes);
+
+    /* creation of TotalPack_key */
+    TotalPack_keyHandle = osMutexNew(&TotalPack_key_attributes);
+
+    /* creation of error_info_key */
+    error_info_keyHandle = osMutexNew(&error_info_key_attributes);
+
+    /* USER CODE BEGIN RTOS_MUTEX */
+    /* add mutexes, ... */
+    /* USER CODE END RTOS_MUTEX */
+
+    /* USER CODE BEGIN RTOS_SEMAPHORES */
+    /* add semaphores, ... */
+    /* USER CODE END RTOS_SEMAPHORES */
+
+    /* USER CODE BEGIN RTOS_TIMERS */
+    /* start timers, add new ones, ... */
+    /* USER CODE END RTOS_TIMERS */
+
+    /* Create the queue(s) */
+    /* creation of Queue_CAN_Tx */
+    Queue_CAN_TxHandle = osMessageQueueNew(16, sizeof(uint8_t), &Queue_CAN_Tx_attributes);
+
+    /* creation of Queue_CAN_Rx */
+    Queue_CAN_RxHandle = osMessageQueueNew(16, sizeof(uint8_t), &Queue_CAN_Rx_attributes);
+
+    /* USER CODE BEGIN RTOS_QUEUES */
+    /* add queues, ... */
+    /* USER CODE END RTOS_QUEUES */
+
+    /* Create the thread(s) */
+    /* creation of GPIO_Read */
+    GPIO_ReadHandle = osThreadNew(Start_GPIO_Read, NULL, &GPIO_Read_attributes);
+
+    /* creation of BMS_Read */
+    BMS_ReadHandle = osThreadNew(Start_BMS_Read, NULL, &BMS_Read_attributes);
+
+    /* creation of BSM_Run */
+    BSM_RunHandle = osThreadNew(Start_BSM_Run, NULL, &BSM_Run_attributes);
+
+    /* creation of Error_CAN */
+    Error_CANHandle = osThreadNew(Start_Error_CAN, NULL, &Error_CAN_attributes);
+
+    /* creation of ADC_Read */
+    ADC_ReadHandle = osThreadNew(Start_ADC_Read, NULL, &ADC_Read_attributes);
+
+    /* creation of BSM_CAN */
+    BSM_CANHandle = osThreadNew(Start_BSM_CAN, NULL, &BSM_CAN_attributes);
+
+    /* creation of BMS_CAN_Stats */
+    BMS_CAN_StatsHandle = osThreadNew(Start_BMS_CAN_Stats, NULL, &BMS_CAN_Stats_attributes);
+
+    /* creation of BMS_CAN_Faults */
+    BMS_CAN_FaultsHandle = osThreadNew(Start_BMS_CAN_Faults, NULL, &BMS_CAN_Faults_attributes);
+
+    /* creation of SOC_CAN_Stats */
+    SOC_CAN_StatsHandle = osThreadNew(Start_SOC_CAN_Stats, NULL, &SOC_CAN_Stats_attributes);
+
+    /* creation of BMS_CAN_IDS */
+    BMS_CAN_IDSHandle = osThreadNew(Start_BMS_CAN_IDS, NULL, &BMS_CAN_IDS_attributes);
+
+    /* creation of BMS_CAN_Data */
+    BMS_CAN_DataHandle = osThreadNew(Start_BMS_CAN_Data, NULL, &BMS_CAN_Data_attributes);
+
+    /* creation of SOC_CAN_Data */
+    SOC_CAN_DataHandle = osThreadNew(Start_SOC_CAN_Data, NULL, &SOC_CAN_Data_attributes);
+
+    /* creation of GPIO_Write */
+    GPIO_WriteHandle = osThreadNew(Start_GPIO_Write, NULL, &GPIO_Write_attributes);
+
+    /* creation of Track_Usage */
+    Track_UsageHandle = osThreadNew(Start_Track_Usage, NULL, &Track_Usage_attributes);
+
+    /* USER CODE BEGIN RTOS_THREADS */
+    /* add threads, ... */
+    /* USER CODE END RTOS_THREADS */
+
+    /* USER CODE BEGIN RTOS_EVENTS */
+    /* add events, ... */
+    /* USER CODE END RTOS_EVENTS */
+
+    /* Start scheduler */
+    osKernelStart();
+
+    /* We should never get here as control is now taken by the scheduler */
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
@@ -650,10 +854,10 @@ static void MX_DMA_Init(void) {
 
     /* DMA interrupt init */
     /* DMA1_Channel1_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 2, 0);
+    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 6, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
     /* DMA1_Channel2_IRQn interrupt configuration */
-    HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 2, 0);
+    HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 6, 0);
     HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 }
 
@@ -724,7 +928,7 @@ static void MX_GPIO_Init(void) {
     HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
     /* EXTI interrupt init*/
-    HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+    HAL_NVIC_SetPriority(EXTI15_10_IRQn, 5, 0);
     HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
     /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -784,6 +988,250 @@ GETCHAR_PROTOTYPE {
     return ch;
 }
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_Start_GPIO_Read */
+/**
+ * @brief  Function implementing the GPIO_Read thread.
+ * @param  argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_GPIO_Read */
+void Start_GPIO_Read(void* argument) {
+    /* USER CODE BEGIN 5 */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_Start_BMS_Read */
+/**
+ * @brief Function implementing the BMS_Read thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_BMS_Read */
+void Start_BMS_Read(void* argument) {
+    /* USER CODE BEGIN Start_BMS_Read */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_BMS_Read */
+}
+
+/* USER CODE BEGIN Header_Start_BSM_Run */
+/**
+ * @brief Function implementing the BSM_Run thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_BSM_Run */
+void Start_BSM_Run(void* argument) {
+    /* USER CODE BEGIN Start_BSM_Run */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_BSM_Run */
+}
+
+/* USER CODE BEGIN Header_Start_Error_CAN */
+/**
+ * @brief Function implementing the Error_CAN thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_Error_CAN */
+void Start_Error_CAN(void* argument) {
+    /* USER CODE BEGIN Start_Error_CAN */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_Error_CAN */
+}
+
+/* USER CODE BEGIN Header_Start_ADC_Read */
+/**
+ * @brief Function implementing the ADC_Read thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_ADC_Read */
+void Start_ADC_Read(void* argument) {
+    /* USER CODE BEGIN Start_ADC_Read */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_ADC_Read */
+}
+
+/* USER CODE BEGIN Header_Start_BSM_CAN */
+/**
+ * @brief Function implementing the BSM_CAN thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_BSM_CAN */
+void Start_BSM_CAN(void* argument) {
+    /* USER CODE BEGIN Start_BSM_CAN */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_BSM_CAN */
+}
+
+/* USER CODE BEGIN Header_Start_BMS_CAN_Stats */
+/**
+ * @brief Function implementing the BMS_CAN_Stats thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_BMS_CAN_Stats */
+void Start_BMS_CAN_Stats(void* argument) {
+    /* USER CODE BEGIN Start_BMS_CAN_Stats */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_BMS_CAN_Stats */
+}
+
+/* USER CODE BEGIN Header_Start_BMS_CAN_Faults */
+/**
+ * @brief Function implementing the BMS_CAN_Faults thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_BMS_CAN_Faults */
+void Start_BMS_CAN_Faults(void* argument) {
+    /* USER CODE BEGIN Start_BMS_CAN_Faults */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_BMS_CAN_Faults */
+}
+
+/* USER CODE BEGIN Header_Start_SOC_CAN_Stats */
+/**
+ * @brief Function implementing the SOC_CAN_Stats thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_SOC_CAN_Stats */
+void Start_SOC_CAN_Stats(void* argument) {
+    /* USER CODE BEGIN Start_SOC_CAN_Stats */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_SOC_CAN_Stats */
+}
+
+/* USER CODE BEGIN Header_Start_BMS_CAN_IDS */
+/**
+ * @brief Function implementing the BMS_CAN_IDS thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_BMS_CAN_IDS */
+void Start_BMS_CAN_IDS(void* argument) {
+    /* USER CODE BEGIN Start_BMS_CAN_IDS */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_BMS_CAN_IDS */
+}
+
+/* USER CODE BEGIN Header_Start_BMS_CAN_Data */
+/**
+ * @brief Function implementing the BMS_CAN_Data thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_BMS_CAN_Data */
+void Start_BMS_CAN_Data(void* argument) {
+    /* USER CODE BEGIN Start_BMS_CAN_Data */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_BMS_CAN_Data */
+}
+
+/* USER CODE BEGIN Header_Start_SOC_CAN_Data */
+/**
+ * @brief Function implementing the SOC_CAN_Data thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_SOC_CAN_Data */
+void Start_SOC_CAN_Data(void* argument) {
+    /* USER CODE BEGIN Start_SOC_CAN_Data */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_SOC_CAN_Data */
+}
+
+/* USER CODE BEGIN Header_Start_GPIO_Write */
+/**
+ * @brief Function implementing the GPIO_Write thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_GPIO_Write */
+void Start_GPIO_Write(void* argument) {
+    /* USER CODE BEGIN Start_GPIO_Write */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_GPIO_Write */
+}
+
+/* USER CODE BEGIN Header_Start_Track_Usage */
+/**
+ * @brief Function implementing the Track_Usage thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_Track_Usage */
+void Start_Track_Usage(void* argument) {
+    /* USER CODE BEGIN Start_Track_Usage */
+    /* Infinite loop */
+    for (;;) {
+        osDelay(1);
+    }
+    /* USER CODE END Start_Track_Usage */
+}
+
+/**
+ * @brief  Period elapsed callback in non blocking mode
+ * @note   This function is called  when TIM6 interrupt took place, inside
+ * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+ * a global variable "uwTick" used as application time base.
+ * @param  htim : TIM handle
+ * @retval None
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
+    /* USER CODE BEGIN Callback 0 */
+
+    /* USER CODE END Callback 0 */
+    if (htim->Instance == TIM6) {
+        HAL_IncTick();
+    }
+    /* USER CODE BEGIN Callback 1 */
+
+    /* USER CODE END Callback 1 */
+}
 
 /**
  * @brief  This function is executed in case of error occurrence.
