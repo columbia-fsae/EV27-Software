@@ -4,6 +4,10 @@ name: Auto-open PR on new branch
 # not every subsequent push) and opens a pull request for it against the
 # default branch, pre-filled with .github/pull_request_template.md.
 #
+# The PR is authored by github-actions[bot] (GITHUB_TOKEN can't act as a
+# user), so it's assigned to whoever pushed the branch instead — shows up
+# under their "Assigned to you" and notifications.
+#
 # Skips:
 #   - the default branch itself
 #   - branches that already have an open/closed PR (e.g. re-pushed after
@@ -17,6 +21,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  issues: write   # assigning users goes through the issues API
 
 jobs:
   open-pr:
@@ -33,6 +38,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HEAD_BRANCH: ${{ github.event.ref }}
           BASE_BRANCH: ${{ github.event.repository.default_branch }}
+          PUSHER: ${{ github.actor }}
         run: |
           EXISTING=$(gh pr list --head "$HEAD_BRANCH" --base "$BASE_BRANCH" --state all --json number --jq '.[0].number')
           if [[ -n "$EXISTING" ]]; then
@@ -46,8 +52,13 @@ jobs:
             exit 0
           fi
 
-          gh pr create \
+          PR_URL=$(gh pr create \
             --head "$HEAD_BRANCH" \
             --base "$BASE_BRANCH" \
             --title "$HEAD_BRANCH" \
-            --body-file .github/pull_request_template.md
+            --assignee "$PUSHER" \
+            --body-file .github/pull_request_template.md)
+          echo "Opened $PR_URL"
+
+          # @mention notifies the pusher (GitHub + email) with a link here
+          gh pr comment "$PR_URL" --body "@$PUSHER this PR was opened automatically. Please fill in the description and title: click **⋯ → Edit** on the first comment, and **Edit** next to the title."
