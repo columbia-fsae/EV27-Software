@@ -11,7 +11,6 @@ The user will provide one of:
 ## Step 1 — Figure Out Where You Are
  
 Do not assume a language, MCU, or framework. Derive it from the change:
- 
 1. List the changed files (`git diff --name-only ...` or the PR file list).
 2. Group them by **top-level folder** and **file type**. Each group gets reviewed against its section in *Area Checklists* and *Language Baselines* below.
 3. For embedded code, infer the target and driver layer from the code itself: includes, build files, linker scripts, and startup files. If it's unclear, state what you assumed.
