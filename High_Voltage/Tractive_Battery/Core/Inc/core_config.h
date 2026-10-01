@@ -20,9 +20,8 @@
 // ============================================================================
 
 // Each task runs every PERIOD; OFFSET staggers tasks so they do not all fire on the same tick.
-// #define BMS_RUN_PERIOD_MS 1000
-constexpr int BMS_RUN_PERIOD_MS = 1000;
-constexpr int BMS_RUN_OFFSET_MS = 0;
+#define BMS_RUN_PERIOD_MS 1000
+#define BMS_RUN_OFFSET_MS 0
 
 #define BSM_RUN_PERIOD_MS 50
 #define BSM_RUN_OFFSET_MS 0
