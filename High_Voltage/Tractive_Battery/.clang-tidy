@@ -1,0 +1,58 @@
+---
+# Tractive Battery firmware is pure C11. This file extends the repo-root
+# .clang-tidy (bugprone-*, clang-analyzer-*, etc. stay on) and only turns off
+# checks that are C++-specific, unworkable on embedded C, or conflict with
+# this codebase's existing style.
+InheritParentConfig: true
+
+Checks: >
+  -boost-*,
+  -modernize-macro-to-enum,
+  -cppcoreguidelines-macro-to-enum,
+  -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-interfaces-global-init,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-magic-numbers,
+  -cppcoreguidelines-narrowing-conversions,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -clang-analyzer-core.FixedAddressDereference,
+  -performance-no-int-to-ptr,
+  -bugprone-easily-swappable-parameters,
+  -readability-uppercase-literal-suffix,
+  -readability-identifier-length,
+  -readability-braces-around-statements,
+  -readability-math-missing-parentheses,
+  -readability-isolate-declaration,
+  readability-identifier-naming
+
+# Lint our own headers, never STM32 HAL/CMSIS.
+HeaderFilterRegex: '.*/Tractive_Battery/(BSM|Communications|ADBMS6830|Core/Inc)/.*'
+ExcludeHeaderFilterRegex: '.*/(Drivers|ADBMS6830/lib)/.*'
+
+CheckOptions:
+  # Keep integer narrowing (float -> int8_t, uint8_t -> int8_t), but don't
+  # flag float literals like `2.44` in float tables or int -> float math.
+  bugprone-narrowing-conversions.WarnOnFloatingPointNarrowingConversion: false
+  bugprone-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion: false
+
+  # Naming: only what this codebase already does consistently. Function and
+  # typedef names are deliberately not enforced (mixed: bsm_run,
+  # adBmsCsHigh, BatteryModel_GetOcv, CubeMX's MX_GPIO_Init).
+  #
+  # Variables, parameters and struct members are lower_case. Allowed
+  # exceptions:
+  #   - math symbols:      C_ct, R_dif, P, P_theta
+  #   - unit suffixes:     bal_thresh_mV, temp_C, cell_v_mV
+  #   - ADBMS chip arrays: IC, tIC (from Analog Devices' driver API)
+  #   - CubeMX/HAL names:  GPIO_InitStruct, sConfig, RxHeader, RxFifo0ITs
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.VariableIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN)|t?IC|s[A-Z][A-Za-z]*|[A-Za-z0-9_]*InitStruct|Rx[A-Za-z0-9]*)$'
+  readability-identifier-naming.ParameterCase: lower_case
+  readability-identifier-naming.ParameterIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN)|t?IC|s[A-Z][A-Za-z]*|[A-Za-z0-9_]*InitStruct|Rx[A-Za-z0-9]*)$'
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.MemberIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN))$'
+  # File-scope constants may be UPPER_CASE (UV_THRESHOLD, TSENSE_LOOKUP) or
+  # lower_case (crc32_table, g_ocv_lut).
+  readability-identifier-naming.GlobalConstantCase: lower_case
+  readability-identifier-naming.GlobalConstantIgnoredRegexp: '^[A-Z][A-Z0-9_]*$'
