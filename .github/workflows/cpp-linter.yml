@@ -125,6 +125,19 @@ jobs:
         working-directory: ${{ matrix.path }}
         run: cmake --preset Debug
 
+      # clang-tidy runs clang, which doesn't know where the ARM toolchain's
+      # C library (newlib) headers live, so <stdio.h>/<math.h>/<string.h>
+      # come up "file not found" and the analyzer skips those files. Ask
+      # arm-none-eabi-gcc for its include dir and pass it through.
+      - name: Find ARM C library headers
+        id: arm-inc
+        run: |
+          dir=$(echo | arm-none-eabi-gcc -xc -E -v - 2>&1 \
+            | sed -n '/#include <...>/,/End of search/p' \
+            | grep -E '/arm-none-eabi/include$' | xargs realpath)
+          echo "Using $dir"
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+
       - name: Lint
         uses: cpp-linter/cpp-linter-action@v2
         id: linter
@@ -132,7 +145,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: 'file'          # use repo-root .clang-format
-          tidy-checks: ''        # use repo-root .clang-tidy
+          tidy-checks: ''        # use repo-root .clang-tidy (plus nested ones)
+          # Pinned to match .pre-commit-config.yaml; nested configs use
+          # ExcludeHeaderFilterRegex, which needs clang-tidy 19+.
+          version: '21'
+          extra-args: '-isystem${{ steps.arm-inc.outputs.dir }}'
           database: ${{ matrix.path }}/build/Debug
           files-changed-only: true
           # Only gate on lines this PR actually touches, not pre-existing
