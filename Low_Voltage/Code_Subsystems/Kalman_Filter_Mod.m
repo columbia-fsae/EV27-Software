@@ -6,15 +6,15 @@ classdef Kalman_Filter_Mod < matlab.System
 
     % Public, tunable properties
     properties
-       qgain=1; 
+       qgain=1;
     end
 
     % Pre-computed constants or internal states
     properties (Access = private)
         % State-space matrices
-        
-        a = [1 35.3*0.002;0 1]; 
-        b = [0.002;0]; 
+
+        a = [1 35.3*0.002;0 1];
+        b = [0.002;0];
         c_v = [1 0];
         c_a = [0 1];
         k=1;
@@ -22,7 +22,7 @@ classdef Kalman_Filter_Mod < matlab.System
         q_fixed;   % Process noise
         r_v;
         r_a =  0.00023 ; % Sensor noise
-        
+
         % Initial conditions
         x
         p
@@ -35,7 +35,7 @@ classdef Kalman_Filter_Mod < matlab.System
         updateK
         updateP
         t
-       
+
     end
 
     methods (Access = protected)
@@ -73,7 +73,7 @@ classdef Kalman_Filter_Mod < matlab.System
                 obj.p = obj.updateP(obj.k, obj.c_v, obj.p);
                 obj.n_v = n_v;
             end
-        
+
             if obj.n_a ~= n_a
                 obj.k = obj.updateK(obj.p, obj.c_a, obj.r_a);
                 obj.x = obj.updateX(obj.x, obj.k, -a, obj.c_a);
@@ -89,8 +89,8 @@ classdef Kalman_Filter_Mod < matlab.System
             v= obj.c_v*obj.x;
             cov_v = sqrt(obj.c_v*obj.p*obj.c_v');
             a = obj.c_a*obj.x;
-            
-          
+
+
         end
 
         function resetImpl(~)

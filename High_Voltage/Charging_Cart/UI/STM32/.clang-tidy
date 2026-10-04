@@ -1,0 +1,40 @@
+---
+# Charging Cart UI firmware: C (CubeMX, ChargerSM, Communications) plus C++
+# (UserInterface, cpp_main). This file extends the repo-root .clang-tidy
+# (which already handles embedded/STM32 false positives) with this
+# codebase's style.
+InheritParentConfig: true
+
+Checks: >
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -readability-identifier-length,
+  -readability-implicit-bool-conversion,
+  -readability-use-concise-preprocessor-directives,
+  readability-identifier-naming
+# Why each is off:
+#   pro-bounds-*                  The fix is gsl::at/gsl::span, which this
+#                                 project doesn't use; framebuffer and CAN
+#                                 byte indexing set them off constantly.
+#   identifier-length             `me`, `i`, `id` are idiomatic here.
+#   implicit-bool-conversion      `if (statusMsg)` pointer checks.
+#   use-concise-preprocessor-     Only fires in CubeMX-generated
+#     directives                  stm32f0xx_hal_conf.h.
+
+# Lint our own headers, never STM32 HAL/CMSIS or CubeMX-generated ones.
+HeaderFilterRegex: '.*/Charging_Cart/UI/STM32/(ChargerSM|Communications|UserInterface|Core/Inc)/.*'
+ExcludeHeaderFilterRegex: '.*/(Drivers/.*|Core/Inc/stm32f0xx_[^/]*)$'
+
+CheckOptions:
+  # Keep integer narrowing (float -> int8_t, uint8_t -> int8_t), but don't
+  # flag float literals or int -> float math.
+  bugprone-narrowing-conversions.WarnOnFloatingPointNarrowingConversion: false
+  bugprone-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion: false
+
+  # Naming: only what this codebase already does consistently. Variables,
+  # members, functions and enum constants are deliberately not enforced
+  # (mixed: camelBack and lower_case members, snake_case C functions vs
+  # camelBack C++ free functions, UPPER_CASE and lower_case enum values).
+  readability-identifier-naming.ClassCase: CamelCase
+  readability-identifier-naming.MethodCase: camelBack

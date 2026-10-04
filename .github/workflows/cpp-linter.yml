@@ -1,15 +1,16 @@
 name: C/C++ Lint
 
 # Runs clang-format + clang-tidy (via cpp-linter-action) against changed
-# firmware files only. The CPP Lint Gate job ALWAYS runs (so it's safe to
-# require in branch protection on every PR, not just firmware ones), while
+# firmware files only. The CPP Lint Gate job ALWAYS runs, while
 # the matrix lint job only runs for projects whose files actually changed.
 # Require "CPP Lint Gate" in branch protection — not "Lint <project>".
 #
+# On PRs, clang-tidy findings on changed lines are also posted as an inline
+# PR review (platisd/clang-tidy-pr-comments) — fixable ones come with a
+# "Commit suggestion" button in the Files changed tab.
+#
 # Each project gets its own CMake configure step first so clang-tidy has a
-# real compile_commands.json to resolve includes from — without it, it can't
-# find STM32 HAL/CMSIS headers and produces spurious "file not found" errors
-# instead of real findings.
+# real compile_commands.json to resolve includes from
 #
 # Style/checks come from the repo-root .clang-format and .clang-tidy files —
 # keep those in sync with the same-named hooks in .pre-commit-config.yaml.
@@ -48,21 +49,16 @@ jobs:
               - '.clang-tidy'
               - '.github/workflows/cpp-linter.yml'
 
-      # dorny/paths-filter only tells us WHICH projects changed, as a list of
-      # names. Build the {project, path, ignore} triples the lint matrix
-      # actually needs here, so only changed projects appear in the matrix.
-      # Feeding a static `include:` list alongside a dynamic `project:` array
-      # (the previous approach) doesn't work: GitHub Actions adds any
-      # `include` entry whose keys don't match an existing combination as a
-      # BRAND NEW job, instead of dropping it — so every project in `include`
-      # always ran, regardless of what actually changed.
+      # dorny/paths-filter only tells us WHICH projects changed\
       #
       # `ignore` is every OTHER known project's path, joined with `.github`.
       # cpp-linter-action's files-changed-only fetches the WHOLE PR's changed
-      # files (not just this job's matrix.path), so without this, a PR that
-      # touches both projects' files — or just .clang-format/cpp-linter.yml,
-      # which puts every project in the matrix — has each job linting the
-      # other project's files too, against its own (wrong) compile database.
+      # files (not just this job's matrix.path)
+      #
+      # Each project's own $path/Drivers (vendor CMSIS/HAL) and
+      # $path/cmake/stm32cubemx (CubeMX-generated glue) are also ignored —
+      # same generated-code exclusion .pre-commit-config.yaml already
+      # applies
       - name: Build project/path matrix
         id: build-matrix
         run: |
@@ -70,13 +66,13 @@ jobs:
           matrix='[]'
           if [ "${{ steps.filter.outputs.Tractive_Battery }}" = "true" ]; then
             path='High_Voltage/Tractive_Battery'
-            ignore=".github|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            ignore=".github|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Tractive_Battery","path":$path,"ignore":$ignore}]')
           fi
           if [ "${{ steps.filter.outputs.Charging_Cart_UI }}" = "true" ]; then
             path='High_Voltage/Charging_Cart/UI/STM32'
-            ignore=".github|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            ignore=".github|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Charging_Cart_UI","path":$path,"ignore":$ignore}]')
           fi
@@ -88,17 +84,37 @@ jobs:
     if: needs.changes.outputs.matrix != '[]'
     runs-on: ubuntu-latest
     name: Lint ${{ matrix.project }}
+    permissions:
+      contents: write        # lets the review action auto-resolve fixed comments
+      pull-requests: write   # PR review + cpp-linter thread comment
     strategy:
       fail-fast: false
       matrix:
         include: ${{ fromJSON(needs.changes.outputs.matrix) }}
     steps:
+      # PR head (not the merge commit) so review comments land on the
+      # lines as they appear in the PR; full history for the merge-base diff
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
 
       - name: Install ARM GCC toolchain
         uses: carlosperate/arm-none-eabi-gcc-action@v1
         with:
           release: '14.2.Rel1'
+
+      # --gcc-toolchain=<root> (passed to clang-tidy below via extra-arg)
+      # points it at the install so it picks the right multilib
+      # (cortex-m0 => armv6-m/nofp) automatically.
+      - name: Resolve ARM GCC toolchain root
+        id: arm-gcc-root
+        run: |
+          arm_cxx="$(command -v arm-none-eabi-g++)"
+          root="$(dirname "$(dirname "$arm_cxx")")"
+          echo "ARM C++ compiler: $arm_cxx"
+          echo "Toolchain root:   $root"
+          echo "root=$root" >> "$GITHUB_OUTPUT"
 
       - name: Install CMake and Ninja
         run: |
@@ -109,6 +125,29 @@ jobs:
         working-directory: ${{ matrix.path }}
         run: cmake --preset Debug
 
+      # clang-tidy runs clang, which doesn't know where the ARM toolchain's
+      # C library (newlib) and C++ library (libstdc++) headers live, so
+      # <stdio.h>/<cstdint>/etc. come up "file not found" and the analyzer
+      # skips those files. Ask arm-none-eabi-g++ for its include dirs and
+      # pass them through: C++-only dirs via -cxx-isystem (so C files never
+      # see libstdc++'s <math.h> wrappers), the C library via -isystem.
+      # GCC's own builtin dirs (lib/gcc/...) are skipped; clang has its own.
+      - name: Find ARM C/C++ library headers
+        id: arm-inc
+        run: |
+          args=""
+          for dir in $(echo | arm-none-eabi-g++ -xc++ -E -v - 2>&1 \
+              | sed -n '/#include <...>/,/End of search/p' | grep '^ /' \
+              | grep -v '/lib/gcc/arm-none-eabi/[^/]*/include'); do
+            dir=$(realpath "$dir")
+            case "$dir" in
+              */c++/*) args="$args -cxx-isystem$dir" ;;
+              *)       args="$args -isystem$dir" ;;
+            esac
+          done
+          echo "Using:$args"
+          echo "args=${args# }" >> "$GITHUB_OUTPUT"
+
       - name: Lint
         uses: cpp-linter/cpp-linter-action@v2
         id: linter
@@ -116,13 +155,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: 'file'          # use repo-root .clang-format
-          tidy-checks: ''        # use repo-root .clang-tidy
+          tidy-checks: ''        # use repo-root .clang-tidy (plus nested ones)
+          # Pinned to match .pre-commit-config.yaml; nested configs use
+          # ExcludeHeaderFilterRegex, which needs clang-tidy 19+.
+          version: '21'
+          extra-args: '${{ steps.arm-inc.outputs.args }}'
           database: ${{ matrix.path }}/build/Debug
           files-changed-only: true
           # Only gate on lines this PR actually touches, not pre-existing
           # findings elsewhere in a changed file. To see every clang-tidy
-          # finding in a file regardless of what changed (e.g. to work
-          # through legacy findings as their own effort, outside any PR):
+          # finding in a file regardless of what changed
           #   pip install clang-tidy==21.1.6
           #   cmake --preset Debug   (from the project's directory, e.g.
           #                          High_Voltage/Charging_Cart/UI/STM32)
@@ -132,6 +174,48 @@ jobs:
           ignore: ${{ matrix.ignore }}
           thread-comments: ${{ github.event_name == 'pull_request' && 'update' || false }}
           step-summary: true
+          # See "Resolve ARM GCC toolchain root" above — lets clang-tidy find
+          # arm-none-eabi-g++'s bundled <cstdio>/<cstdint>/etc.
+          extra-arg: --gcc-toolchain=${{ steps.arm-gcc-root.outputs.root }}
+
+      # clang-tidy-pr-comments doesn't run clang-tidy itself — it needs a
+      # --export-fixes YAML. clang-tidy-diff.py reruns clang-tidy (same
+      # version as local pre-commit) on only the PR's changed lines, same
+      # scope as lines-changed-only above. Findings don't fail this step;
+      # "Fail on lint errors" below is still what gates the PR.
+      # Skipped for fork PRs, whose GITHUB_TOKEN can't post reviews.
+      - name: Export clang-tidy fixes for changed lines
+        id: tidy-fixes
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          # changed C/C++ files in this project, minus vendor/CubeMX code
+          FILE_REGEX: ${{ matrix.path }}/(?!Drivers/|cmake/stm32cubemx/).*\.(c|cc|cpp|cxx|h|hpp)
+        run: |
+          pip install clang-tidy==21.1.6 pyyaml
+          curl -fsSL -o clang-tidy-diff.py \
+            https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-21.1.6/clang-tools-extra/clang-tidy/tool/clang-tidy-diff.py
+          mkdir -p clang-tidy-result
+          git diff -U0 "$(git merge-base HEAD "$BASE_SHA")" \
+            | python3 clang-tidy-diff.py -p1 \
+                -clang-tidy-binary "$(command -v clang-tidy)" \
+                -path "${{ matrix.path }}/build/Debug" \
+                -iregex "$FILE_REGEX" \
+                -extra-arg=--gcc-toolchain=${{ steps.arm-gcc-root.outputs.root }} \
+                -export-fixes clang-tidy-result/fixes.yml || true
+          # clang-tidy-diff writes nothing when no relevant lines changed
+          if [ -s clang-tidy-result/fixes.yml ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Post clang-tidy review comments
+        if: steps.tidy-fixes.outputs.found == 'true'
+        uses: platisd/clang-tidy-pr-comments@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          clang_tidy_fixes: clang-tidy-result/fixes.yml
+          request_changes: true
+          suggestions_per_comment: 10
 
       - name: Fail on lint errors
         if: steps.linter.outputs.checks-failed > 0

@@ -8,12 +8,22 @@ jobs:
   # your local pre-commit hooks never drift out of sync. clang-tidy is
   # excluded here (stages: [manual] in .pre-commit-config.yaml) — it needs a
   # CMake compile database and is handled separately in cpp-linter.yml.
+  #
+  # On PRs, failures are also surfaced in the Files changed tab: hook
+  # auto-fixes (ruff --fix, ruff-format, clang-format, whitespace/EOL) as
+  # "Commit suggestion" comments, and unfixable ruff findings as annotations.
   pre-commit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write   # reviewdog suggestion comments
     steps:
+      # PR head (not the merge commit) so suggestions land on the lines as
+      # they appear in the PR
       - name: Checkout code
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,9 +44,38 @@ jobs:
             base=$(git rev-parse HEAD~1 2>/dev/null || git rev-parse HEAD)
           fi
           echo "sha=$base" >> "$GITHUB_OUTPUT"
+      # Allowed to fail so the steps below can report on it; the last step
+      # re-fails the job
       - uses: pre-commit/action@v3.0.1
+        id: precommit
+        continue-on-error: true
         with:
           extra_args: --from-ref ${{ steps.base.outputs.sha }} --to-ref HEAD
+      # Runs after the hooks' ruff --fix, so this only reports what ruff
+      # couldn't fix itself.
+      - name: Ruff annotations
+        continue-on-error: true
+        run: |
+          mapfile -d '' files < <(git diff -z --name-only --diff-filter=d \
+            "${{ steps.base.outputs.sha }}" HEAD -- '*.py' '*.pyi')
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No changed Python files."
+            exit 0
+          fi
+          pip install ruff==0.14.4
+          ruff check --force-exclude --output-format=github "${files[@]}"
+      # Fork PRs get a read-only token, so they only get the log output
+      - name: Suggest hook fixes on the PR
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          steps.precommit.outcome == 'failure'
+        uses: reviewdog/action-suggester@v1
+        with:
+          tool_name: pre-commit
+      - name: Fail if pre-commit hooks failed
+        if: steps.precommit.outcome == 'failure'
+        run: exit 1
 
   pytest:
     runs-on: ubuntu-latest
