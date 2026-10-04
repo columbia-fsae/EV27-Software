@@ -1,24 +1,11 @@
 ---
 # Tractive Battery firmware is pure C11. This file extends the repo-root
-# .clang-tidy (bugprone-*, clang-analyzer-*, etc. stay on) and only turns off
-# checks that are C++-specific, unworkable on embedded C, or conflict with
-# this codebase's existing style.
+# .clang-tidy (which already handles embedded/STM32 false positives) with
+# this codebase's style: checks it doesn't follow are off, and naming
+# matches what the code already does.
 InheritParentConfig: true
 
 Checks: >
-  -boost-*,
-  -modernize-macro-to-enum,
-  -cppcoreguidelines-macro-to-enum,
-  -cppcoreguidelines-macro-usage,
-  -cppcoreguidelines-avoid-non-const-global-variables,
-  -cppcoreguidelines-interfaces-global-init,
-  -cppcoreguidelines-avoid-magic-numbers,
-  -readability-magic-numbers,
-  -cppcoreguidelines-narrowing-conversions,
-  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
-  -clang-analyzer-core.FixedAddressDereference,
-  -performance-no-int-to-ptr,
-  -bugprone-easily-swappable-parameters,
   -readability-uppercase-literal-suffix,
   -readability-identifier-length,
   -readability-braces-around-statements,

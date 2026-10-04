@@ -1,3 +1,44 @@
-Checks: 'boost-*,bugprone-*,performance-*,readability-*,portability-*,modernize-*,clang-analyzer-*,cppcoreguidelines-*,-cppcoreguidelines-macro-usage'
+---
+# Repo-wide clang-tidy config for all STM32 firmware projects. Nested
+# .clang-tidy files (InheritParentConfig: true) add project-specific rules
+# such as naming and header filters on top of this.
+#
+# Disabled below: checks that misfire on any embedded/STM32 code, plus
+# C++ modernize suggestions (several projects share headers between C and
+# C++, where <cstdint>, constexpr, enum class etc. aren't an option).
+Checks: >
+  bugprone-*,
+  performance-*,
+  readability-*,
+  portability-*,
+  clang-analyzer-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-macro-to-enum,
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-narrowing-conversions,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-interfaces-global-init,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -readability-magic-numbers,
+  -performance-no-int-to-ptr,
+  -clang-analyzer-core.FixedAddressDereference,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling,
+  -bugprone-easily-swappable-parameters
+# Why each is off:
+#   macro-usage, macro-to-enum      config values are #defines shared with C
+#   avoid-c-arrays                  std::array advice (C++-only modernize)
+#   cppcoreguidelines-narrowing-*   alias of bugprone-narrowing-conversions
+#   avoid-non-const-global-vars,    HAL handles (hcan, hspi1) are globals
+#     interfaces-global-init
+#   magic-numbers                   register values, pins, bit masks
+#   no-int-to-ptr,                  register access (GPIOA->ODR)
+#     FixedAddressDereference
+#   DeprecatedOrUnsafeBufferHandling  wants memcpy_s; newlib has no Annex K
+#   easily-swappable-parameters     HAL-style signatures
 WarningsAsErrors: ''
 FormatStyle: file
+
+# Never report diagnostics from STM32 HAL/CMSIS headers. Takes effect in
+# projects whose nested config sets HeaderFilterRegex.
+ExcludeHeaderFilterRegex: '.*/Drivers/.*'
