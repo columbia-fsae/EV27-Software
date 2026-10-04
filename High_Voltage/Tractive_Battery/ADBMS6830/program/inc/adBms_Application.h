@@ -24,38 +24,10 @@ and its licensor.
 
 #include <stdint.h>
 
+#include "adbms_config.h"
 #include "adbms_main.h"
 #include "common_types.h"
 #include "kalman_soc.h"
-
-#define TOTAL_IC 6
-
-// SOC CHANGES
-#define CELL_TIE_TOLERANCE 0.0002f
-#define TOTAL_MODULES 6  // E.g., 12 ICs = 6 Segments
-#define TOTAL_CELLS TOTAL_MODULES* CELLS_PER_MOD
-#define MIN_CELL_THRESH 0.2
-#define SENSOR_DROPOUT_TEMP -99
-#define TEMP_PER_BOARD 10
-#define VOLT_PER_SLAVE 10
-#define VOLT_PER_MASTER 14
-#define COMM_FAULT_LATCH 3  // consecutive bad cycles before hard fault
-
-// ADBMS6830 Unique 48 Bit IDs
-#define ID1_TOP 0x97DE40006B21ULL
-#define ID2_TOP 0x997CE40586B2ULL
-#define ID3_TOP 0x097EE40006B2ULL
-#define ID4_TOP 0x990DE40686B2ULL
-#define ID5_TOP 0xC97DE40506B2ULL
-#define ID6_TOP 0x590EE40586B2ULL
-#define ID7_TOP 0x9A06E40606B2ULL
-#define ID1_BOTTOM 0x0001111111ULL
-#define ID2_BOTTOM 0x0002111111ULL
-#define ID3_BOTTOM 0x0003111111ULL
-#define ID4_BOTTOM 0x0004111111ULL
-#define ID5_BOTTOM 0x0005111111ULL
-#define ID6_BOTTOM 0x0006111111ULL
-#define ID7_BOTTOM 0x0001111111ULL
 
 void app_main(void);
 void run_command(int cmd);

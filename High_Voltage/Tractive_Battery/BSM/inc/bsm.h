@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include "adc_management.h"
+#include "bsm_config.h"
 #include "common_types.h"
 #include "gpio_management.h"
 #include "main.h"
@@ -32,14 +33,6 @@ static inline void TRAN(bsm_obj* me, uint8_t Target_) {
     me->state = Target_;
     me->timer = HAL_GetTick();
 }
-
-// State Time Delay and Voltage Defines
-
-#define PRECHARGE_FAULT_TIME_MS 60000
-#define PRECHARGE_MIN_TIME_MS 25000
-#define PRECHARGE_POST_DELAY_MS 1000
-#define IR_FAULT_TIME_MS 1000
-#define PRECHARGE_BAT_MIN_V 20.0f
 
 void bsm_init(bsm_obj* me);
 void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc);
