@@ -92,13 +92,13 @@
 // 5. TEMPERATURE SENSOR LOOKUP (Enepaq VTC5A)
 // ============================================================================
 
-#define SENSOR_DROPOUT_TEMP -99
+#define SENSOR_DROPOUT_TEMP (-99)
 // Reported when a sensor reads as disconnected or invalid
-#define TEMP_SENSOR_FAULT_C -99.0f
+#define TEMP_SENSOR_FAULT_C (-99.0f)
 
 // Maps voltages to temperatures from -40C to +120C in 5C steps
 #define TEMP_TABLE_SIZE 33
-#define TEMP_TABLE_MIN_C -40.0f
+#define TEMP_TABLE_MIN_C (-40.0f)
 #define TEMP_TABLE_MAX_C 120.0f
 #define TEMP_TABLE_STEP_C 5.0f
 
