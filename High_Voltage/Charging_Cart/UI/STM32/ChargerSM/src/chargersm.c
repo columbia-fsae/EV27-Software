@@ -4,9 +4,6 @@
 #include "interfaceTemplate.h"
 #include "stm32f0xx_hal.h"
 
-// #define TRAINING_WHEELS_MODE //enable to disable SDC, BSM, and Elcon fault detection for testing
-// without CAN
-
 /*....................................................................*/
 
 static const uint8_t _ready_options[] = {3, STAY, MANUAL, AUTOMATIC};
@@ -17,10 +14,11 @@ static const uint8_t _auto_options[] = {2, STAY, GO_TO_READY};
 
 // maybe change this to function to align with how the display gets status messages, but this is
 // easier for now
-const char* statusChangeMessages[] = {"^ CANCEL",          "^ STOP",
-                                      "^ MANUAL MODE",     "^ AUTOMATIC MODE",
-                                      "^ CHARGE [MANUAL]", "^ BALANCE [MANUAL]",
-                                      "^ WAIT [MANUAL]",   "^ NO OPTIONS"};
+const char* statusChangeMessages[] = {
+    STATUS_CHANGE_MSG_STAY,          STATUS_CHANGE_MSG_GO_TO_READY,
+    STATUS_CHANGE_MSG_MANUAL,        STATUS_CHANGE_MSG_AUTOMATIC,
+    STATUS_CHANGE_MSG_CHARGE_MANUAL, STATUS_CHANGE_MSG_BALANCE_MANUAL,
+    STATUS_CHANGE_MSG_WAIT_MANUAL,   STATUS_CHANGE_MSG_NO_OPTIONS};
 
 const uint8_t* get_UI_options(chargersm_obj* chargersm) {
     switch (chargersm->chargerState) {
@@ -48,16 +46,16 @@ const uint8_t* get_UI_options(chargersm_obj* chargersm) {
     return NULL;
 }
 
-static const char* _start_msg = "STARTING";
-static const char* _ready_msg = "READY TO CHARGE";
-static const char* _man_balance_msg = "MANUAL [BALANCING]";
-static const char* _man_charge_msg = "MANUAL [CHARGING]";
-static const char* _man_wait_msg = "MANUAL [WAITING]";
-static const char* _auto_balance_msg = "AUTOMATIC [BALANCING]";
-static const char* _auto_charge_msg = "AUTOMATIC [CHARGING]";
-static const char* _auto_wait_msg = "AUTOMATIC [WAITING]";
+static const char* _start_msg = STATUS_MSG_START;
+static const char* _ready_msg = STATUS_MSG_READY;
+static const char* _man_balance_msg = STATUS_MSG_MANUAL_BALANCE;
+static const char* _man_charge_msg = STATUS_MSG_MANUAL_CHARGE;
+static const char* _man_wait_msg = STATUS_MSG_MANUAL_WAIT;
+static const char* _auto_balance_msg = STATUS_MSG_AUTO_BALANCE;
+static const char* _auto_charge_msg = STATUS_MSG_AUTO_CHARGE;
+static const char* _auto_wait_msg = STATUS_MSG_AUTO_WAIT;
 static const char* _fault_msg = NULL;  // for fault message we will do a custom one
-static const char* BAD_MSG = "STM32 ERROR";
+static const char* BAD_MSG = STATUS_MSG_STM32_ERROR;
 
 const char* get_UI_current_status(chargersm_obj* chargersm) {
     switch (chargersm->chargerState) {
@@ -112,17 +110,19 @@ static inline bool fault_case(chargersm_obj* me, volatile CANInfo* can,
 
     me->error_flags = 0;
 
-    me->error_flags |= can->elconStatus & 0x1F;  // bits 0-4: elcon faults
+    me->error_flags |= can->elconStatus & ELCON_FAULT_MASK;  // bits 0-4: elcon faults
     me->error_flags |= (HAL_GetTick() - can->lastElconUpdateTick > ELCON_TIMEOUT)
-                       << 5;  // bit 5: Elcon CAN Timeout
-    me->error_flags |= (can->bsmState != 5 && can->bsmState != 0xF)
-                       << 6;  // bit 6: TBP Not Ready (bsmState not 5, but also not faulted)
-    me->error_flags |= (can->bsmState == 0xF) << 7;  // bit 7: BSM Fault (bsmState is 0xF)
+                       << FAULT_BIT_ELCON_TIMEOUT;  // bit 5: Elcon CAN Timeout
+    me->error_flags |=
+        (can->bsmState != BSM_STATE_DRIVING && can->bsmState != BSM_STATE_FAULT)
+        << FAULT_BIT_TBP_NOT_READY;  // bit 6: TBP Not Ready (bsmState not 5, but also not faulted)
+    me->error_flags |= (can->bsmState == BSM_STATE_FAULT)
+                       << FAULT_BIT_BSM_FAULT;  // bit 7: BSM Fault (bsmState is 0xF)
     me->error_flags |= (HAL_GetTick() - can->lastBSMUpdateTick > BSM_TIMEOUT)
-                       << 8;                                  // bit 8: BSM CAN Timeout
-    me->error_flags |= (sdc_pin_state == GPIO_PIN_SET) << 9;  // bit 9: SDC
+                       << FAULT_BIT_BSM_TIMEOUT;                          // bit 8: BSM CAN Timeout
+    me->error_flags |= (sdc_pin_state == GPIO_PIN_SET) << FAULT_BIT_SDC;  // bit 9: SDC
     me->error_flags |= (cell_voltage_conversion(can->maxVoltVal) > CELL_V_LIMIT)
-                       << 10;  // bit 10: Cell overvoltage
+                       << FAULT_BIT_CELL_OVERVOLTAGE;  // bit 10: Cell overvoltage
 
     return me->error_flags != 0;
 }
@@ -131,7 +131,7 @@ void chargersm_run(chargersm_obj* me, volatile CANInfo* can, int16_t* userVars,
                    GPIO_PinState sdc_pin_state) {
 #ifdef TRAINING_WHEELS_MODE
     sdc_pin_state = GPIO_PIN_RESET;
-    can->bsmState = 5;
+    can->bsmState = BSM_STATE_DRIVING;
     can->elconStatus = 0;
 #endif
 

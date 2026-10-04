@@ -2,11 +2,10 @@
 #ifndef COMMON_TYPES_H
 #define COMMON_TYPES_H
 
-#define CELLS_PER_MOD 10
-#define TEMP_PER_MOD 10
-
 #include <stdbool.h>
 #include <stdint.h>
+
+#include "comms_config.h"
 
 // GPIO Storage Structure
 typedef struct {
@@ -41,7 +40,7 @@ typedef struct {
 /* --- GLOBAL PACK STATUS  */
 typedef struct {
     uint16_t cell_v_mV[CELLS_PER_MOD];  // Voltages scaled to millivolts (e.g., 4125 = 4.125V)
-    float temp_C[20];                   // Temperatures in Celsius (e.g., 45 = 45C)
+    float temp_C[TEMPS_PER_SEGMENT];    // Temperatures in Celsius (e.g., 45 = 45C)
     uint32_t dcc_active;                // 24-bit mask for balancing states
     uint8_t fault_flags;                // Bit 0: OV, Bit 1: UV, Bit 2: OT, Bit 3: Comm Drop
     uint8_t id[2];

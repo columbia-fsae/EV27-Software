@@ -31,7 +31,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "core_config.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -104,8 +104,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin);
 
 /* USER CODE BEGIN Private defines */
 void reset_counter_init(void);
-
-#define RESET_COUNTER_MAGIC 0xCAFEBABE
 
 /* USER CODE END Private defines */
 

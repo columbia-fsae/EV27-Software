@@ -20,12 +20,7 @@
 
 // Downsam pled from original 4964-point table
 // This represents a typical Li-ion cell OCV curve
-static const OcvLutPoint g_ocv_lut[OCV_LUT_SIZE] = {
-    // SOC,   OCV(V),  Slope(V/SOC)
-    {0.00f, 2.780000f, 5.31345f}, {0.10f, 3.206929f, 2.88707f}, {0.20f, 3.425026f, 1.28224f},
-    {0.30f, 3.515832f, 0.98664f}, {0.40f, 3.623843f, 0.93854f}, {0.50f, 3.706822f, 0.79836f},
-    {0.60f, 3.783746f, 0.80725f}, {0.70f, 3.868669f, 0.91243f}, {0.80f, 3.967249f, 0.96229f},
-    {0.90f, 4.061237f, 0.91914f}, {1.00f, 4.151168f, 0.87902f}};
+static const OcvLutPoint g_ocv_lut[OCV_LUT_SIZE] = OCV_LUT_DATA;
 
 // ============================================================================
 // PRIVATE FUNCTIONS
@@ -69,7 +64,7 @@ static int binary_search_lut(float value, bool is_soc) {
  * @brief Linear interpolation between two points
  */
 static float interpolate(float x, float x0, float x1, float y0, float y1) {
-    if (fabsf(x1 - x0) < 1e-8f) {
+    if (fabsf(x1 - x0) < INTERP_MIN_SPAN) {
         return y0;  // Avoid division by zero
     }
 
@@ -205,8 +200,8 @@ bool BatteryModel_VerifyTable(void) {
     }
 
     // Check OCV is generally increasing (except at high SOC)
-    for (int i = 0; i < OCV_LUT_SIZE - 5; i++) {
-        if (g_ocv_lut[i].ocv > g_ocv_lut[i + 1].ocv + 0.1f) {
+    for (int i = 0; i < OCV_LUT_SIZE - OCV_MONOTONIC_EXCLUDE_TOP_POINTS; i++) {
+        if (g_ocv_lut[i].ocv > g_ocv_lut[i + 1].ocv + OCV_MAX_DROP_V) {
             return false;  // Large voltage drop unexpected
         }
     }
@@ -218,7 +213,7 @@ bool BatteryModel_VerifyTable(void) {
 
     // Check voltage is in reasonable range
     for (int i = 0; i < OCV_LUT_SIZE; i++) {
-        if (g_ocv_lut[i].ocv < 2.0f || g_ocv_lut[i].ocv > 5.0f) {
+        if (g_ocv_lut[i].ocv < OCV_VALID_MIN_V || g_ocv_lut[i].ocv > OCV_VALID_MAX_V) {
             return false;
         }
     }

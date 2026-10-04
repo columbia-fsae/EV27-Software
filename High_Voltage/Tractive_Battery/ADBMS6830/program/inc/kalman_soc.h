@@ -68,12 +68,10 @@ typedef struct {
     float soh_est;
 
     // Validation
-    uint32_t magic_number;  // 0xDEADBEEF to verify valid data
+    uint32_t magic_number;  // KALMAN_MAGIC_NUMBER to verify valid data
     uint32_t crc32;         // CRC32 checksum
 
 } KalmanSOC_PersistentState;
-
-#define KALMAN_MAGIC_NUMBER 0xDEADBEEF
 
 // ============================================================================
 // MAIN FILTER STRUCTURE

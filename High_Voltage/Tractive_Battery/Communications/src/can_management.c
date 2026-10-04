@@ -75,15 +75,18 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
                 break;
             case CAN_ID_INVERTER_CURRENT:
                 can_data.tractive_current =
-                    (float)((int16_t)((((uint16_t)RxData[7]) << 8) | ((uint16_t)RxData[6]))) * 0.1f;
+                    (float)((int16_t)((((uint16_t)RxData[7]) << 8) | ((uint16_t)RxData[6]))) *
+                    CAN_RX_INVERTER_CURRENT_SCALE;
                 break;
             case CAN_ID_INVERTER_VOLTAGE:
                 can_data.dc_bus_voltage =
-                    (float)((((uint16_t)RxData[1]) << 8) | ((uint16_t)RxData[0])) * 0.1f;
+                    (float)((((uint16_t)RxData[1]) << 8) | ((uint16_t)RxData[0])) *
+                    CAN_RX_INVERTER_VOLTAGE_SCALE;
                 break;
             case CAN_ID_ELCON_CURRENT:
                 can_data.tractive_current =
-                    (float)((int16_t)((((uint16_t)RxData[2]) << 8) | ((uint16_t)RxData[3]))) * 0.1f;
+                    (float)((int16_t)((((uint16_t)RxData[2]) << 8) | ((uint16_t)RxData[3]))) *
+                    CAN_RX_ELCON_CURRENT_SCALE;
                 break;
             default:
                 break;
@@ -95,7 +98,8 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
 void bms_can_faults(SegmentData_t* PackData, TotalPack_t* TotalPack, FDCAN_HandleTypeDef* hfdcan1) {
     // Send total voltage and all BMS fault flags for all Modules
     uint8_t data1[8] = {0};
-    uint16_t temp_totalVoltage = clamp_u16((TotalPack->voltage) / 0.01f, 0.0f, 65535.0f);
+    uint16_t temp_totalVoltage =
+        clamp_u16((TotalPack->voltage) / CAN_PACK_V_SCALE, 0.0f, CAN_U16_MAX);
     data1[0] = (uint8_t)(temp_totalVoltage & 0xFF);
     data1[1] = (uint8_t)(temp_totalVoltage >> 8U);
     data1[2] = PackData[0].fault_flags | (TotalPack->balancing_done << 8U);
@@ -144,10 +148,12 @@ void bms_can_stats(SegmentData_t* PackData, TotalPack_t* TotalPack, FDCAN_Handle
     }
     // Send min and max voltage and temp values and IDs in structure
     uint8_t data2[8];
-    data2[0] = (uint8_t)clamp_u8((((maxVoltage / 1000.0f) - 1.8) / 0.01), 0.0f, 255.0f);
-    data2[1] = (uint8_t)clamp_u8((((minVoltage / 1000.0f) - 1.8) / 0.01), 0.0f, 255.0f);
-    data2[2] = (uint8_t)clamp_u8(maxTemp * 4.0f, 0.0f, 255.0f);
-    data2[3] = (uint8_t)clamp_u8(minTemp * 4.0f, 0.0f, 255.0f);
+    data2[0] = (uint8_t)clamp_u8((((maxVoltage / 1000.0f) - CAN_CELL_V_OFFSET) / CAN_CELL_V_SCALE),
+                                 0.0f, CAN_U8_MAX);
+    data2[1] = (uint8_t)clamp_u8((((minVoltage / 1000.0f) - CAN_CELL_V_OFFSET) / CAN_CELL_V_SCALE),
+                                 0.0f, CAN_U8_MAX);
+    data2[2] = (uint8_t)clamp_u8(maxTemp * CAN_TEMP_SCALE, 0.0f, CAN_U8_MAX);
+    data2[3] = (uint8_t)clamp_u8(minTemp * CAN_TEMP_SCALE, 0.0f, CAN_U8_MAX);
     data2[4] = maxVoltageIdx;
     data2[5] = minVoltageIdx;
     data2[6] = maxTempIdx;
@@ -163,21 +169,23 @@ void bms_can_stats(SegmentData_t* PackData, TotalPack_t* TotalPack, FDCAN_Handle
 void bms_can_data(SegmentData_t* PackData, TotalPack_t* TotalPack, FDCAN_HandleTypeDef* hfdcan1,
                   uint8_t* bms_mod_counter, uint8_t* bms_segment_counter) {
     // BMS CAN ID conversion based on which Module and starting Cell is given to the function
-    uint16_t id = CAN_ID_BMS_INIT + ((*bms_segment_counter) * 6) + ((*bms_mod_counter + 1) / 4);
+    uint16_t id = CAN_ID_BMS_INIT + ((*bms_segment_counter) * BMS_CAN_MSGS_PER_SEGMENT) +
+                  ((*bms_mod_counter + 1) / BMS_CAN_CELLS_PER_MSG);
     uint8_t data[8];
 
     // Voltage and Temperature Assignment
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < BMS_CAN_CELLS_PER_MSG; i++) {
         // Assign voltages and temperatures
         uint32_t temp_idx =
             cell_to_temp_index(*bms_mod_counter);  // Special conversion with offset num of temp
                                                    // sensors and voltage sensors
-        data[i] = clamp_u8(
-            (((PackData[*bms_segment_counter].cell_v_mV[*bms_mod_counter]) / (1000.0f) - 1.8) /
-             0.01),
-            0.0f, 255.0f);
-        data[i + 4] =
-            clamp_u8(PackData[*bms_segment_counter].temp_C[temp_idx] * 4.0f, 0.0f, 255.0f);
+        data[i] =
+            clamp_u8((((PackData[*bms_segment_counter].cell_v_mV[*bms_mod_counter]) / (1000.0f) -
+                       CAN_CELL_V_OFFSET) /
+                      CAN_CELL_V_SCALE),
+                     0.0f, CAN_U8_MAX);
+        data[i + BMS_CAN_CELLS_PER_MSG] = clamp_u8(
+            PackData[*bms_segment_counter].temp_C[temp_idx] * CAN_TEMP_SCALE, 0.0f, CAN_U8_MAX);
         *bms_mod_counter += 1;
         // Check for end of module
         if (*bms_mod_counter >= (uint8_t)CELLS_PER_MOD) {
@@ -188,9 +196,9 @@ void bms_can_data(SegmentData_t* PackData, TotalPack_t* TotalPack, FDCAN_HandleT
             }
             *bms_mod_counter = 0;
             // Fill in rest of the data with zeros
-            for (int j = i + 1; j < 4; j++) {
-                data[j] = clamp_u8((uint8_t)0.0f, 0.0f, 255.0f);
-                data[j + 4] = clamp_u8((uint8_t)0.0f, 0.0f, 255.0f);
+            for (int j = i + 1; j < BMS_CAN_CELLS_PER_MSG; j++) {
+                data[j] = clamp_u8((uint8_t)0.0f, 0.0f, CAN_U8_MAX);
+                data[j + BMS_CAN_CELLS_PER_MSG] = clamp_u8((uint8_t)0.0f, 0.0f, CAN_U8_MAX);
             }
             break;
         }
@@ -234,8 +242,9 @@ void bms_can_ids(SegmentData_t* PackData, SOC_Estimate soc[][CELLS_PER_MOD], Tot
         data[cic] = (PackData[cic].id[1] << 4U) | (PackData[cic].id[0]);
     }
 
-    data[6] = clamp_u8(pack->temp * 4.0f, 0.0f, 255.0f);
-    data[7] = clamp_u8(((pack->avg_voltage - 1.8) / 0.01), 0.0f, 255.0f);
+    data[6] = clamp_u8(pack->temp * CAN_TEMP_SCALE, 0.0f, CAN_U8_MAX);
+    data[7] =
+        clamp_u8(((pack->avg_voltage - CAN_CELL_V_OFFSET) / CAN_CELL_V_SCALE), 0.0f, CAN_U8_MAX);
 
     if (CAN_SendData((uint16_t)CAN_ID_BMS_IDS, data, FDCAN_DLC_BYTES_8, hfdcan1) != HAL_OK) {
         // printf("CAN Error BMS IDS\r\n");
@@ -251,14 +260,14 @@ void soc_can_stats(SegmentData_t* PackData, SOC_Estimate soc[][CELLS_PER_MOD], T
                    FDCAN_HandleTypeDef* hfdcan1) {
     // Overall Pack SOC Information
     uint8_t data_header[6];
-    float clamped_cap = fmaxf(fminf(10.4 * 144, pack->capacity), 0);
-    clamped_cap = clamped_cap / (10.4 * 144);
-    data_header[0] = (uint8_t)((uint16_t)(pack->soc * 65535.0f) & 0xFF);
-    data_header[1] = (uint8_t)(((uint16_t)(pack->soc * 65535.0f)) >> 8U);
-    data_header[2] = (uint8_t)((uint16_t)(clamped_cap * 65535.0f) & 0xFF);
-    data_header[3] = (uint8_t)(((uint16_t)(clamped_cap * 65535.0f)) >> 8U);
-    data_header[4] = (uint8_t)((uint16_t)(pack->uncertainty * 65535.0f) & 0xFF);
-    data_header[5] = (uint8_t)(((uint16_t)(pack->uncertainty * 65535.0f)) >> 8U);
+    float clamped_cap = fmaxf(fminf(CAN_SOC_CAPACITY_FULLSCALE, pack->capacity), 0);
+    clamped_cap = clamped_cap / CAN_SOC_CAPACITY_FULLSCALE;
+    data_header[0] = (uint8_t)((uint16_t)(pack->soc * CAN_U16_MAX) & 0xFF);
+    data_header[1] = (uint8_t)(((uint16_t)(pack->soc * CAN_U16_MAX)) >> 8U);
+    data_header[2] = (uint8_t)((uint16_t)(clamped_cap * CAN_U16_MAX) & 0xFF);
+    data_header[3] = (uint8_t)(((uint16_t)(clamped_cap * CAN_U16_MAX)) >> 8U);
+    data_header[4] = (uint8_t)((uint16_t)(pack->uncertainty * CAN_U16_MAX) & 0xFF);
+    data_header[5] = (uint8_t)(((uint16_t)(pack->uncertainty * CAN_U16_MAX)) >> 8U);
 
     if (CAN_SendData(CAN_ID_SOC_INIT, data_header, FDCAN_DLC_BYTES_6, hfdcan1) != HAL_OK) {
         // printf("CAN Error SOC Pack\r\n");
@@ -273,11 +282,12 @@ void soc_can_data(SOC_Estimate soc[][CELLS_PER_MOD], TotalPack_t* pack,
                   FDCAN_HandleTypeDef* hfdcan1, uint8_t* soc_mod_counter,
                   uint8_t* soc_segment_counter) {
     // SOC CAN ID conversion based on which Module and starting Cell is given to the function
-    uint16_t id = CAN_ID_SOC_INIT + 1 + ((*soc_segment_counter) * 3) + ((*soc_mod_counter + 1) / 8);
+    uint16_t id = CAN_ID_SOC_INIT + 1 + ((*soc_segment_counter) * SOC_CAN_MSGS_PER_SEGMENT) +
+                  ((*soc_mod_counter + 1) / SOC_CAN_CELLS_PER_MSG);
     uint8_t data[8];
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < SOC_CAN_CELLS_PER_MSG; i++) {
         // SOC Assignment
-        data[i] = (uint8_t)(soc[*soc_segment_counter][*soc_mod_counter].soc * 255.0f);
+        data[i] = (uint8_t)(soc[*soc_segment_counter][*soc_mod_counter].soc * CAN_U8_MAX);
         *soc_mod_counter += 1;
         // Check for end of Module
         if ((*soc_mod_counter + 1) % ((uint8_t)CELLS_PER_MOD + 1) == 0) {
@@ -288,8 +298,8 @@ void soc_can_data(SOC_Estimate soc[][CELLS_PER_MOD], TotalPack_t* pack,
             }
             *soc_mod_counter = 0;
             // Fill in rest of the data with zeros
-            for (int j = i + 1; j < 8; j++) {
-                data[j] = clamp_u8((uint8_t)0.0f, 0.0f, 255.0f);
+            for (int j = i + 1; j < SOC_CAN_CELLS_PER_MSG; j++) {
+                data[j] = clamp_u8((uint8_t)0.0f, 0.0f, CAN_U8_MAX);
             }
             break;
         }
@@ -320,15 +330,15 @@ void error_can(FDCAN_HandleTypeDef* hfdcan1) {
 void adc_can(ADC_Inputs_t* adc_data, FDCAN_HandleTypeDef* hfdcan1) {
     // Convert ADCs and send
     uint8_t data[7];
-    uint16_t ts12 = clamp_u16(adc_data->ts_vsense / PACK_VOLTAGE_SCALE, 0, 4095);
-    uint16_t bat12 = clamp_u16(adc_data->bat_vsense / PACK_VOLTAGE_SCALE, 0, 4095);
+    uint16_t ts12 = clamp_u16(adc_data->ts_vsense / PACK_VOLTAGE_SCALE, 0, CAN_U12_MAX);
+    uint16_t bat12 = clamp_u16(adc_data->bat_vsense / PACK_VOLTAGE_SCALE, 0, CAN_U12_MAX);
     data[0] = ts12 & 0xFF;
     data[1] = ((ts12 >> 8) & 0x0F) | ((bat12 << 4) & 0xF0);
     data[2] = (bat12 >> 4) & 0xFF;
-    data[3] = clamp_u8((adc_data->temp_precharge - TSENSE_OFFSET) / TSENSE_SCALE, 0.0f, 255.0f);
-    data[4] = clamp_u8((adc_data->temp_power - TSENSE_OFFSET) / TSENSE_SCALE, 0.0f, 255.0f);
-    data[5] = clamp_u8((adc_data->temp_vsense - TSENSE_OFFSET) / TSENSE_SCALE, 0.0f, 255.0f);
-    data[6] = clamp_u8((adc_data->temp_ambient - TSENSE_OFFSET) / TSENSE_SCALE, 0.0f, 255.0f);
+    data[3] = clamp_u8((adc_data->temp_precharge - TSENSE_OFFSET) / TSENSE_SCALE, 0.0f, CAN_U8_MAX);
+    data[4] = clamp_u8((adc_data->temp_power - TSENSE_OFFSET) / TSENSE_SCALE, 0.0f, CAN_U8_MAX);
+    data[5] = clamp_u8((adc_data->temp_vsense - TSENSE_OFFSET) / TSENSE_SCALE, 0.0f, CAN_U8_MAX);
+    data[6] = clamp_u8((adc_data->temp_ambient - TSENSE_OFFSET) / TSENSE_SCALE, 0.0f, CAN_U8_MAX);
     HAL_StatusTypeDef temp =
         CAN_SendData((uint16_t)CAN_ID_PACK_SENSE, data, FDCAN_DLC_BYTES_7, hfdcan1);
     if (temp != HAL_OK) {

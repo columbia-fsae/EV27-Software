@@ -28,6 +28,7 @@
 #include "main.h"
 #include "rotary_encoder.hpp"
 #include "stm32f0xx_hal.h"
+#include "ui_config.h"
 
 // GLOBAL OBJECTS
 // needs to be global so the callback can access it
@@ -50,9 +51,9 @@ int cpp_main(void) {
         Edit_None;  // tracks if user is currently editing a value, and if so which one
     int16_t userVars[] = {
         // holds user editable variables [current_lim, volt_lim, status]
-        75,   // 7.5A
-        250,  // 250V
-        0,    // Status
+        UI_DEFAULT_CURRENT_LIMIT,  // 7.5A
+        UI_DEFAULT_VOLTAGE_LIMIT,  // 250V
+        0,                         // Status
     };
 
     display.init();
@@ -71,7 +72,7 @@ int cpp_main(void) {
 
     display.setAllInfo(0);
 
-    const char* statusMsg = "STARTING";
+    const char* statusMsg = STATUS_MSG_START;
     const char* uiStatusMsg = nullptr;
     const char* prevStatusMsg = statusMsg;
     if (statusMsg) {
@@ -97,26 +98,27 @@ int cpp_main(void) {
     chargersm.lastCanUpdate = HAL_GetTick();
 
     // NOT WORKING
-    display.setBrightness(255);  // set brightness to maximum
+    display.setBrightness(UI_BACKLIGHT_BRIGHTNESS);
 
     /* Infinite loop */
     while (1) {
         // TODO: MUST CALL error_can() and battery_can() in the main loop at some intervals
-        if (HAL_GetTick() - chargersm.lastCanUpdate >= 1000) {
+        if (HAL_GetTick() - chargersm.lastCanUpdate >= CAN_UPDATE_PERIOD_MS) {
             if (!error_can(&hcan)) {
-                display.setStatus("STM32 HAL CAN ERR");
+                display.setStatus(STATUS_MSG_CAN_HAL_ERROR);
                 display.refresh();
-                HAL_Delay(1000);
+                HAL_Delay(CAN_ERROR_DISPLAY_MS);
             }
             if (!battery_can(&hcan, CAN_Info.elconCurrent, chargersm.balancing)) {
-                display.setStatus("STM32 HAL CAN ERR");
+                display.setStatus(STATUS_MSG_CAN_HAL_ERROR);
                 display.refresh();
-                HAL_Delay(1000);
+                HAL_Delay(CAN_ERROR_DISPLAY_MS);
             }
-            if (!charger_can(&hcan, userVars[1] * 10, userVars[0], chargersm.charging)) {
-                display.setStatus("STM32 HAL CAN ERR");
+            if (!charger_can(&hcan, userVars[VOLTAGE_LIMIT] * CHARGER_V_LIMIT_SCALE,
+                             userVars[CURRENT_LIMIT], chargersm.charging)) {
+                display.setStatus(STATUS_MSG_CAN_HAL_ERROR);
                 display.refresh();
-                HAL_Delay(1000);
+                HAL_Delay(CAN_ERROR_DISPLAY_MS);
             }
 
             chargersm.lastCanUpdate = HAL_GetTick();
@@ -164,6 +166,6 @@ void CPP_HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 void DisplayError() {
     display.clear();
-    display.setStatus("STM32 ERROR");
+    display.setStatus(STATUS_MSG_STM32_ERROR);
     display.refresh();
 }

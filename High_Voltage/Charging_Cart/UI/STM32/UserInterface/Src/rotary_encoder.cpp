@@ -54,7 +54,7 @@ void RotaryEncoder::rotationCallback() {
 
 void RotaryEncoder::switchCallback() {
     // for debounce
-    if (HAL_GetTick() - lastButtonTick > 1000) {
+    if (HAL_GetTick() - lastButtonTick > ENCODER_BUTTON_DEBOUNCE_MS) {
         input_buffer = input_buffer | (0b11 << (numActions * 2));  // Button pressed
         numActions++;
         lastButtonTick = HAL_GetTick();

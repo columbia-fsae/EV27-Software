@@ -182,15 +182,15 @@ static void MX_CAN_Init(void) {
     CAN_FilterTypeDef canfilterconfig;
 
     canfilterconfig.FilterActivation = CAN_FILTER_ENABLE;  // CHECK
-    canfilterconfig.FilterBank = 0;
+    canfilterconfig.FilterBank = CAN_FILTER_BANK;
     canfilterconfig.FilterFIFOAssignment = CAN_FILTER_FIFO0;  // CHECK
-    canfilterconfig.FilterIdHigh = 0x0000;
-    canfilterconfig.FilterIdLow = 0x0000;
-    canfilterconfig.FilterMaskIdHigh = 0x0000;
-    canfilterconfig.FilterMaskIdLow = 0x0000;
+    canfilterconfig.FilterIdHigh = CAN_FILTER_ID_HIGH;
+    canfilterconfig.FilterIdLow = CAN_FILTER_ID_LOW;
+    canfilterconfig.FilterMaskIdHigh = CAN_FILTER_MASK_ID_HIGH;
+    canfilterconfig.FilterMaskIdLow = CAN_FILTER_MASK_ID_LOW;
     canfilterconfig.FilterMode = CAN_FILTERMODE_IDMASK;
     canfilterconfig.FilterScale = CAN_FILTERSCALE_32BIT;
-    canfilterconfig.SlaveStartFilterBank = 20;
+    canfilterconfig.SlaveStartFilterBank = CAN_SLAVE_START_FILTER_BANK;
 
     HAL_CAN_ConfigFilter(&hcan, &canfilterconfig);
     /* USER CODE END CAN_Init 2 */
@@ -447,11 +447,11 @@ void Error_Handler(void) {
 
     // Delay only if SysTick is running
     if (tick > 0) {
-        HAL_Delay(100);
+        HAL_Delay(ERROR_HANDLER_DELAY_MS);
     }
 
     reset_counter++;
-    if (reset_counter > 10) {
+    if (reset_counter > MAX_SOFT_RESETS) {
         // Stuck in boot loop — halt and wait for watchdog
         // or physical intervention
         while (1) {

@@ -25,11 +25,12 @@ bool g_charger_present = false;
 
 cell_asic IC[TOTAL_IC];
 
-const float OV_THRESHOLD = 4.25f;     // Overvoltage limit
-const float UV_THRESHOLD = 2.5f;      // Undervoltage limit
-const float OT_THRESHOLD = 60.0f;     // Overtemperature limit (Celsius)
-const float VOLTAGE_LSB = 0.00015f;   // ADBMS6830 ADC LSB is 150uV
-const float BAL_THRESHOLD_V = 0.05f;  // 5mV hysteresis — balance if cell is this far above min
+// Exported copies of the values in adbms_config.h
+const float OV_THRESHOLD = CELL_OV_THRESHOLD_V;
+const float UV_THRESHOLD = CELL_UV_THRESHOLD_V;
+const float OT_THRESHOLD = CELL_OT_THRESHOLD_C;
+const float VOLTAGE_LSB = ADBMS_VOLTAGE_LSB_V;
+const float BAL_THRESHOLD_V = BAL_HYSTERESIS_V;
 
 /* --- GLOBAL PACK STATUS --- */
 SegmentData_t PackSegments[TOTAL_MODULES];
@@ -49,99 +50,59 @@ void adBms6830_soc_update(int cic, int cell, float cell_voltage, float pack_curr
 void adBms6830_soc_init(void);
 
 // Tables for SOC estimation, from HPPC testing
-static RC_LookupTable g_r_ct_lut = {
-    .temp_points = {25.0f, 26.0f},
-    .soc_points = {0.10f, 0.20f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 0.80f, 0.90f, 1.0f},
-    .values = {{0.0007293401782525250f, 0.0009074875325995350f, 0.00085638685177882f,
-                0.0012423409779717100f, 0.0011932057340083800f, 0.001315810325699840f,
-                0.0008616053304370760f, 0.0012148334716370600f, 0.0023088303124354100f,
-                0.004822437902900810f},
-               {0.0007293401782525250f, 0.0009074875325995350f, 0.00085638685177882f,
-                0.0012423409779717100f, 0.0011932057340083800f, 0.001315810325699840f,
-                0.0008616053304370760f, 0.0012148334716370600f, 0.0023088303124354100f,
-                0.004822437902900810f}}};
+static RC_LookupTable g_r_ct_lut = {.temp_points = RC_LUT_TEMP_POINTS,
+                                    .soc_points = RC_LUT_SOC_POINTS,
+                                    .values = RC_LUT_R_CT_VALUES};
 
-static RC_LookupTable g_c_ct_lut = {
-    .temp_points = {25.0f, 26.0f},
-    .soc_points = {0.10f, 0.20f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 0.80f, 0.90f, 1.0f},
-    .values = {{3426.8040222159100f, 4055.2212079149300f, 4828.111556415460f, 5634.523954468950f,
-                5866.549079080130f, 5319.9156924664600f, 7077.136410907460f, 5762.106628957510f,
-                3031.838226611050f, 1451.5479806985900f},
-               {3426.8040222159100f, 4055.2212079149300f, 4828.111556415460f, 5634.523954468950f,
-                5866.549079080130f, 5319.9156924664600f, 7077.136410907460f, 5762.106628957510f,
-                3031.838226611050f, 1451.5479806985900f}}};
+static RC_LookupTable g_c_ct_lut = {.temp_points = RC_LUT_TEMP_POINTS,
+                                    .soc_points = RC_LUT_SOC_POINTS,
+                                    .values = RC_LUT_C_CT_VALUES};
 
-static RC_LookupTable g_r_dif_lut = {
-    .temp_points = {25.0f, 26.0f},
-    .soc_points = {0.10f, 0.20f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 0.80f, 0.90f, 1.0f},
-    .values = {
-        {0.0018522507006706300f, 0.0023720948484197800f, 0.002067557002357570f,
-         0.00125871530333011f, 0.0014997750862781800f, 0.001823055274690330f, 0.001862907879059510f,
-         0.00126993563273167f, 0.002673415576968640f, 0.004061331586355210f},
-        {0.0018522507006706300f, 0.0023720948484197800f, 0.002067557002357570f,
-         0.00125871530333011f, 0.0014997750862781800f, 0.001823055274690330f, 0.001862907879059510f,
-         0.00126993563273167f, 0.002673415576968640f, 0.004061331586355210f}}};
+static RC_LookupTable g_r_dif_lut = {.temp_points = RC_LUT_TEMP_POINTS,
+                                     .soc_points = RC_LUT_SOC_POINTS,
+                                     .values = RC_LUT_R_DIF_VALUES};
 
-static RC_LookupTable g_c_dif_lut = {
-    .temp_points = {25.0f, 26.0f},
-    .soc_points = {0.10f, 0.20f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 0.80f, 0.90f, 1.0f},
-    .values = {{10829.999076136800f, 14390.588433361300f, 17705.78890692150f, 43171.568400062000f,
-                26935.39645917410f, 32112.190637379200f, 22994.811807973600f, 31368.700780914500f,
-                21714.92126684060f, 12507.460992043400f},
-               {10829.999076136800f, 14390.588433361300f, 17705.78890692150f, 43171.568400062000f,
-                26935.39645917410f, 32112.190637379200f, 22994.811807973600f, 31368.700780914500f,
-                21714.92126684060f, 12507.460992043400f}}};
+static RC_LookupTable g_c_dif_lut = {.temp_points = RC_LUT_TEMP_POINTS,
+                                     .soc_points = RC_LUT_SOC_POINTS,
+                                     .values = RC_LUT_C_DIF_VALUES};
 
 static RC_LookupTable g_r0_lut = {
-    .temp_points = {25.0f, 26.0f},
-    .soc_points = {0.10f, 0.20f, 0.30f, 0.40f, 0.50f, 0.60f, 0.70f, 0.80f, 0.90f, 1.0f},
-    .values = {
-        {0.005309061985376070f, 0.005045924714300260f, 0.004985194918799730f, 0.005032740842521390f,
-         0.005065978524900830f, 0.00499394960654918f, 0.005033886178286290f, 0.005035637273081450f,
-         0.005094409985592770f, 0.0060653011513259000f},
-        {0.005309061985376070f, 0.005045924714300260f, 0.004985194918799730f, 0.005032740842521390f,
-         0.005065978524900830f, 0.00499394960654918f, 0.005033886178286290f, 0.005035637273081450f,
-         0.005094409985592770f, 0.0060653011513259000f}}};
+    .temp_points = RC_LUT_TEMP_POINTS, .soc_points = RC_LUT_SOC_POINTS, .values = RC_LUT_R0_VALUES};
 
 /* --- TEMPERATURE SENSOR LOOKUP TABLE (Enepaq VTC5A) --- */
 // Maps voltages to temperatures from -40°C to +120°C in 5°C increments
-const float V_TEMP_TABLE[33] = {
-    2.44, 2.42, 2.40, 2.38, 2.35, 2.32, 2.27, 2.23, 2.17, 2.11,  // -40 to 5
-    2.05, 1.99, 1.92, 1.86, 1.80, 1.74, 1.68, 1.63, 1.59, 1.55,  // 10 to 55
-    1.51, 1.48, 1.45, 1.43, 1.40, 1.38, 1.37, 1.35, 1.34, 1.33,  // 60 to 105
-    1.32, 1.31, 1.30                                             // 110 to 120
-};
+const float V_TEMP_TABLE[TEMP_TABLE_SIZE] = TEMP_TABLE_V_DATA;
 
 /* -------------------------------------------------------------------------- */
 /* Helper: Convert Zener Voltage to Celsius */
 /* -------------------------------------------------------------------------- */
 float Convert_Zener_Voltage_To_Temp(float v) {
     // If voltage is much higher than your coldest value, it's probably floating.
-    if (v > 2.8f) {
-        return -99.0f;  // Use -99 as an obvious "Fault / Disconnected" indicator
+    if (v > TEMP_FLOATING_THRESHOLD_V) {
+        return TEMP_SENSOR_FAULT_C;  // Use -99 as an obvious "Fault / Disconnected" indicator
     }
     // 2. Cold saturation
-    if (v >= V_TEMP_TABLE[0]) return -40.0f;
+    if (v >= V_TEMP_TABLE[0]) return TEMP_TABLE_MIN_C;
 
     // 3. Hot saturation (Short circuit check)
-    if (v <= V_TEMP_TABLE[32]) return 120.0f;
+    if (v <= V_TEMP_TABLE[TEMP_TABLE_SIZE - 1]) return TEMP_TABLE_MAX_C;
 
     // 4. Linear Interpolation
-    for (int i = 0; i < 32; i++) {
+    for (int i = 0; i < TEMP_TABLE_SIZE - 1; i++) {
         if (v <= V_TEMP_TABLE[i] && v > V_TEMP_TABLE[i + 1]) {
             float v_diff = V_TEMP_TABLE[i] - V_TEMP_TABLE[i + 1];
             float v_offset = V_TEMP_TABLE[i] - v;
             float fraction = v_offset / v_diff;
-            return (-40.0f + (i * 5.0f)) + (fraction * 5.0f);
+            return (TEMP_TABLE_MIN_C + (i * TEMP_TABLE_STEP_C)) + (fraction * TEMP_TABLE_STEP_C);
         }
     }
 
-    return -99.0f;  // Fallback
+    return TEMP_SENSOR_FAULT_C;  // Fallback
 }
 
 static void Update_Charger_Status(void) {
     // Assume charger drives PC6 High when plugged in
-    g_charger_present = (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_6) == GPIO_PIN_SET);
+    g_charger_present = (HAL_GPIO_ReadPin(GPIO_SLOW_CAN_PORT, GPIO_SLOW_CAN_PIN) == GPIO_PIN_SET);
 }
 
 static void Update_BMS_OK_Output(GPIO_Info_t* gpio_data) {
@@ -157,10 +118,10 @@ static void Update_BMS_OK_Output(GPIO_Info_t* gpio_data) {
 
     // BMS_OK = 1 only if no faults.
     if (!any_fault) {
-        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_SET);  // BMS_OK = High
+        HAL_GPIO_WritePin(GPIO_BMS_OK_PORT, GPIO_BMS_OK_PIN, GPIO_PIN_SET);  // BMS_OK = High
         gpio_data->bms_ok_OUT = true;
     } else {
-        HAL_GPIO_WritePin(GPIOC, GPIO_PIN_9, GPIO_PIN_RESET);  // BMS_OK = Low
+        HAL_GPIO_WritePin(GPIO_BMS_OK_PORT, GPIO_BMS_OK_PIN, GPIO_PIN_RESET);  // BMS_OK = Low
         gpio_data->bms_ok_OUT = false;
     }
 }
@@ -175,14 +136,13 @@ void Process_Cell_Balancing() {
         int ic_slave = (seg * 2) + 1;
 
         // Skip balancing if communication is dropped for this segment
-        if (PackSegments[seg].fault_flags & 0x08) continue;
+        if (PackSegments[seg].fault_flags & FAULT_FLAG_COMM) continue;
 
         // 1. Find the minimum (weakest) cell voltage across all 24 cells in the segment
-        uint16_t min_v_mV = 9999;
+        uint16_t min_v_mV = BAL_MIN_SEARCH_INIT_MV;
         for (int i = 0; i < CELLS_PER_MOD; i++) {
             uint16_t v_mV = PackSegments[seg].cell_v_mV[i];
-            if (v_mV > 1000 &&
-                v_mV < min_v_mV) {  // >1V threshold (1000mV) to ignore empty channels
+            if (v_mV > BAL_VALID_CELL_MIN_MV && v_mV < min_v_mV) {  // ignore empty channels
                 min_v_mV = v_mV;
             }
         }
@@ -193,7 +153,7 @@ void Process_Cell_Balancing() {
 
         // 2. Build the 24-bit DCC bitmask
         //    Disable balancing entirely if any OT fault is present (safety)
-        if ((PackSegments[seg].fault_flags & 0x04) == 0) {  // 0x04 is the OT bit
+        if ((PackSegments[seg].fault_flags & FAULT_FLAG_OT) == 0) {
             for (int i = 0; i < CELLS_PER_MOD; i++) {
                 if (PackSegments[seg].cell_v_mV[i] > (min_v_mV + bal_thresh_mV)) {
                     segment_dcc_mask |= (1UL << i);
@@ -206,12 +166,13 @@ void Process_Cell_Balancing() {
 
         // 3. Split the 24-bit mask back into the two hardware ICs
         // Master IC handles the first 14 cells (Bits 0-13)
-        uint16_t master_dcc = (uint16_t)(segment_dcc_mask & 0x3FFF);
+        uint16_t master_dcc = (uint16_t)(segment_dcc_mask & BAL_MASTER_DCC_MASK);
         IC[ic_master].tx_cfgb.dcc = master_dcc;
 
         // Slave IC handles the remaining 10 cells (Bits 14-23)
         // Shift right by 14 to align with the slave's cell 0
-        uint16_t slave_dcc = (uint16_t)((segment_dcc_mask >> 14) & 0x03FF);
+        uint16_t slave_dcc =
+            (uint16_t)((segment_dcc_mask >> BAL_SLAVE_DCC_SHIFT) & BAL_SLAVE_DCC_MASK);
         IC[ic_slave].tx_cfgb.dcc = slave_dcc;
         if (segment_dcc_mask) {
             check_balance = false;
@@ -238,14 +199,14 @@ void Print_Status_To_Console() {
     for (int mod = 0; mod < TOTAL_MODULES; mod++) {
         printf("\r\n--- SEGMENT %d STATUS ---\r\n", mod + 1);
 
-        if (PackSegments[mod].fault_flags & 0x08) {
+        if (PackSegments[mod].fault_flags & FAULT_FLAG_COMM) {
             printf("[!] CRITICAL FAULT: Segment %d Communication Dropped\r\n", mod + 1);
             continue;
         }
 
-        if (PackSegments[mod].fault_flags & 0x01) printf("[!] FAULT: Overvoltage\r\n");
-        if (PackSegments[mod].fault_flags & 0x02) printf("[!] FAULT: Undervoltage\r\n");
-        if (PackSegments[mod].fault_flags & 0x04) printf("[!] FAULT: Overtemperature\r\n");
+        if (PackSegments[mod].fault_flags & FAULT_FLAG_OV) printf("[!] FAULT: Overvoltage\r\n");
+        if (PackSegments[mod].fault_flags & FAULT_FLAG_UV) printf("[!] FAULT: Undervoltage\r\n");
+        if (PackSegments[mod].fault_flags & FAULT_FLAG_OT) printf("[!] FAULT: Overtemperature\r\n");
 
         printf("\r\n[Cell Voltages]:\r\n");
         for (int i = 0; i < CELLS_PER_MOD; i++) {
@@ -288,10 +249,10 @@ void Process_Board_Data() {
         if (IC[ic_master].cccrc.cell_pec != 0 || IC[ic_master].cccrc.aux_pec != 0) {  //||
             // IC[ic_slave].cccrc.cell_pec  != 0 || IC[ic_slave].cccrc.aux_pec  != 0) {
 
-            if (comm_miss_count[seg] < 255) comm_miss_count[seg]++;
+            if (comm_miss_count[seg] < COMM_MISS_COUNT_MAX) comm_miss_count[seg]++;
 
             if (comm_miss_count[seg] >= COMM_FAULT_LATCH) {
-                PackSegments[seg].fault_flags |= 0x08;  // real comm fault
+                PackSegments[seg].fault_flags |= FAULT_FLAG_COMM;  // real comm fault
             }
             // else: leave fault_flags clear, KEEP last cycle's cell_v_mV / temp_C untouched
             continue;  // skip re-parsing this cycle's corrupt data either way
@@ -302,10 +263,10 @@ void Process_Board_Data() {
         // TODO: Partial Pack Code
         // Slave IC (10 Cells) -> Maps to cell_v_mV[0..9]
         for (int i = 0; i < VOLT_PER_SLAVE; i++) {
-            float v = ((int16_t)IC[ic_master].cell.c_codes[i] * VOLTAGE_LSB) + 1.5f;
+            float v = ((int16_t)IC[ic_master].cell.c_codes[i] * VOLTAGE_LSB) + ADBMS_CODE_OFFSET_V;
 
             if (i == 0 || i == VOLT_PER_SLAVE - 1) {
-                v += 0.1f;
+                v += ADBMS_END_CELL_OFFSET_V;
             }
             /*
             if (i == 0 || i == VOLT_PER_SLAVE-1){ //VOLTAGE OFFSET FOR FIRST AND LAST CELLS from
@@ -314,27 +275,28 @@ void Process_Board_Data() {
             */
             PackSegments[seg].cell_v_mV[i] = (uint16_t)(v * 1000.0f);
             totalVoltage += v;
-            if (v > 1.0f) {
-                if (v > OV_THRESHOLD) PackSegments[seg].fault_flags |= 0x01;
-                if (v < UV_THRESHOLD) PackSegments[seg].fault_flags |= 0x02;
+            if (v > CELL_FAULT_CHECK_MIN_V) {
+                if (v > OV_THRESHOLD) PackSegments[seg].fault_flags |= FAULT_FLAG_OV;
+                if (v < UV_THRESHOLD) PackSegments[seg].fault_flags |= FAULT_FLAG_UV;
             }
         }
 
         // --- 3. Extract Temperatures ---
         // Slave IC (10 Temps) -> Maps to temp_C[0..9]
         for (int i = 0; i < TEMP_PER_BOARD; i++) {
-            float raw_v = ((int16_t)IC[ic_master].aux.a_codes[i]) * VOLTAGE_LSB + 1.5f;
+            float raw_v =
+                ((int16_t)IC[ic_master].aux.a_codes[i]) * VOLTAGE_LSB + ADBMS_CODE_OFFSET_V;
 
             float t = Convert_Zener_Voltage_To_Temp(raw_v);
 
             if (t == SENSOR_DROPOUT_TEMP) {
-                dead_cells += 2;
+                dead_cells += TEMP_DROPOUT_DEAD_CELLS;
             }
             PackSegments[seg].temp_C[i] = t;
             avgTemp += t;
 
-            if (t > OT_THRESHOLD && t != -99.0f) {
-                PackSegments[seg].fault_flags |= 0x04;
+            if (t > OT_THRESHOLD && t != TEMP_SENSOR_FAULT_C) {
+                PackSegments[seg].fault_flags |= FAULT_FLAG_OT;
             }
         }
     }
@@ -344,10 +306,11 @@ void Process_Board_Data() {
 
     // Check for minimum 20% of cells having temperature measurements, otherwise call a fault
     for (int mod = 0; mod < TOTAL_MODULES; mod++) {
-        if (((float)(TOTAL_CELLS - dead_cells) / (float)TOTAL_CELLS) * 0.5 < MIN_CELL_THRESH) {
-            PackSegments[mod].fault_flags |= 0x10;
+        if (((float)(TOTAL_CELLS - dead_cells) / (float)TOTAL_CELLS) * TEMP_COVERAGE_FACTOR <
+            MIN_CELL_THRESH) {
+            PackSegments[mod].fault_flags |= FAULT_FLAG_TEMP_SENSORS;
         } else {
-            PackSegments[mod].fault_flags &= ~0x10;
+            PackSegments[mod].fault_flags &= ~FAULT_FLAG_TEMP_SENSORS;
         }
     }
 
@@ -394,7 +357,7 @@ void measurement_loop(volatile CAN_Inputs_t* can_data) {
 
     // 2. Trigger One-Shot GPIO Conversions
     adBms6830_Adax(AUX_OW_OFF, PUP_DOWN, AUX_ALL);
-    Delay_ms(5);  // Allow time for GPIO 1-5 Conversion
+    Delay_ms(ADBMS_GPIO_CONVERSION_DELAY_MS);  // Allow time for GPIO 1-5 Conversion
 
     // Same PEC-overwrite issue as the cell reads: accumulate across AUX groups
     // so a corrupt temperature read can't slip through the comm-drop check.
@@ -415,7 +378,7 @@ void measurement_loop(volatile CAN_Inputs_t* can_data) {
     // 3. Trigger Redundant GPIO Conversions (GPIO 6-10)
     adBmsWakeupIc(TOTAL_IC);
     adBms6830_Adax2(AUX_ALL);
-    Delay_ms(5);  // Allow time for GPIO 6-10 Conversion
+    Delay_ms(ADBMS_GPIO_CONVERSION_DELAY_MS);  // Allow time for GPIO 6-10 Conversion
 
     adBmsReadData(TOTAL_IC, &IC[0], RDRAXA, RAux, A);
     adBmsReadData(TOTAL_IC, &IC[0], RDRAXB, RAux, B);
@@ -439,17 +402,16 @@ void measurement_loop(volatile CAN_Inputs_t* can_data) {
 /* -------------------------------------------------------------------------- */
 void adbms_main_init(volatile CAN_Inputs_t* can_data) {
     // printf("\r\n\r\nStarting ADBMS6830 Driver...\r\n");
-    uint8_t pwma_tx_data[6] = {0x44, 0x44, 0x44, 0x44, 0x44, 0x44};  // Cells 1-8 at 50%
-    uint8_t pwmb_tx_data[6] = {0x44, 0x44, 0x44,
-                               0x44, 0x44, 0x44};  // Cells 9-10 at 50%, 11-16 at 0%
+    uint8_t pwma_tx_data[ADBMS_PWM_DATA_BYTES] = ADBMS_PWMA_DEFAULT_DATA;
+    uint8_t pwmb_tx_data[ADBMS_PWM_DATA_BYTES] = ADBMS_PWMB_DEFAULT_DATA;
 
     for (uint8_t cic = 0; cic < TOTAL_IC; cic++) {
         IC[cic].tx_cfga.refon = PWR_UP;
-        IC[cic].tx_cfga.gpo = 0X3FF;
+        IC[cic].tx_cfga.gpo = ADBMS_GPO_DEFAULT;
 
         // PWM activate for balancing
-        memcpy(IC[cic].pwma.tx_data, pwma_tx_data, 6);
-        memcpy(IC[cic].pwmb.tx_data, pwmb_tx_data, 6);
+        memcpy(IC[cic].pwma.tx_data, pwma_tx_data, ADBMS_PWM_DATA_BYTES);
+        memcpy(IC[cic].pwmb.tx_data, pwmb_tx_data, ADBMS_PWM_DATA_BYTES);
 
         // Matching your ADI application initialization perfectly:
         IC[cic].tx_cfgb.vov = SetOverVoltageThreshold(OV_THRESHOLD);
@@ -468,7 +430,7 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
     adBms6830_Adcv(RD_ON, CONTINUOUS, DCP_OFF, RSTF_OFF, OW_OFF_ALL_CH);
 
     // Give ADC filter time to settle on the first set of readings
-    Delay_ms(8);
+    Delay_ms(ADBMS_ADC_SETTLE_DELAY_MS);
 
     // Read all ADBMS6830 Chip IDs
     adBms6830_Snap();
@@ -485,7 +447,7 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
         //        (unsigned long)(raw_id & 0xFFFFFFFF));
         // printf("BOARD ID CONV: %d\r\n",id);
         // ID assignment for top and bottom BMS
-        if (id > 7) {
+        if (id > ADBMS_TOP_BOARD_ID_MAX) {
             PackSegments[cic].id[1] = id;
         } else {
             PackSegments[cic].id[0] = id;
@@ -512,9 +474,9 @@ void adBms6830_soc_run(volatile CAN_Inputs_t* can_data) {
     float currCap = 0;
     float cap = 0;
     float uncertainty = 0;
-    float minSoc = 2;
+    float minSoc = SOC_MIN_SEARCH_INIT;
     for (int cic = 0; cic < TOTAL_MODULES; cic++) {
-        if (PackSegments[cic].fault_flags & 0x08) continue;
+        if (PackSegments[cic].fault_flags & FAULT_FLAG_COMM) continue;
 
         for (int i = 0; i < CELLS_PER_MOD; i++) {
             int temp_idx = cell_to_temp_index(i);
@@ -552,7 +514,7 @@ void adBms6830_soc_run(volatile CAN_Inputs_t* can_data) {
     // Save to flash at large intervals
     static uint32_t last_save_tick = 0;
     uint32_t now = HAL_GetTick();
-    if (now - last_save_tick >= 300000) {  // 5 minutes
+    if (now - last_save_tick >= SOC_FLASH_SAVE_INTERVAL_MS) {
         // adBms6830_soc_save_to_flash();
         last_save_tick = now;
     }
@@ -568,7 +530,7 @@ void adBms6830_soc_init(void) {
     // Loop through all cells
     for (int cic = 0; cic < TOTAL_MODULES; cic++) {
         // Check if loss of comms on a Module
-        if (PackSegments[cic].fault_flags & 0x08) {
+        if (PackSegments[cic].fault_flags & FAULT_FLAG_COMM) {
             // printf("WARNING: Module %d offline during init, skipping\r\n", cic + 1);
             continue;
         }

@@ -212,46 +212,49 @@ int main(void) {
         // Get current internal clock time
         uint32_t curr_tick = HAL_GetTick();
 
-        RUN_EVERY(BMS_tick, 1000, 0, curr_tick) { adBms_main_run(&can_data, &gpio_data); }
+        RUN_EVERY(BMS_tick, BMS_RUN_PERIOD_MS, BMS_RUN_OFFSET_MS, curr_tick) {
+            adBms_main_run(&can_data, &gpio_data);
+        }
 
-        RUN_EVERY(BMS_CAN_STATS_tick, 1000, 0, curr_tick) {
+        RUN_EVERY(BMS_CAN_STATS_tick, BMS_CAN_STATS_PERIOD_MS, BMS_CAN_STATS_OFFSET_MS, curr_tick) {
             // printf("BMS Stats CAN Stats \r\n");
             bms_can_stats(PackSegments, &TotalPack, &hfdcan1);
         }
 
-        RUN_EVERY(BMS_CAN_FAULTS_tick, 10, 3, curr_tick) {
+        RUN_EVERY(BMS_CAN_FAULTS_tick, BMS_CAN_FAULTS_PERIOD_MS, BMS_CAN_FAULTS_OFFSET_MS,
+                  curr_tick) {
             // printf("BMS Stats CAN Stats \r\n");
             bms_can_faults(PackSegments, &TotalPack, &hfdcan1);
         }
 
-        RUN_EVERY(SOC_CAN_STATS_tick, 1000, 200, curr_tick) {
+        RUN_EVERY(SOC_CAN_STATS_tick, SOC_CAN_STATS_PERIOD_MS, SOC_CAN_STATS_OFFSET_MS, curr_tick) {
             // printf("BMS Stats CAN Stats \r\n");
             soc_can_stats(PackSegments, g_soc_estimate, &TotalPack, &hfdcan1);
         }
 
-        RUN_EVERY(BMS_CAN_IDS_tick, 2000, 300, curr_tick) {
+        RUN_EVERY(BMS_CAN_IDS_tick, BMS_CAN_IDS_PERIOD_MS, BMS_CAN_IDS_OFFSET_MS, curr_tick) {
             // printf("BMS Stats CAN Stats \r\n");
             bms_can_ids(PackSegments, g_soc_estimate, &TotalPack, &hfdcan1);
         }
 
-        RUN_EVERY(BMS_CAN_DATA_tick, 40, 0, curr_tick) {
+        RUN_EVERY(BMS_CAN_DATA_tick, BMS_CAN_DATA_PERIOD_MS, BMS_CAN_DATA_OFFSET_MS, curr_tick) {
             // printf("BMS Data CAN Stats \r\n");
             bms_can_data(PackSegments, &TotalPack, &hfdcan1, &bms_mod_counter,
                          &bms_segment_counter);
         }
 
-        RUN_EVERY(SOC_CAN_DATA_tick, 40, 20, curr_tick) {
+        RUN_EVERY(SOC_CAN_DATA_tick, SOC_CAN_DATA_PERIOD_MS, SOC_CAN_DATA_OFFSET_MS, curr_tick) {
             // printf("SOC Data CAN Stats \r\n");
             soc_can_data(g_soc_estimate, &TotalPack, &hfdcan1, &soc_mod_counter,
                          &soc_segment_counter);
         }
 
-        RUN_EVERY(BSM_CAN_tick, 50, 20, curr_tick) {
+        RUN_EVERY(BSM_CAN_tick, BSM_CAN_PERIOD_MS, BSM_CAN_OFFSET_MS, curr_tick) {
             // printf("BSM CAN Stats \r\n");
             bsm_can(&bsm, &gpio_data, &hfdcan1);
         }
 
-        RUN_EVERY(ADC_tick, 1000, 350, curr_tick) {
+        RUN_EVERY(ADC_tick, ADC_CAN_PERIOD_MS, ADC_CAN_OFFSET_MS, curr_tick) {
             // printf("ADC CAN Stats \r\n");
             adc_can(&adc_data, &hfdcan1);
             // printf("ADC READ\r\n Voltages: ts_vsense = %f, bat_vsense = %f\r\n Temps: Ambient =
@@ -262,7 +265,7 @@ int main(void) {
             // %.2f\r\n",can_data.balancing_enable,can_data.tractive_current,can_data.dc_bus_voltage);
         }
 
-        RUN_EVERY(BSM_tick, 50, 0, curr_tick) {
+        RUN_EVERY(BSM_tick, BSM_RUN_PERIOD_MS, BSM_RUN_OFFSET_MS, curr_tick) {
             bsm_run(&bsm, &gpio_data, &adc_data);
             GPIO_Write(&bsm);
             // printf("BSM\r\n State = %d, Timer = %d \r\n ENABLES: IR+ = %d, IR- = %d, Pc =
@@ -272,7 +275,9 @@ int main(void) {
             // gpio_data.ir_plus_aux,gpio_data.ir_minus_aux,gpio_data.slow_CAN,gpio_data.mcu_mhs,gpio_data.mcu_mls,gpio_data.sdc_ok,gpio_data.bms_ok_OUT);
         }
 
-        RUN_EVERY(ERROR_tick, 23, 0, curr_tick) { error_can(&hfdcan1); }
+        RUN_EVERY(ERROR_tick, ERROR_CAN_PERIOD_MS, ERROR_CAN_OFFSET_MS, curr_tick) {
+            error_can(&hfdcan1);
+        }
     }
 
     /* USER CODE END 3 */
@@ -506,12 +511,12 @@ static void MX_FDCAN1_Init(void) {
     /* USER CODE BEGIN FDCAN1_Init 2 */
     FDCAN_FilterTypeDef sFilterConfig;
 
-    sFilterConfig.IdType = FDCAN_STANDARD_ID;  // 11 Bit Standard Length
-    sFilterConfig.FilterIndex = 0;             // One filter so set to 0
+    sFilterConfig.IdType = FDCAN_STANDARD_ID;         // 11 Bit Standard Length
+    sFilterConfig.FilterIndex = CAN_RX_FILTER_INDEX;  // One filter so set to 0
     sFilterConfig.FilterType =
         FDCAN_FILTER_MASK;  // Standard Filter Type, FilterID1 = filter, FilterID2 = mask
-    sFilterConfig.FilterID1 = 0x000;
-    sFilterConfig.FilterID2 = 0x000;
+    sFilterConfig.FilterID1 = CAN_RX_FILTER_ID;
+    sFilterConfig.FilterID2 = CAN_RX_FILTER_MASK;
     sFilterConfig.FilterConfig = FDCAN_FILTER_TO_RXFIFO0;
 
     if (HAL_FDCAN_ConfigFilter(&hfdcan1, &sFilterConfig) != HAL_OK) {
@@ -766,7 +771,7 @@ size_t __write(int file, unsigned char const* ptr, size_t len) {
 PUTCHAR_PROTOTYPE {
     /* Place your implementation of fputc here */
     /* e.g. write a character to the LPUART1 and Loop until the end of transmission */
-    HAL_UART_Transmit(&hlpuart1, (uint8_t*)&ch, 1, 0xFFFF);
+    HAL_UART_Transmit(&hlpuart1, (uint8_t*)&ch, 1, CONSOLE_TX_TIMEOUT_MS);
 
     return ch;
 }
@@ -818,11 +823,11 @@ void Error_Handler(void) {
 
     // Delay only if SysTick is running
     if (tick > 0) {
-        HAL_Delay(100);
+        HAL_Delay(ERROR_HANDLER_DELAY_MS);
     }
 
     reset_counter++;
-    if (reset_counter > 3) {  // Can change number of resets, after the amount listed, gets stuck
+    if (reset_counter > MAX_SOFT_RESETS) {  // After this many resets, gets stuck
         // Stuck in boot loop, if CAN is working sending INIT error bytes over CAN
         while (1) {
             if (can_ready) {
