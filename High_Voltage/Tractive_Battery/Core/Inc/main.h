@@ -27,6 +27,8 @@ extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
+#include "FreeRTOSConfig.h"
+#include "common_types.h"
 #include "stm32g4xx_hal.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -129,6 +131,23 @@ void Error_Handler(void);
 #define CAN_Charger_Data_TSeg_1 23
 #define CAN_Charger_Data_TSeg_2 16
 
+#define GPIO_READ_TIME 10
+#define BMS_RUN_TIME 10
+#define BSM_RUN_TIME 10
+#define ERROR_CAN_RUN_TIME 10
+#define ADC_CAN_RUN_TIME 10
+#define BSM_CAN_RUN_TIME 10
+#define BMS_CAN_STATS_RUN_TIME 10
+#define BMS_CAN_FAULTS_RUN_TIME 10
+#define SOC_CAN_STATS_RUN_TIME 10
+#define BMS_CAN_IDS_RUN_TIME 10
+#define BMS_CAN_DATA_RUN_TIME 10
+#define SOC_CAN_DATA_RUN_TIME 10
+#define GPIO_WRITE_RUN_TIME 10
+#define TRACK_USAGE_RUN_TIME 10
+#define CAN_SEND_RUN_TIME 10
+
+#define TASK_NUM 14
 void reset_counter_init(void);
 
 // Reset counter definitions for software reset
@@ -142,6 +161,29 @@ extern ADC_HandleTypeDef hadc1;
 extern ADC_HandleTypeDef hadc2;
 extern DMA_HandleTypeDef hdma_adc1;
 extern DMA_HandleTypeDef hdma_adc2;
+
+typedef struct MutexHolder {
+    osMutexId_t bsm_key;
+    osMutexId_t gpio_data_key;
+    osMutexId_t adc_data_key;
+    osMutexId_t soc_estimate_key;
+    osMutexId_t pack_segments_key;
+    osMutexId_t total_pack_key;
+    osMutexId_t error_info_key;
+    osMutexId_t can_data_key;
+    osMutexId_t can_input_166_key;
+    osMutexId_t can_input_167_key;
+    osMutexId_t can_input_20_key;
+} Mutex_Struct_t;
+
+extern Mutex_Struct_t mutex_struct;
+extern bsm_obj bsm;
+extern osMessageQueueId_t Queue_CAN_TxHandle;
+extern uint8_t bms_mod_counter;
+extern uint8_t bms_segment_counter;
+extern uint8_t soc_mod_counter;
+extern uint8_t soc_segment_counter;
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

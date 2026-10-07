@@ -12,8 +12,11 @@
 // CAN Error Handling Storage
 typedef struct {
     uint8_t message_send_errors;
-    uint8_t message_receive_errors;
-    uint8_t message_init_send_errors;
+    uint8_t general_errors;
+    uint32_t min_stack_size;
+    uint8_t stack_overflow;
+    uint32_t queue_num;
+    uint32_t queue_space;
 } Errors;
 
 extern Errors error_info;
@@ -30,26 +33,28 @@ extern Errors error_info;
 
 // CAN Receive Errors Bits
 #define CAN_RECEPTION_ERROR 0
-#define CAN_NOTIFICATION_ERROR 1
-#define ADC_ERROR 2
-
 // CAN Init and STM Errors Bits
-#define INIT_CAN_SEND_ERROR 0
+#define INIT_CAN_SEND_ERROR 1
 // INIT Error
-#define INIT_ERROR 1
+#define INIT_ERROR 2
+// CAN Queue Errors
+#define QUEUE_CAN_SEND_ADD_FULL 3
+#define QUEUE_CAN_SEND_POP_EMPTY 4
+#define QUEUE_CAN_SEND_POP_ERROR 5
 
 // CAN IDS
-#define CAN_ID_BSM 2
-#define CAN_ID_PACK_SENSE 6
-#define CAN_ID_ERRORS 10
-#define CAN_ID_CHARGER 20
-#define CAN_ID_INVERTER_CURRENT 166
-#define CAN_ID_INVERTER_VOLTAGE 167
-#define CAN_ID_BMS_INIT 200
-#define CAN_ID_BMS_PACK 236
-#define CAN_ID_BMS_STATS 237
-#define CAN_ID_BMS_IDS 238
-#define CAN_ID_SOC_INIT 240
+#define CAN_ID_BSM ((uint16_t)2)
+#define CAN_ID_PACK_SENSE ((uint16_t)6)
+#define CAN_ID_ERRORS ((uint16_t)10)
+#define CAN_ID_CHARGER ((uint16_t)20)
+#define CAN_ID_INVERTER_CURRENT ((uint16_t)166)
+#define CAN_ID_INVERTER_VOLTAGE ((uint16_t)167)
+#define CAN_ID_BMS_INIT ((uint16_t)200)
+#define CAN_ID_BMS_PACK ((uint16_t)236)
+#define CAN_ID_BMS_STATS ((uint16_t)237)
+#define CAN_ID_BMS_IDS ((uint16_t)238)
+#define CAN_ID_SOC_STATS ((uint16_t)240)
+#define CAN_ID_SOC_INIT ((uint16_t)241)
 #define CAN_ID_ELCON_CURRENT 0x18FF50E7
 
 // ADC CAN Scalars
@@ -58,23 +63,28 @@ extern Errors error_info;
 #define TSENSE_OFFSET (-10.0f)
 
 void can_init(FDCAN_HandleTypeDef* hfdcan1, GPIO_Info_t* gpio);
-void bms_can_stats(SegmentData_t* PackData, TotalPack_t* TotalPack, FDCAN_HandleTypeDef* hfdcan1);
-void bms_can_faults(SegmentData_t* PackData, TotalPack_t* TotalPack, FDCAN_HandleTypeDef* hfdcan1);
-void bms_can_data(SegmentData_t* PackData, TotalPack_t* TotalPack, FDCAN_HandleTypeDef* hfdcan1,
-                  uint8_t* bms_mod_counter, uint8_t* bms_segment_counter);
-void bsm_can(bsm_obj* bsm, GPIO_Info_t* gpio_data, FDCAN_HandleTypeDef* hfdcan1);
-void soc_can_stats(SegmentData_t* PackData, SOC_Estimate soc[][CELLS_PER_MOD], TotalPack_t* pack,
-                   FDCAN_HandleTypeDef* hfdcan1);
-void bms_can_ids(SegmentData_t* PackData, SOC_Estimate soc[][CELLS_PER_MOD], TotalPack_t* pack,
-                 FDCAN_HandleTypeDef* hfdcan1);
-void soc_can_data(SOC_Estimate soc[][CELLS_PER_MOD], TotalPack_t* pack,
-                  FDCAN_HandleTypeDef* hfdcan1, uint8_t* soc_mod_counter,
-                  uint8_t* soc_segment_counter);
-void error_can(FDCAN_HandleTypeDef* hfdcan1);
-void adc_can(ADC_Inputs_t* adc_data, FDCAN_HandleTypeDef* hfdcan1);
-HAL_StatusTypeDef CAN_SendData(uint16_t id, uint8_t* data, uint32_t length,
-                               FDCAN_HandleTypeDef* hfdcan1);
-
+void bms_can_stats(SegmentData_t (*PackData)[TOTAL_MODULES], osMessageQueueId_t* Queue_CAN_TxHandle,
+                   Mutex_Struct_t* mutex_struct);
+void bms_can_faults(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* TotalPack,
+                    osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_struct);
+void bms_can_data(SegmentData_t (*PackData)[TOTAL_MODULES], uint8_t* bms_mod_counter,
+                  uint8_t* bms_segment_counter, osMessageQueueId_t* Queue_CAN_TxHandle,
+                  Mutex_Struct_t* mutex_struct);
+void bsm_can(bsm_obj* bsm, GPIO_Info_t* gpio_data, osMessageQueueId_t* Queue_CAN_TxHandle,
+             Mutex_Struct_t* mutex_struct);
+void soc_can_stats(TotalPack_t* pack, osMessageQueueId_t* Queue_CAN_TxHandle,
+                   Mutex_Struct_t* mutex_struct);
+void bms_can_ids(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* pack,
+                 osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_struct);
+void soc_can_data(SOC_Estimate (*soc)[TOTAL_MODULES][CELLS_PER_MOD], uint8_t* soc_mod_counter,
+                  uint8_t* soc_segment_counter, osMessageQueueId_t* Queue_CAN_TxHandle,
+                  Mutex_Struct_t* mutex_struct);
+void error_can(osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_struct);
+void adc_can(ADC_Inputs_t* adc_data, osMessageQueueId_t* Queue_CAN_TxHandle,
+             Mutex_Struct_t* mutex_struct);
+void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* hfdcan1);
+HAL_StatusTypeDef CAN_SendData_Init(uint16_t id, uint8_t* data, uint32_t length,
+                                    FDCAN_HandleTypeDef* hfdcan1);
 // Clamping Functions for CAN Sending
 static inline uint8_t clamp_u8(float value, float min, float max) {
     if (value < min) value = min;
@@ -96,4 +106,5 @@ static inline int16_t clamp_i16(float value, float min, float max) {
     if (value > max) value = max;
     return (int16_t)value;
 }
+
 #endif

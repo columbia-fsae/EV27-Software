@@ -30,20 +30,28 @@ jobs:
       matrix: ${{ steps.build-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
+      # predicate-quantifier 'every': a file must match ALL patterns in a
+      # filter, which is what lets the '!' entries exclude vendor/generated
+      # code (Drivers, Middlewares, cmake/stm32cubemx). A PR that only touches
+      # those (e.g. a CubeMX regen) then doesn't start a lint job at all.
+      # Shared lint config lives in its own filter and is OR'd back in below.
       - uses: dorny/paths-filter@v3
         id: filter
         with:
+          predicate-quantifier: 'every'
           filters: |
+            lint_config:
+              - '{.clang-format,.clang-tidy,.github/workflows/cpp-linter.yml}'
             Tractive_Battery:
               - 'High_Voltage/Tractive_Battery/**'
-              - '.clang-format'
-              - '.clang-tidy'
-              - '.github/workflows/cpp-linter.yml'
+              - '!High_Voltage/Tractive_Battery/Drivers/**'
+              - '!High_Voltage/Tractive_Battery/Middlewares/**'
+              - '!High_Voltage/Tractive_Battery/cmake/stm32cubemx/**'
             Charging_Cart_UI:
               - 'High_Voltage/Charging_Cart/UI/STM32/**'
-              - '.clang-format'
-              - '.clang-tidy'
-              - '.github/workflows/cpp-linter.yml'
+              - '!High_Voltage/Charging_Cart/UI/STM32/Drivers/**'
+              - '!High_Voltage/Charging_Cart/UI/STM32/Middlewares/**'
+              - '!High_Voltage/Charging_Cart/UI/STM32/cmake/stm32cubemx/**'
 
       # dorny/paths-filter only tells us WHICH projects changed\
       #
@@ -56,25 +64,31 @@ jobs:
       # so clang-tidy can't resolve its includes (e.g. Arduino.h) and would
       # fail the job. Add new non-CMake C/C++ directories here.
       #
-      # Each project's own $path/Drivers (vendor CMSIS/HAL) and
-      # $path/cmake/stm32cubemx (CubeMX-generated glue) are also ignored —
-      # same generated-code exclusion .pre-commit-config.yaml already
-      # applies
+      # Each project's own $path/Drivers (vendor CMSIS/HAL), $path/Middlewares
+      # (vendor FreeRTOS etc.) and $path/cmake/stm32cubemx (CubeMX-generated
+      # glue) are also ignored — same generated-code exclusion
+      # .pre-commit-config.yaml already applies.
+      #
+      # Middlewares MUST be ignored, not just skipped by lines-changed-only:
+      # once a PR's diff passes GitHub's 20,000-line limit, cpp-linter falls
+      # back to the paginated files API, which omits the patch for very large
+      # files, and cpp-linter errors out on any non-ignored file without one.
       - name: Build project/path matrix
         id: build-matrix
         run: |
           all_paths='High_Voltage/Tractive_Battery|High_Voltage/Charging_Cart/UI/STM32'
           non_firmware='Low_Voltage|Simulations'
+          config_changed='${{ steps.filter.outputs.lint_config }}'
           matrix='[]'
-          if [ "${{ steps.filter.outputs.Tractive_Battery }}" = "true" ]; then
+          if [ "${{ steps.filter.outputs.Tractive_Battery }}" = "true" ] || [ "$config_changed" = "true" ]; then
             path='High_Voltage/Tractive_Battery'
-            ignore=".github|$non_firmware|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            ignore=".github|$non_firmware|$path/Drivers|$path/Middlewares|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Tractive_Battery","path":$path,"ignore":$ignore}]')
           fi
-          if [ "${{ steps.filter.outputs.Charging_Cart_UI }}" = "true" ]; then
+          if [ "${{ steps.filter.outputs.Charging_Cart_UI }}" = "true" ] || [ "$config_changed" = "true" ]; then
             path='High_Voltage/Charging_Cart/UI/STM32'
-            ignore=".github|$non_firmware|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            ignore=".github|$non_firmware|$path/Drivers|$path/Middlewares|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Charging_Cart_UI","path":$path,"ignore":$ignore}]')
           fi
