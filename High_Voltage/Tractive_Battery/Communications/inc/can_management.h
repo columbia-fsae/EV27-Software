@@ -12,10 +12,11 @@
 // CAN Error Handling Storage
 typedef struct {
     uint8_t message_send_errors;
-    uint8_t message_receive_errors;
-    uint8_t message_init_send_errors;
-    uint8_t can_queue_errors;
-    uint8_t queue_info;
+    uint8_t general_errors;
+    uint32_t min_stack_size;
+    uint8_t stack_overflow;
+    uint32_t queue_num;
+    uint32_t queue_space;
 } Errors;
 
 extern Errors error_info;
@@ -32,22 +33,14 @@ extern Errors error_info;
 
 // CAN Receive Errors Bits
 #define CAN_RECEPTION_ERROR 0
-// UNUSED:
-#define CAN_NOTIFICATION_ERROR 1
-#define ADC_ERROR 2
-
 // CAN Init and STM Errors Bits
-#define INIT_CAN_SEND_ERROR 0
+#define INIT_CAN_SEND_ERROR 1
 // INIT Error
-#define INIT_ERROR 1
-
+#define INIT_ERROR 2
 // CAN Queue Errors
-#define QUEUE_CAN_SEND_ADD_FULL 0
-#define QUEUE_CAN_SEND_POP_EMPTY 1
-#define QUEUE_CAN_SEND_POP_ERROR 2
-#define QUEUE_CAN_REC_ADD_FULL 3
-#define QUEUE_CAN_REC_POP_EMPTY 4
-#define QUEUE_CAN_REC_POP_ERROR 5
+#define QUEUE_CAN_SEND_ADD_FULL 3
+#define QUEUE_CAN_SEND_POP_EMPTY 4
+#define QUEUE_CAN_SEND_POP_ERROR 5
 
 // CAN IDS
 #define CAN_ID_BSM ((uint16_t)2)

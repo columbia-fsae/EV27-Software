@@ -141,9 +141,6 @@ const osThreadAttr_t CAN_Send_attributes = {
 /* Definitions for Queue_CAN_Tx */
 osMessageQueueId_t Queue_CAN_TxHandle;
 const osMessageQueueAttr_t Queue_CAN_Tx_attributes = {.name = "Queue_CAN_Tx"};
-/* Definitions for Queue_CAN_Rx */
-osMessageQueueId_t Queue_CAN_RxHandle;
-const osMessageQueueAttr_t Queue_CAN_Rx_attributes = {.name = "Queue_CAN_Rx"};
 /* Definitions for bsm_key */
 osMutexId_t bsm_keyHandle;
 const osMutexAttr_t bsm_key_attributes = {.name = "bsm_key"};
@@ -165,6 +162,15 @@ const osMutexAttr_t TotalPack_key_attributes = {.name = "TotalPack_key"};
 /* Definitions for error_info_key */
 osMutexId_t error_info_keyHandle;
 const osMutexAttr_t error_info_key_attributes = {.name = "error_info_key"};
+/* Definitions for CAN_Inputs_166 */
+osMutexId_t CAN_Inputs_166Handle;
+const osMutexAttr_t CAN_Inputs_166_attributes = {.name = "CAN_Inputs_166"};
+/* Definitions for CAN_Inputs_167 */
+osMutexId_t CAN_Inputs_167Handle;
+const osMutexAttr_t CAN_Inputs_167_attributes = {.name = "CAN_Inputs_167"};
+/* Definitions for CAN_Inputs_20 */
+osMutexId_t CAN_Inputs_20Handle;
+const osMutexAttr_t CAN_Inputs_20_attributes = {.name = "CAN_Inputs_20"};
 /* USER CODE BEGIN PV */
 uint8_t HeaderTxBuffer[] =
     "****SPI - Two Boards communication based on Polling **** SPI Message ******** SPI Message "
@@ -254,6 +260,7 @@ int main(void) {
     /* USER CODE END SysInit */
 
     /* Initialize all configured peripherals */
+    /*
     MX_GPIO_Init();
     MX_DMA_Init();
     MX_ADC1_Init();
@@ -262,6 +269,7 @@ int main(void) {
     MX_SPI1_Init();
     MX_FDCAN1_Init();
     MX_ADC2_Init();
+    */
     /* USER CODE BEGIN 2 */
     // TODO: COMMENT OUT STATEMENTS BEFORE IF NEW CODE FROM MX
     MX_GPIO_Init();
@@ -312,6 +320,15 @@ int main(void) {
     /* creation of error_info_key */
     error_info_keyHandle = osMutexNew(&error_info_key_attributes);
 
+    /* creation of CAN_Inputs_166 */
+    CAN_Inputs_166Handle = osMutexNew(&CAN_Inputs_166_attributes);
+
+    /* creation of CAN_Inputs_167 */
+    CAN_Inputs_167Handle = osMutexNew(&CAN_Inputs_167_attributes);
+
+    /* creation of CAN_Inputs_20 */
+    CAN_Inputs_20Handle = osMutexNew(&CAN_Inputs_20_attributes);
+
     /* USER CODE BEGIN RTOS_MUTEX */
     /* add mutexes, ... */
     mutex_struct.bsm_key = bsm_keyHandle;
@@ -321,6 +338,9 @@ int main(void) {
     mutex_struct.pack_segments_key = PackSegments_keyHandle;
     mutex_struct.total_pack_key = TotalPack_keyHandle;
     mutex_struct.error_info_key = error_info_keyHandle;
+    mutex_struct.can_input_166_key = CAN_Inputs_166Handle;
+    mutex_struct.can_input_167_key = CAN_Inputs_167Handle;
+    mutex_struct.can_input_20_key = CAN_Inputs_20Handle;
 
     /* USER CODE END RTOS_MUTEX */
 
@@ -335,9 +355,6 @@ int main(void) {
     /* Create the queue(s) */
     /* creation of Queue_CAN_Tx */
     Queue_CAN_TxHandle = osMessageQueueNew(16, sizeof(uint8_t), &Queue_CAN_Tx_attributes);
-
-    /* creation of Queue_CAN_Rx */
-    Queue_CAN_RxHandle = osMessageQueueNew(16, sizeof(uint8_t), &Queue_CAN_Rx_attributes);
 
     /* USER CODE BEGIN RTOS_QUEUES */
     /* add queues, ... */
@@ -404,96 +421,10 @@ int main(void) {
 
     /* Infinite loop */
     /* USER CODE BEGIN WHILE */
-    // Individual Macro Scheduler Timers
-    uint32_t BMS_tick = 0;
-    uint32_t BMS_CAN_DATA_tick = 0;
-    uint32_t BMS_CAN_STATS_tick = 0;
-    uint32_t SOC_CAN_STATS_tick = 0;
-    uint32_t SOC_CAN_DATA_tick = 0;
-    uint32_t BSM_tick = 0;
-    uint32_t BSM_CAN_tick = 0;
-    uint32_t ADC_tick = 0;
-    uint32_t ERROR_tick = 0;
-    uint32_t BMS_CAN_FAULTS_tick = 0;
-    uint32_t BMS_CAN_IDS_tick = 0;
-
-    // BMS and SOC CAN Send Counters
-    uint8_t bms_mod_counter = 0;
-    uint8_t bms_segment_counter = 0;
-    uint8_t soc_mod_counter = 0;
-    uint8_t soc_segment_counter = 0;
-
     while (1) {
         /* USER CODE END WHILE */
 
         /* USER CODE BEGIN 3 */
-        // Update GPIO Pins
-        GPIO_Read(&gpio_data);
-
-        // Get current internal clock time
-        uint32_t curr_tick = HAL_GetTick();
-
-        RUN_EVERY(BMS_tick, 1000, 0, curr_tick) { adBms_main_run(&can_data, &gpio_data); }
-
-        RUN_EVERY(BMS_CAN_STATS_tick, 1000, 0, curr_tick) {
-            // printf("BMS Stats CAN Stats \r\n");
-            bms_can_stats(PackSegments, &TotalPack, &hfdcan1);
-        }
-
-        RUN_EVERY(BMS_CAN_FAULTS_tick, 10, 3, curr_tick) {
-            // printf("BMS Stats CAN Stats \r\n");
-            bms_can_faults(PackSegments, &TotalPack, &hfdcan1);
-        }
-
-        RUN_EVERY(SOC_CAN_STATS_tick, 1000, 200, curr_tick) {
-            // printf("BMS Stats CAN Stats \r\n");
-            soc_can_stats(PackSegments, g_soc_estimate, &TotalPack, &hfdcan1);
-        }
-
-        RUN_EVERY(BMS_CAN_IDS_tick, 2000, 300, curr_tick) {
-            // printf("BMS Stats CAN Stats \r\n");
-            bms_can_ids(PackSegments, g_soc_estimate, &TotalPack, &hfdcan1);
-        }
-
-        RUN_EVERY(BMS_CAN_DATA_tick, 40, 0, curr_tick) {
-            // printf("BMS Data CAN Stats \r\n");
-            bms_can_data(PackSegments, &TotalPack, &hfdcan1, &bms_mod_counter,
-                         &bms_segment_counter);
-        }
-
-        RUN_EVERY(SOC_CAN_DATA_tick, 40, 20, curr_tick) {
-            // printf("SOC Data CAN Stats \r\n");
-            soc_can_data(g_soc_estimate, &TotalPack, &hfdcan1, &soc_mod_counter,
-                         &soc_segment_counter);
-        }
-
-        RUN_EVERY(BSM_CAN_tick, 50, 20, curr_tick) {
-            // printf("BSM CAN Stats \r\n");
-            bsm_can(&bsm, &gpio_data, &hfdcan1);
-        }
-
-        RUN_EVERY(ADC_tick, 1000, 350, curr_tick) {
-            // printf("ADC CAN Stats \r\n");
-            adc_can(&adc_data, &hfdcan1);
-            // printf("ADC READ\r\n Voltages: ts_vsense = %f, bat_vsense = %f\r\n Temps: Ambient =
-            // %f, VSense = %f, Power = %f, Precharge =
-            // %f\r\n",adc_data.ts_vsense,adc_data.bat_vsense,adc_data.temp_ambient,adc_data.temp_vsense,adc_data.temp_power,adc_data.temp_precharge);
-            // printf("CAN Receive:\r\n Balancing Enable = %d, Tractive Current = %.2f, DC Bus
-            // Voltage =
-            // %.2f\r\n",can_data.balancing_enable,can_data.tractive_current,can_data.dc_bus_voltage);
-        }
-
-        RUN_EVERY(BSM_tick, 50, 0, curr_tick) {
-            bsm_run(&bsm, &gpio_data, &adc_data);
-            GPIO_Write(&bsm);
-            // printf("BSM\r\n State = %d, Timer = %d \r\n ENABLES: IR+ = %d, IR- = %d, Pc =
-            // %d\r\n",bsm.state,bsm.timer,bsm.ir_plus_enable,bsm.ir_minus_enable,bsm.pc_enable);
-            // printf("GPIO READ\r\n IR: IR+ = %d, IR- = %d \r\n Other: Slow_CAN = %d, mcu_mhs = %d,
-            // mcu_mls = %d \r\n SDC: sdc = %d, bms_ok = %d\r\n",
-            // gpio_data.ir_plus_aux,gpio_data.ir_minus_aux,gpio_data.slow_CAN,gpio_data.mcu_mhs,gpio_data.mcu_mls,gpio_data.sdc_ok,gpio_data.bms_ok_OUT);
-        }
-
-        RUN_EVERY(ERROR_tick, 23, 0, curr_tick) { error_can(&hfdcan1); }
     }
 
     /* USER CODE END 3 */
@@ -1056,7 +987,7 @@ void Start_BSM_Run(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        bsm_run(&bsm, &gpio_data, &adc_data);
+        bsm_run(&bsm, &gpio_data, &adc_data, &TotalPack, &mutex_struct);
         osDelayUntil(curr_tick + BSM_RUN_TIME);
         curr_tick += BSM_RUN_TIME;
     }
@@ -1265,8 +1196,25 @@ void Start_GPIO_Write(void* argument) {
 void Start_Track_Usage(void* argument) {
     /* USER CODE BEGIN Start_Track_Usage */
     uint32_t curr_tick = osKernelGetTickCount();
+    uint32_t min_stack_size = UINT32_MAX;
     /* Infinite loop */
+    osThreadId_t[TASK_NUM] task_ids = [
+        GPIO_ReadHandle, BMS_ReadHandle, BSM_RunHandle, Error_CANHandle, ADC_ReadHandle,
+        BSM_CANHandle, BMS_CAN_StatsHandle, BMS_CAN_FaultsHandle, SOC_CAN_StatsHandle,
+        BMS_CAN_IDSHandle, BMS_CAN_DataHandle, SOC_CAN_DataHandle, GPIO_WriteHandle,
+        CAN_SendHandle
+    ];
     for (;;) {
+        uint32_t curr_stack_size = 0;
+        for (i = 0; i < TASK_NUM; i++) {
+            curr_stack_size = osThreadGetStackSpace(task_ids[i]);
+            if (curr_stack_size < min_stack_size) {
+                min_stack_size = curr_stack_size;
+            }
+        }
+        copyWithMutex(&mutex_struct.error_info_key, &error_info.min_stack_size, &min_stack_size);
+        osMessageQueueGetCount(Queue_CAN_TxHandle);
+        osMessageQueueGetSpace(Queue_CAN_TxHandle);
         osDelay(curr_tick + TRACK_USAGE_RUN_TIME);
         curr_tick += TRACK_USAGE_RUN_TIME;
     }
@@ -1336,11 +1284,11 @@ void Error_Handler(void) {
     // Send INIT error bytes over CAN
     if (can_ready) {
         uint8_t data[4];
-        data[3] = (uint8_t)INIT_ERROR;
+        data[2] = (uint8_t)(1 << INIT_ERROR);
         if (CAN_SendData(CAN_ID_ERRORS, data, FDCAN_DLC_BYTES_4, &hfdcan1) != HAL_OK) {
-            error_info.message_init_send_errors |= (1 << INIT_CAN_SEND_ERROR);
+            error_info.general_errors |= (1 << INIT_CAN_SEND_ERROR);
         }
-        error_info.message_init_send_errors &= ~(1 << INIT_CAN_SEND_ERROR);
+        error_info.general_errors &= ~(1 << INIT_CAN_SEND_ERROR);
     }
 
     // Delay only if SysTick is running
@@ -1356,9 +1304,9 @@ void Error_Handler(void) {
                 uint8_t data[4];
                 data[3] = 1;
                 if (CAN_SendData(CAN_ID_ERRORS, data, FDCAN_DLC_BYTES_4, &hfdcan1) != HAL_OK) {
-                    error_info.message_init_send_errors |= (1 << INIT_CAN_SEND_ERROR);
+                    error_info.general_errors |= (1 << INIT_CAN_SEND_ERROR);
                 }
-                error_info.message_init_send_errors &= ~(1 << INIT_CAN_SEND_ERROR);
+                error_info.general_errors &= ~(1 << INIT_CAN_SEND_ERROR);
             }
         }
     }

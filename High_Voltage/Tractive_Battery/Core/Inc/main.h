@@ -27,6 +27,8 @@ extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
+#include "FreeRTOSConfig.h"
+#include "common_types.h"
 #include "stm32g4xx_hal.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -145,6 +147,7 @@ void Error_Handler(void);
 #define TRACK_USAGE_RUN_TIME 10
 #define CAN_SEND_RUN_TIME 10
 
+#define TASK_NUM 14
 void reset_counter_init(void);
 
 // Reset counter definitions for software reset
@@ -168,6 +171,9 @@ typedef struct MutexHolder {
     osMutexId_t total_pack_key;
     osMutexId_t error_info_key;
     osMutexId_t can_data_key;
+    osMutexId_t can_input_166_key;
+    osMutexId_t can_input_167_key;
+    osMutexId_t can_input_20_key;
 } Mutex_Struct_t;
 
 extern Mutex_Struct_t mutex_struct;
