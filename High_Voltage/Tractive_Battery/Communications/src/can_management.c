@@ -3,8 +3,6 @@
 #include <math.h>
 #include <stdint.h>
 
-#include <cstdint>
-
 #include "adBms_Application.h"
 #include "adc_management.h"
 #include "cmsis_os2.h"
@@ -60,20 +58,16 @@ void can_init(FDCAN_HandleTypeDef* hfdcan1, GPIO_Info_t* gpio) {
     }
 }
 
-void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs,
-                               Mutex_Struct_t* mutex_struct,
-                               osMessageQueueId_t* Queue_CAN_TxHandle) {
-    Errors local_error_info;
-
+void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs) {
     if ((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET) {
         // Retrieve Rx Messages from Rx FIFO0
         if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK) {
             // Reception Error
-            bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
+            bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
                                CAN_RECEPTION_ERROR);
             return;
         } else {
-            bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
+            bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
                                 CAN_RECEPTION_ERROR);
         }
 
@@ -84,26 +78,26 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs,
         switch (RxHeader.Identifier) {
             case CAN_ID_CHARGER:
                 bool balancing_enable = (RxData[0] & 0b1);
-                copyWithMutex(mutex_struct->can_input_20_key, &can_data.balancing_enable,
+                copyWithMutex(mutex_struct.can_input_20_key, &can_data.balancing_enable,
                               &balancing_enable);
                 break;
             case CAN_ID_INVERTER_CURRENT:
-                uint16_t tractive_current =
+                float tractive_current_inverter =
                     (float)((int16_t)((((uint16_t)RxData[7]) << 8) | ((uint16_t)RxData[6]))) * 0.1f;
-                copyWithMutex(mutex_struct->can_input_166_key, &can_data.tractive_current,
-                              &tractive_current);
+                copyWithMutex(mutex_struct.can_input_166_key, &can_data.tractive_current,
+                              &tractive_current_inverter);
                 break;
             case CAN_ID_INVERTER_VOLTAGE:
-                uint16_t dc_bus_voltage =
+                float dc_bus_voltage =
                     (float)((((uint16_t)RxData[1]) << 8) | ((uint16_t)RxData[0])) * 0.1f;
-                copyWithMutex(mutex_struct->can_input_167_key, &can_data.dc_bus_voltage,
+                copyWithMutex(mutex_struct.can_input_167_key, &can_data.dc_bus_voltage,
                               &dc_bus_voltage);
                 break;
             case CAN_ID_ELCON_CURRENT:
-                uint16_t tractive_current =
+                float tractive_current_charger =
                     (float)((int16_t)((((uint16_t)RxData[2]) << 8) | ((uint16_t)RxData[3]))) * 0.1f;
-                copyWithMutex(mutex_struct->can_input_166_key, &can_data.tractive_current,
-                              &tractive_current);
+                copyWithMutex(mutex_struct.can_input_166_key, &can_data.tractive_current,
+                              &tractive_current_charger);
                 break;
             default:
                 break;
@@ -111,7 +105,7 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs,
     }
 }
 
-void bms_can_faults(SegmentData_t* PackData, TotalPack_t* TotalPack,
+void bms_can_faults(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* TotalPack,
                     osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_struct) {
     can_msg local_msg;
     SegmentData_t local_pack_data[TOTAL_MODULES];
@@ -121,10 +115,10 @@ void bms_can_faults(SegmentData_t* PackData, TotalPack_t* TotalPack,
     copyWithMutex(mutex_struct->total_pack_key, &local_pack, TotalPack);
 
     // Send total voltage and all BMS fault flags for all Modules
-    uint16_t temp_totalVoltage = clamp_u16((local_pack->voltage) / 0.01f, 0.0f, 65535.0f);
+    uint16_t temp_totalVoltage = clamp_u16((local_pack.voltage) / 0.01f, 0.0f, 65535.0f);
     local_msg.data[0] = (uint8_t)(temp_totalVoltage & 0xFF);
     local_msg.data[1] = (uint8_t)(temp_totalVoltage >> 8U);
-    local_msg.data[2] = local_pack_data[0].fault_flags | (local_pack->balancing_done << 8U);
+    local_msg.data[2] = local_pack_data[0].fault_flags | (local_pack.balancing_done << 8U);
     for (int cic = 1; cic < TOTAL_MODULES; cic++) {
         local_msg.data[cic + 2] = local_pack_data[cic].fault_flags;
     }
@@ -141,7 +135,7 @@ void bms_can_faults(SegmentData_t* PackData, TotalPack_t* TotalPack,
     }
 }
 
-void bms_can_stats(SegmentData_t* PackData, osMessageQueueId_t* Queue_CAN_TxHandle,
+void bms_can_stats(SegmentData_t (*PackData)[TOTAL_MODULES], osMessageQueueId_t* Queue_CAN_TxHandle,
                    Mutex_Struct_t* mutex_struct) {
     can_msg local_msg;
     SegmentData_t local_pack_data[TOTAL_MODULES];
@@ -203,7 +197,7 @@ void bms_can_stats(SegmentData_t* PackData, osMessageQueueId_t* Queue_CAN_TxHand
     }
 }
 
-void bms_can_data(SegmentData_t* [6] PackData, uint8_t* bms_mod_counter,
+void bms_can_data(SegmentData_t (*PackData)[TOTAL_MODULES], uint8_t* bms_mod_counter,
                   uint8_t* bms_segment_counter, osMessageQueueId_t* Queue_CAN_TxHandle,
                   Mutex_Struct_t* mutex_struct) {
     can_msg local_msg;
@@ -288,7 +282,7 @@ void bsm_can(bsm_obj* bsmInfo, GPIO_Info_t* gpio_data, osMessageQueueId_t* Queue
     }
 }
 
-void bms_can_ids(SegmentData_t* [TOTAL_MODULES] PackData, TotalPack_t* pack,
+void bms_can_ids(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* pack,
                  osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_struct) {
     can_msg local_msg;
     SegmentData_t local_pack_data[TOTAL_MODULES];
@@ -326,14 +320,14 @@ void soc_can_stats(TotalPack_t* pack, osMessageQueueId_t* Queue_CAN_TxHandle,
 
     // Overall Pack SOC Information
 
-    float clamped_cap = fmaxf(fminf(10.4 * 144, local_pack->capacity), 0);
+    float clamped_cap = fmaxf(fminf(10.4 * 144, local_pack.capacity), 0);
     clamped_cap = clamped_cap / (10.4 * 144);
-    local_msg.data[0] = (uint8_t)((uint16_t)(local_pack->soc * 65535.0f) & 0xFF);
-    local_msg.data[1] = (uint8_t)(((uint16_t)(local_pack->soc * 65535.0f)) >> 8U);
+    local_msg.data[0] = (uint8_t)((uint16_t)(local_pack.soc * 65535.0f) & 0xFF);
+    local_msg.data[1] = (uint8_t)(((uint16_t)(local_pack.soc * 65535.0f)) >> 8U);
     local_msg.data[2] = (uint8_t)((uint16_t)(clamped_cap * 65535.0f) & 0xFF);
     local_msg.data[3] = (uint8_t)(((uint16_t)(clamped_cap * 65535.0f)) >> 8U);
-    local_msg.data[4] = (uint8_t)((uint16_t)(local_pack->uncertainty * 65535.0f) & 0xFF);
-    local_msg.data[5] = (uint8_t)(((uint16_t)(local_pack->uncertainty * 65535.0f)) >> 8U);
+    local_msg.data[4] = (uint8_t)((uint16_t)(local_pack.uncertainty * 65535.0f) & 0xFF);
+    local_msg.data[5] = (uint8_t)(((uint16_t)(local_pack.uncertainty * 65535.0f)) >> 8U);
 
     local_msg.id = CAN_ID_SOC_STATS;
     local_msg.length = FDCAN_DLC_BYTES_6;
@@ -348,12 +342,12 @@ void soc_can_stats(TotalPack_t* pack, osMessageQueueId_t* Queue_CAN_TxHandle,
     }
 }
 
-void soc_can_data(SOC_Estimate soc[][CELLS_PER_MOD], uint8_t* soc_mod_counter,
+void soc_can_data(SOC_Estimate (*soc)[TOTAL_MODULES][CELLS_PER_MOD], uint8_t* soc_mod_counter,
                   uint8_t* soc_segment_counter, osMessageQueueId_t* Queue_CAN_TxHandle,
                   Mutex_Struct_t* mutex_struct) {
     // SOC CAN ID conversion based on which Module and starting Cell is given to the function
     can_msg local_msg;
-    SOC_Estimate local_soc[TOTAL_MODULES][TOTAL_CELLS];
+    SOC_Estimate local_soc[TOTAL_MODULES][CELLS_PER_MOD];
     copyWithMutex(mutex_struct->soc_estimate_key, &local_soc, soc);
 
     local_msg.id = CAN_ID_SOC_INIT + ((*soc_segment_counter) * 3) + ((*soc_mod_counter + 1) / 8);
@@ -450,6 +444,28 @@ void adc_can(ADC_Inputs_t* adc_data, osMessageQueueId_t* Queue_CAN_TxHandle,
     }
 }
 
+static uint8_t msg_to_error_bit(uint16_t id) {
+    if (id == CAN_ID_BSM) {
+        return (uint8_t)BSM_CAN_ERROR;
+    } else if (id == CAN_ID_BMS_PACK) {
+        return (uint8_t)BMS_CAN_PACK_ERROR;
+    } else if (id == CAN_ID_BMS_STATS) {
+        return (uint8_t)BMS_CAN_STATS_ERROR;
+    } else if (id == CAN_ID_BMS_IDS) {
+        return (uint8_t)BMS_CAN_IDS_ERROR;
+    } else if (id >= CAN_ID_BMS_INIT && id < CAN_ID_BMS_PACK) {
+        return (uint8_t)BMS_CAN_ERROR;
+    } else if (id == CAN_ID_SOC_STATS) {
+        return (uint8_t)SOC_CAN_PACK_ERROR;
+    } else if (id >= CAN_ID_SOC_INIT && id < 300) {
+        return (uint8_t)SOC_CAN_ERROR;
+    } else if (id == CAN_ID_PACK_SENSE) {
+        return (uint8_t)PACK_SENSE_ERROR;
+    } else {
+        return (uint8_t)0;
+    }
+}
+
 void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* hfdcan1) {
     can_msg local_msg;
 
@@ -468,7 +484,7 @@ void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* h
                            QUEUE_CAN_SEND_POP_EMPTY);
     }
 
-    uint8_t error_bit = msg_to_error_bit(can_msg.id);
+    uint8_t error_bit = msg_to_error_bit(local_msg.id);
 
     if (HAL_FDCAN_GetTxFifoFreeLevel(hfdcan1) == 0) {
         bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors, error_bit);
@@ -489,6 +505,28 @@ void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* h
     if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, &txHdr, local_msg.data) != HAL_OK) {
         bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors, error_bit);
     } else {
-        bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info, error_bit);
+        bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors,
+                            error_bit);
     }
+}
+
+HAL_StatusTypeDef CAN_SendData_Init(uint16_t id, uint8_t* data, uint32_t length,
+                                    FDCAN_HandleTypeDef* hfdcan1) {
+    if (HAL_FDCAN_GetTxFifoFreeLevel(hfdcan1) == 0) {
+        return HAL_BUSY;
+    }
+
+    // Set up the transmit header with the proper ID and length
+    FDCAN_TxHeaderTypeDef txHdr;
+    txHdr.Identifier = id;
+    txHdr.IdType = FDCAN_STANDARD_ID;
+    txHdr.TxFrameType = FDCAN_DATA_FRAME;
+    txHdr.DataLength = length;
+    txHdr.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    txHdr.BitRateSwitch = FDCAN_BRS_OFF;
+    txHdr.FDFormat = FDCAN_CLASSIC_CAN;  // match your init FrameFormat
+    txHdr.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+    txHdr.MessageMarker = 0;
+
+    return HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, &txHdr, data);
 }

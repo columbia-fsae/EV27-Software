@@ -25,7 +25,6 @@ and its licensor.
 #include "adBms6830Data.h"
 #include "adBms6830GenericType.h"
 #include "adBms6830ParseCreate.h"
-#include "can_management.h"
 #include "common.h"
 #include "mcuWrapper.h"
 

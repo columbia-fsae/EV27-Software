@@ -14,6 +14,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 // GPIO Storage Structure
 typedef struct {
@@ -45,7 +46,7 @@ typedef struct {
 } CAN_Inputs_t;
 
 typedef struct {
-    uint8_t[8] data;
+    uint8_t data[8];
     uint16_t id;
     uint32_t length;
 } can_msg;
@@ -66,10 +67,10 @@ typedef struct {
     float avg_voltage;
     float temp;
     bool balancing_done;
-    bool bms_ok_OUT
+    bool bms_ok_OUT;
 
-        // SOC
-        float soc;
+    // SOC
+    float soc;
     float capacity;
     float uncertainty;
 } TotalPack_t;
@@ -99,28 +100,35 @@ extern volatile CAN_Inputs_t can_data;
 
 #define COPY_STRUCT(dest_ptr, src_ptr) genericCopy(dest_ptr, src_ptr, sizeof(*(dest_ptr)))
 
-void genericCopy(void* dest_ptr, void* src_ptr, size_t size) {
+void static inline genericCopy(void* dest_ptr, const void* src_ptr, size_t size) {
     if (dest_ptr != NULL && src_ptr != NULL) {
         memcpy(dest_ptr, src_ptr, size);
     }
 }
 
-void copyWithMutex(osMutexId_t* mutex, void* dest_ptr, void* src_ptr) {
+void static inline copyWithMutexSized(osMutexId_t mutex, void* dest_ptr, const void* src_ptr,
+                                      size_t size) {
     osMutexAcquire(mutex, osWaitForever);
-    COPY_STRUCT(dest_ptr, src_ptr);
-    osMutexRelease(mutex, osWaitForever);
+    genericCopy(dest_ptr, src_ptr, size);
+    osMutexRelease(mutex);
 }
 
-void bitwiseAndWithMutex(osMutexId_t* mutex, uint8_t* dest_ptr, uint8_t bit) {
+// Macro so sizeof sees the caller's real type; fails to compile if dest and src sizes differ
+#define copyWithMutex(mutex, dest_ptr, src_ptr)        \
+    copyWithMutexSized((mutex), (dest_ptr), (src_ptr), \
+                       sizeof(*(dest_ptr)) +           \
+                           0 * sizeof(char[sizeof(*(dest_ptr)) == sizeof(*(src_ptr)) ? 1 : -1]))
+
+void static inline bitwiseAndWithMutex(osMutexId_t mutex, uint8_t* dest_ptr, uint8_t bit) {
     osMutexAcquire(mutex, osWaitForever);
-    dest_ptr &= ~(1 << bit);
-    osMutexRelease(mutex, osWaitForever);
+    *dest_ptr &= ~(1 << bit);
+    osMutexRelease(mutex);
 }
 
-void bitwiseOrWithMutex(osMutexId_t* mutex, uint8_t* dest_ptr, uint8_t bit) {
+void static inline bitwiseOrWithMutex(osMutexId_t mutex, uint8_t* dest_ptr, uint8_t bit) {
     osMutexAcquire(mutex, osWaitForever);
-    dest_ptr |= (1 << bit);
-    osMutexRelease(mutex, osWaitForever);
+    *dest_ptr |= (1 << bit);
+    osMutexRelease(mutex);
 }
 
 #endif

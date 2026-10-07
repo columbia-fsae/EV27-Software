@@ -223,7 +223,14 @@ int iar_fputc(int ch);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 // Extra State Machine object pointer for extreme error handling FAULT state check
-static bsm_obj* g_bsm_ptr = NULL;
+Mutex_Struct_t mutex_struct;
+bsm_obj bsm;
+static bsm_obj* g_bsm_ptr = &bsm;  // BMS and SOC CAN Send Counters
+uint8_t bms_mod_counter = 0;
+uint8_t bms_segment_counter = 0;
+uint8_t soc_mod_counter = 0;
+uint8_t soc_segment_counter = 0;
+
 /* USER CODE END 0 */
 
 /**
@@ -238,8 +245,6 @@ int main(void) {
      * Timer
      * Outputs: Precharge Enable, IR+ enable, IR- enable
      */
-    bsm_obj bsm;
-    g_bsm_ptr = &bsm;
 
     /* USER CODE END 1 */
 
@@ -275,7 +280,7 @@ int main(void) {
     MX_GPIO_Init();
     MX_LPUART1_UART_Init();
     MX_FDCAN1_Init();
-    GPIO_Read(&gpio_data);
+    GPIO_Init(&gpio_data);
     can_init(&hfdcan1, &gpio_data);
     MX_DMA_Init();
     MX_ADC1_Init();
@@ -293,7 +298,6 @@ int main(void) {
 
     adbms_main_init(&can_data);
 
-    Mutex_Struct_t mutex_struct;
     /* USER CODE END 2 */
 
     /* Init scheduler */
@@ -968,7 +972,7 @@ void Start_BMS_Read(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        adBms_main_run(&can_data, &gpio_data, &mutex_struct);
+        adBms_main_run(&can_data, &mutex_struct);
         osDelayUntil(curr_tick + BMS_RUN_TIME);
         curr_tick += BMS_RUN_TIME;
     }
@@ -1162,7 +1166,7 @@ void Start_SOC_CAN_Data(void* argument) {
         soc_can_data(&g_soc_estimate, &soc_mod_counter, &soc_segment_counter, &Queue_CAN_TxHandle,
                      &mutex_struct);
         osDelayUntil(curr_tick + SOC_CAN_DATA_RUN_TIME);
-        curr_tick += SOC_CAN_DATA_RUN_TIME
+        curr_tick += SOC_CAN_DATA_RUN_TIME;
     }
     /* USER CODE END Start_SOC_CAN_Data */
 }
@@ -1181,7 +1185,7 @@ void Start_GPIO_Write(void* argument) {
     for (;;) {
         GPIO_Write(&bsm, &mutex_struct);
         osDelayUntil(curr_tick + GPIO_WRITE_RUN_TIME);
-        curr_tick + GPIO_WRITE_RUN_TIME;
+        curr_tick += GPIO_WRITE_RUN_TIME;
     }
     /* USER CODE END Start_GPIO_Write */
 }
@@ -1198,21 +1202,20 @@ void Start_Track_Usage(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     uint32_t min_stack_size = UINT32_MAX;
     /* Infinite loop */
-    osThreadId_t[TASK_NUM] task_ids = [
-        GPIO_ReadHandle, BMS_ReadHandle, BSM_RunHandle, Error_CANHandle, ADC_ReadHandle,
-        BSM_CANHandle, BMS_CAN_StatsHandle, BMS_CAN_FaultsHandle, SOC_CAN_StatsHandle,
-        BMS_CAN_IDSHandle, BMS_CAN_DataHandle, SOC_CAN_DataHandle, GPIO_WriteHandle,
-        CAN_SendHandle
-    ];
+    osThreadId_t task_ids[TASK_NUM] = {
+        GPIO_ReadHandle,     BMS_ReadHandle,    BSM_RunHandle,       Error_CANHandle,
+        ADC_ReadHandle,      BSM_CANHandle,     BMS_CAN_StatsHandle, BMS_CAN_FaultsHandle,
+        SOC_CAN_StatsHandle, BMS_CAN_IDSHandle, BMS_CAN_DataHandle,  SOC_CAN_DataHandle,
+        GPIO_WriteHandle,    CAN_SendHandle};
     for (;;) {
         uint32_t curr_stack_size = 0;
-        for (i = 0; i < TASK_NUM; i++) {
+        for (int i = 0; i < TASK_NUM; i++) {
             curr_stack_size = osThreadGetStackSpace(task_ids[i]);
             if (curr_stack_size < min_stack_size) {
                 min_stack_size = curr_stack_size;
             }
         }
-        copyWithMutex(&mutex_struct.error_info_key, &error_info.min_stack_size, &min_stack_size);
+        copyWithMutex(mutex_struct.error_info_key, &error_info.min_stack_size, &min_stack_size);
         osMessageQueueGetCount(Queue_CAN_TxHandle);
         osMessageQueueGetSpace(Queue_CAN_TxHandle);
         osDelay(curr_tick + TRACK_USAGE_RUN_TIME);
@@ -1235,7 +1238,7 @@ void Start_CAN_Send(void* argument) {
     for (;;) {
         CAN_SendData(&Queue_CAN_TxHandle, &hfdcan1);
         osDelay(curr_tick + CAN_SEND_RUN_TIME);
-        curr_tick += CAN_SEND_RUN_TIME
+        curr_tick += CAN_SEND_RUN_TIME;
     }
     /* USER CODE END Start_CAN_Send */
 }
@@ -1285,7 +1288,7 @@ void Error_Handler(void) {
     if (can_ready) {
         uint8_t data[4];
         data[2] = (uint8_t)(1 << INIT_ERROR);
-        if (CAN_SendData(CAN_ID_ERRORS, data, FDCAN_DLC_BYTES_4, &hfdcan1) != HAL_OK) {
+        if (CAN_SendData_Init(CAN_ID_ERRORS, data, FDCAN_DLC_BYTES_4, &hfdcan1) != HAL_OK) {
             error_info.general_errors |= (1 << INIT_CAN_SEND_ERROR);
         }
         error_info.general_errors &= ~(1 << INIT_CAN_SEND_ERROR);
@@ -1303,7 +1306,7 @@ void Error_Handler(void) {
             if (can_ready) {
                 uint8_t data[4];
                 data[3] = 1;
-                if (CAN_SendData(CAN_ID_ERRORS, data, FDCAN_DLC_BYTES_4, &hfdcan1) != HAL_OK) {
+                if (CAN_SendData_Init(CAN_ID_ERRORS, data, FDCAN_DLC_BYTES_4, &hfdcan1) != HAL_OK) {
                     error_info.general_errors |= (1 << INIT_CAN_SEND_ERROR);
                 }
                 error_info.general_errors &= ~(1 << INIT_CAN_SEND_ERROR);
