@@ -1,6 +1,6 @@
 # Vendor/generated firmware code (STM32 CMSIS/HAL drivers, CubeMX glue) is
 # excluded from every hook below via this global pattern
-exclude: '(^|/)(Drivers|build|Debug)/|/cmake/stm32cubemx/|\.(ld|ioc|s|S)$'
+exclude: '(^|/)(Drivers|Middlewares|build|Debug)/|/cmake/stm32cubemx/|\.(ld|ioc|s|S)$'
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
