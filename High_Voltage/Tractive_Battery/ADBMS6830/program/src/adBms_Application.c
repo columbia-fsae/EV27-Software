@@ -146,7 +146,7 @@ static void Update_BMS_OK_Output(TotalPack_t* local_pack,
 
     // Check all segments for ANY fault flags
     for (int mod = 0; mod < TOTAL_MODULES; mod++) {
-        if (localSegments[mod]->fault_flags != 0) {
+        if ((*localSegments)[mod].fault_flags != 0) {
             any_fault = true;
             break;
         }
@@ -185,7 +185,7 @@ void Process_Cell_Balancing() {
         }
 
         // Convert the balancing hysteresis threshold from Volts to mV
-        uint16_t bal_thresh_mV = (uint16_t)(BAL_THRESHOLD_V * 1000.0f);
+        uint16_t bal_thresh_mV = (uint16_t)(BAL_THRESHOLD_V * V_TO_MV);
         uint32_t segment_dcc_mask = 0;
 
         // 2. Build the 24-bit DCC bitmask
@@ -246,7 +246,7 @@ void Print_Status_To_Console() {
 
         printf("\r\n[Cell Voltages]:\r\n");
         for (int i = 0; i < CELLS_PER_MOD; i++) {
-            float v = PackSegments[mod].cell_v_mV[i] / 1000.0f;  // mV back to V
+            float v = PackSegments[mod].cell_v_mV[i] / V_TO_MV;  // mV back to V
             printf(" Cell %02d: %6.4f V", i + 1, v);
             if ((i + 1) % 4 == 0) printf("\r\n");
         }
@@ -278,7 +278,7 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
         int ic_master = seg;  //* 2 ;       // IC 0, 2, 4... (14 cells)
         // int ic_slave  = (seg * 2) + 1; // IC 1, 3, 5... (10 cells)
 
-        LocalSegment[seg]->dcc_active = 0;
+        (*LocalSegment)[seg].dcc_active = 0;
 
         // TODO: RUN ON TEST BENCH, COMMENT OUT SLAVE PART
         //  --- 1. Check for Communication Dropout (PEC error) ---
@@ -288,15 +288,14 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
             if (comm_miss_count[seg] < 255) comm_miss_count[seg]++;
 
             if (comm_miss_count[seg] >= COMM_FAULT_LATCH) {
-                LocalSegment[seg]->fault_flags |= 0x08;  // real comm fault
+                (*LocalSegment)[seg].fault_flags |= COMMS_FAULT;  // real comm fault
             }
             // else: leave fault_flags clear, KEEP last cycle's cell_v_mV / temp_C untouched
             continue;  // skip re-parsing this cycle's corrupt data either way
         }
 
-        LocalSegment[seg]->fault_flags = 0;
+        (*LocalSegment)[seg].fault_flags = 0;
         // --- 2. Extract Cell Voltages ---
-        // TODO: Partial Pack Code
         // Slave IC (10 Cells) -> Maps to cell_v_mV[0..9]
         for (int i = 0; i < VOLT_PER_SLAVE; i++) {
             float v = ((int16_t)IC[ic_master].cell.c_codes[i] * VOLTAGE_LSB) + 1.5f;
@@ -304,18 +303,22 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
             if (i == 0 || i == VOLT_PER_SLAVE - 1) {
                 v += 0.1f;
             }
-            /*
-            if (i == 0 || i == VOLT_PER_SLAVE-1){ //VOLTAGE OFFSET FOR FIRST AND LAST CELLS from
-            FUSE v += 0.1f;
-            }
-            */
-            LocalSegment[seg]->cell_v_mV[i] = (uint16_t)(v * 1000.0f);
+
+            (*LocalSegment)[seg].cell_v_mV[i] = (uint16_t)(v * V_TO_MV);
             totalVoltage += v;
+
             if (v > 1.0f) {
-                if (v > OV_THRESHOLD) LocalSegment[seg]->fault_flags |= 0x01;
-                if (v < UV_THRESHOLD) LocalSegment[seg]->fault_flags |= 0x02;
+                if (v > OV_THRESHOLD) {
+                    (*LocalSegment)[seg].fault_flags |= OV_FAULT
+                };
+                if (v < UV_THRESHOLD) {
+                    (*LocalSegment)[seg].fault_flags |= UV_FAULT
+                };
             }
         }
+
+        localPack->voltage = totalVoltage;
+        localPack->avg_voltage = totalVoltage / (TOTAL_CELLS);
 
         // --- 3. Extract Temperatures ---
         // Slave IC (10 Temps) -> Maps to temp_C[0..9]
@@ -327,29 +330,26 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
             if (t == SENSOR_DROPOUT_TEMP) {
                 dead_cells += 2;
             }
-            LocalSegment[seg]->temp_C[i] = t;
+            (*LocalSegment)[seg].temp_C[i] = t;
             avgTemp += t;
 
             if (t > OT_THRESHOLD && t != -99.0f) {
-                LocalSegment[seg]->fault_flags |= 0x04;
+                (*LocalSegment)[seg].fault_flags |= OT_FAULT;
             }
-        }
-    }
-
-    localPack->voltage = totalVoltage;
-    localPack->avg_voltage = totalVoltage / (TOTAL_CELLS);
-
-    // Check for minimum 20% of cells having temperature measurements, otherwise call a fault
-    for (int mod = 0; mod < TOTAL_MODULES; mod++) {
-        if (((float)(TOTAL_CELLS - dead_cells) / (float)TOTAL_CELLS) * 0.5 < MIN_CELL_THRESH) {
-            LocalSegment[mod]->fault_flags |= 0x10;
-        } else {
-            LocalSegment[mod]->fault_flags &= ~0x10;
         }
     }
 
     avgTemp = avgTemp / (TOTAL_CELLS);
     localPack->temp = avgTemp;
+
+    // Check for minimum 20% of cells having temperature measurements, otherwise call a fault
+    for (int mod = 0; mod < TOTAL_MODULES; mod++) {
+        if (((float)(TOTAL_CELLS - dead_cells) / (float)TOTAL_CELLS) * 0.5 < MIN_CELL_THRESH) {
+            (*LocalSegment)[mod].fault_flags |= TEMP_DROP_FAULT;
+        } else {
+            (*LocalSegment)[mod].fault_flags &= ~TEMP_DROP_FAULT;
+        }
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -449,8 +449,8 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
         IC[cic].tx_cfga.gpo = 0X3FF;
 
         // PWM activate for balancing
-        memcpy(IC[cic].pwma.tx_data, pwma_tx_data, 6);
-        memcpy(IC[cic].pwmb.tx_data, pwmb_tx_data, 6);
+        memcpy_s(IC[cic].pwma.tx_data, pwma_tx_data, 6);
+        memcpy_s(IC[cic].pwmb.tx_data, pwmb_tx_data, 6);
 
         // Matching your ADI application initialization perfectly:
         IC[cic].tx_cfgb.vov = SetOverVoltageThreshold(OV_THRESHOLD);
@@ -497,7 +497,7 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
                      &localSegment);  // get real initial values into g_pack_voltage and g_avg_temp
 
     TotalPack = localPack;
-    memcpy(PackSegments, localSegment, sizeof(PackSegments));
+    memcpy_s(PackSegments, localSegment, sizeof(PackSegments));
 
     // Initialize SOC estimator
     adBms6830_soc_init();
@@ -533,21 +533,23 @@ void adBms6830_soc_run(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,
     float uncertainty = 0;
     float minSoc = 2;
     for (int cic = 0; cic < TOTAL_MODULES; cic++) {
-        if (localSegment[cic]->fault_flags & 0x08) continue;
+        if ((*localSegment)[cic].fault_flags & 0x08) {
+            continue
+        };
 
         for (int i = 0; i < CELLS_PER_MOD; i++) {
             int temp_idx = cell_to_temp_index(i);
-            adBms6830_soc_update(cic, i, local_g_soc_estimate[cic][i],
-                                 localSegment[cic]->cell_v_mV[i] / 1000.0f,
-                                 can_data->tractive_current, localSegment[cic]->temp_C[temp_idx]);
+            adBms6830_soc_update(cic, i, (*local_g_soc_estimate)[cic][i],
+                                 (*localSegment)[cic].cell_v_mV[i] / V_TO_MV,
+                                 can_data->tractive_current, (*localSegment)[cic].temp_C[temp_idx]);
             // Calculate overall pack information
-            if (local_g_soc_estimate[cic][i]->soc < minSoc) {
-                minSoc = local_g_soc_estimate[cic][i]->soc;
+            if ((*local_g_soc_estimate)[cic][i].soc < minSoc) {
+                minSoc = (*local_g_soc_estimate)[cic][i].soc;
             }
             currCap +=
-                (local_g_soc_estimate[cic][i]->capacity_ah) * (local_g_soc_estimate[cic][i]->soc);
-            cap += local_g_soc_estimate[cic][i]->capacity_ah;
-            uncertainty += local_g_soc_estimate[cic][i]->confidence;
+                ((*local_g_soc_estimate)[cic][i].capacity_ah) * (local_g_soc_estimate[cic][i]->soc);
+            cap += (*local_g_soc_estimate)[cic][i].capacity_ah;
+            uncertainty += (*local_g_soc_estimate)[cic][i].confidence;
         }
     }
 
@@ -612,10 +614,10 @@ void adBms6830_soc_init(void) {
             } else {
             */
             KalmanSOC_InitFromVoltage(&g_kalman_soc[cic][i],
-                                      PackSegments[cic].cell_v_mV[i] / 1000.0f,
+                                      PackSegments[cic].cell_v_mV[i] / V_TO_MV,
                                       PackSegments[cic].temp_C[temp_idx]);
             // printf("  Cell %d: init from voltage (V=%.3fV T=%.1fC SOC=%.1f%%)\r\n",
-            //        i + 1, (float) PackSegments[cic].cell_v_mV[i]/1000.0f, (float)
+            //        i + 1, (float) PackSegments[cic].cell_v_mV[i]/V_TO_MV, (float)
             //        PackSegments[cic].temp_C[temp_idx], g_kalman_soc[cic][i].x.soc * 100.0f);
             g_soc_initialized[cic][i] = true;
             //}
@@ -630,8 +632,8 @@ void adBms6830_soc_init(void) {
 
 // SOC CHANGES @brief Update SOC estimate with latest measurements
 
-void adBms6830_soc_update(int cic, int cell, SOC_Estimate* single_estimate, float cell_voltage,
-                          float pack_current, float cell_temp) {
+void adBms6830_soc_update(int cic, int cell, float pack_current, SOC_Estimate* single_estimate,
+                          float cell_voltage, float cell_temp) {
     // Check for initialization
     if (!g_soc_initialized[cic][cell]) return;
 

@@ -52,12 +52,6 @@ __attribute__((section(".noinit"))) uint32_t reset_counter_magic;
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-// Macro for main loop function scheduling
-#define RUN_EVERY(tick, interval, offset, curr_tick)                  \
-    for (uint8_t _run = (curr_tick + (offset) >= (interval) + (tick)) \
-                            ? ((tick) = curr_tick + (offset), 1)      \
-                            : 0;                                      \
-         _run; _run = 0)
 
 /* USER CODE END PM */
 
@@ -225,6 +219,7 @@ int iar_fputc(int ch);
 // Extra State Machine object pointer for extreme error handling FAULT state check
 Mutex_Struct_t mutex_struct;
 bsm_obj bsm;
+GPIO_Info_t gpio_data = {0};
 static bsm_obj* g_bsm_ptr = &bsm;  // BMS and SOC CAN Send Counters
 uint8_t bms_mod_counter = 0;
 uint8_t bms_segment_counter = 0;

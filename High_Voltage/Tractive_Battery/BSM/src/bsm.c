@@ -16,7 +16,7 @@ void bsm_init(bsm_obj* me) {
     TRAN(me, start_dis);
 }
 
-void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, TotalPack_t* pack,
+void bsm_run(bsm_obj* bsm, GPIO_Info_t* gpio, ADC_Inputs_t* adc, TotalPack_t* pack,
              Mutex_Struct_t* mutex_struct) {
     GPIO_Info_t local_gpio_data;
     ADC_Inputs_t local_adc_inputs;
@@ -25,10 +25,10 @@ void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, TotalPack_t* pac
 
     copyWithMutex(mutex_struct->gpio_data_key, &local_gpio_data, gpio);
     copyWithMutex(mutex_struct->adc_data_key, &local_adc_inputs, adc);
-    copyWithMutex(mutex_struct->bsm_key, &local_bsm, me);
+    copyWithMutex(mutex_struct->bsm_key, &local_bsm, bsm);
     copyWithMutex(mutex_struct->pack_segments_key, &local_pack, pack);
 
-    switch (local_bsm.state) {
+    switch (local_bsm.bsm_state) {
         case start_dis: {
             // State Variable Change
             local_bsm.pc_enable = false;
@@ -68,8 +68,9 @@ void bsm_run(bsm_obj* me, GPIO_Info_t* gpio, ADC_Inputs_t* adc, TotalPack_t* pac
             if (!(local_gpio_data.sdc_ok && local_pack.bms_ok_OUT)) {
                 TRAN(&local_bsm, start_dis);
             } else if (local_adc_inputs.ts_vsense >
-                           (local_adc_inputs.bat_vsense * 0.905) &&  // TODO
-                       local_adc_inputs.ts_vsense < (local_adc_inputs.bat_vsense * 1.05) &&
+                           (local_adc_inputs.bat_vsense * PRECHARGE_LOWER) &&  // TODO
+                       local_adc_inputs.ts_vsense <
+                           (local_adc_inputs.bat_vsense * PRECHARGE_UPPER) &&
                        local_adc_inputs.bat_vsense > PRECHARGE_BAT_MIN_V &&
                        HAL_GetTick() > (local_bsm.timer + PRECHARGE_MIN_TIME_MS)) {
                 TRAN(&local_bsm, ir_plus_close);

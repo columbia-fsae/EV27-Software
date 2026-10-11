@@ -510,7 +510,7 @@ void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* h
     }
 }
 
-HAL_StatusTypeDef CAN_SendData_Init(uint16_t id, uint8_t* data, uint32_t length,
+HAL_StatusTypeDef CAN_SendData_Init(uint16_t id_m, uint8_t* data, uint32_t length,
                                     FDCAN_HandleTypeDef* hfdcan1) {
     if (HAL_FDCAN_GetTxFifoFreeLevel(hfdcan1) == 0) {
         return HAL_BUSY;
@@ -518,7 +518,7 @@ HAL_StatusTypeDef CAN_SendData_Init(uint16_t id, uint8_t* data, uint32_t length,
 
     // Set up the transmit header with the proper ID and length
     FDCAN_TxHeaderTypeDef txHdr;
-    txHdr.Identifier = id;
+    txHdr.Identifier = id_m;
     txHdr.IdType = FDCAN_STANDARD_ID;
     txHdr.TxFrameType = FDCAN_DATA_FRAME;
     txHdr.DataLength = length;

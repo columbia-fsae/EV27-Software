@@ -42,6 +42,16 @@ and its licensor.
 #define VOLT_PER_MASTER 14
 #define COMM_FAULT_LATCH 3  // consecutive bad cycles before hard fault
 
+// Fault Codes:
+#define OV_FAULT 0x01
+#define UV_FAULT 0x02
+#define OT_FAULT 0x04
+#define COMMS_FAULT 0x08
+#define TEMP_DROP_FAULT 0x10
+
+// Scaling
+#define V_TO_MV 1000.0F
+
 // ADBMS6830 Unique 48 Bit IDs
 #define ID1_TOP 0x97DE40006B21ULL
 #define ID2_TOP 0x997CE40586B2ULL

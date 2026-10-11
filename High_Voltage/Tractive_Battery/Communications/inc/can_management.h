@@ -83,7 +83,7 @@ void error_can(osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_str
 void adc_can(ADC_Inputs_t* adc_data, osMessageQueueId_t* Queue_CAN_TxHandle,
              Mutex_Struct_t* mutex_struct);
 void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* hfdcan1);
-HAL_StatusTypeDef CAN_SendData_Init(uint16_t id, uint8_t* data, uint32_t length,
+HAL_StatusTypeDef CAN_SendData_Init(uint16_t id_m, uint8_t* data, uint32_t length,
                                     FDCAN_HandleTypeDef* hfdcan1);
 // Clamping Functions for CAN Sending
 static inline uint8_t clamp_u8(float value, float min, float max) {

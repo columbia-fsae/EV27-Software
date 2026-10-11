@@ -28,7 +28,7 @@ typedef struct {
 
 // Battery State Machine Attribute Structure
 typedef struct BsmTag {
-    int8_t state;
+    enum bsmStates bsm_state;
     uint32_t timer;
     bool pc_enable;
     bool ir_plus_enable;
@@ -101,9 +101,8 @@ extern volatile CAN_Inputs_t can_data;
 #define COPY_STRUCT(dest_ptr, src_ptr) genericCopy(dest_ptr, src_ptr, sizeof(*(dest_ptr)))
 
 void static inline genericCopy(void* dest_ptr, const void* src_ptr, size_t size) {
-    if (dest_ptr != NULL && src_ptr != NULL) {
-        memcpy(dest_ptr, src_ptr, size);
-    }
+    configASSERT(dest_ptr != NULL && src_ptr != NULL);
+    memcpy(dest_ptr, src_ptr, size);
 }
 
 void static inline copyWithMutexSized(osMutexId_t mutex, void* dest_ptr, const void* src_ptr,
@@ -117,7 +116,7 @@ void static inline copyWithMutexSized(osMutexId_t mutex, void* dest_ptr, const v
 #define copyWithMutex(mutex, dest_ptr, src_ptr)        \
     copyWithMutexSized((mutex), (dest_ptr), (src_ptr), \
                        sizeof(*(dest_ptr)) +           \
-                           0 * sizeof(char[sizeof(*(dest_ptr)) == sizeof(*(src_ptr)) ? 1 : -1]))
+                           (0 * sizeof(char[sizeof(*(dest_ptr)) == sizeof(*(src_ptr)) ? 1 : -1])))
 
 void static inline bitwiseAndWithMutex(osMutexId_t mutex, uint8_t* dest_ptr, uint8_t bit) {
     osMutexAcquire(mutex, osWaitForever);
