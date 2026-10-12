@@ -448,19 +448,26 @@ void adc_can(ADC_Inputs_t* adc_data, osMessageQueueId_t* Queue_CAN_TxHandle,
 static uint8_t msg_to_error_bit(uint16_t id) {
     if (id == CAN_ID_BSM) {
         return (uint8_t)BSM_CAN_ERROR;
-    } else if (id == CAN_ID_BMS_PACK) {
+    }
+    if (id == CAN_ID_BMS_PACK) {
         return (uint8_t)BMS_CAN_PACK_ERROR;
-    } else if (id == CAN_ID_BMS_STATS) {
+    }
+    if (id == CAN_ID_BMS_STATS) {
         return (uint8_t)BMS_CAN_STATS_ERROR;
-    } else if (id == CAN_ID_BMS_IDS) {
+    }
+    if (id == CAN_ID_BMS_IDS) {
         return (uint8_t)BMS_CAN_IDS_ERROR;
-    } else if (id >= CAN_ID_BMS_INIT && id < CAN_ID_BMS_PACK) {
+    }
+    if (id >= CAN_ID_BMS_INIT && id < CAN_ID_BMS_PACK) {
         return (uint8_t)BMS_CAN_ERROR;
-    } else if (id == CAN_ID_SOC_STATS) {
+    }
+    if (id == CAN_ID_SOC_STATS) {
         return (uint8_t)SOC_CAN_PACK_ERROR;
-    } else if (id >= CAN_ID_SOC_INIT && id < 300) {
+    }
+    if (id >= CAN_ID_SOC_INIT && id < 300) {
         return (uint8_t)SOC_CAN_ERROR;
-    } else if (id == CAN_ID_PACK_SENSE) {
+    }
+    if (id == CAN_ID_PACK_SENSE) {
         return (uint8_t)PACK_SENSE_ERROR;
     }
     return (uint8_t)UNKNOWN_ERROR;
