@@ -487,7 +487,7 @@ void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* h
 
     uint8_t error_bit = msg_to_error_bit(local_msg.id);
 
-    if (HAL_FDCAN_GetTxFifoFreeLevel(hfdcan1) == 0) {
+    if (HAL_FDCAN_GetTxFifoFreeLevel(hfdcan1) == 0 && error_bit != UNKNOWN_ERROR) {
         bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors, error_bit);
     }
 
@@ -503,15 +503,10 @@ void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* h
     txHdr.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
     txHdr.MessageMarker = 0;
 
-    if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, &txHdr, local_msg.data) != HAL_OK) {
-        if (error_bit == UNKNOWN_ERROR) {
-            continue;
-        }
+    if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, &txHdr, local_msg.data) != HAL_OK &&
+        error_bit != UNKNOWN_ERROR) {
         bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors, error_bit);
-    } else {
-        if (error_bit == UNKNOWN_ERROR) {
-            continue;
-        }
+    } else if (error_bit != UNKNOWN_ERROR) {
         bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors,
                             error_bit);
     }
