@@ -51,6 +51,8 @@ and its licensor.
 
 // Scaling
 #define V_TO_MV 1000.0F
+#define VOLT_OFFSET 1.5F
+#define EDGE_CELL_VOLT_OFFSET 0.1F
 
 // ADBMS6830 Unique 48 Bit IDs
 #define ID1_TOP 0x97DE40006B21ULL

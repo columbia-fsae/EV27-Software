@@ -246,7 +246,7 @@ void Print_Status_To_Console() {
 
         printf("\r\n[Cell Voltages]:\r\n");
         for (int i = 0; i < CELLS_PER_MOD; i++) {
-            float v_cell = PackSegments[mod].cell_v_mV[i] / V_TO_MV;  // mV back to V
+            float v_cell = (float)PackSegments[mod].cell_v_mV[i] / V_TO_MV;  // mV back to V
             printf(" Cell %02d: %6.4f V", i + 1, v_cell);
             if ((i + 1) % 4 == 0) printf("\r\n");
         }
@@ -298,16 +298,16 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
         // --- 2. Extract Cell Voltages ---
         // Slave IC (10 Cells) -> Maps to cell_v_mV[0..9]
         for (int i = 0; i < VOLT_PER_SLAVE; i++) {
-            float v_cell = ((int16_t)IC[ic_master].cell.c_codes[i] * VOLTAGE_LSB) + 1.5f;
+            float v_cell = (IC[ic_master].cell.c_codes[i] * VOLTAGE_LSB) + VOLT_OFFSET;
 
             if (i == 0 || i == VOLT_PER_SLAVE - 1) {
-                v_cell += 0.1f;
+                v_cell += EDGE_CELL_VOLT_OFFSET;
             }
 
             (*LocalSegment)[seg].cell_v_mV[i] = (uint16_t)(v_cell * V_TO_MV);
             totalVoltage += v_cell;
 
-            if (v_cell > 1.0f) {
+            if (v_cell > 1.0F) {
                 if (v_cell > OV_THRESHOLD) {
                     (*LocalSegment)[seg].fault_flags |= OV_FAULT;
                 };
@@ -323,7 +323,7 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
         // --- 3. Extract Temperatures ---
         // Slave IC (10 Temps) -> Maps to temp_C[0..9]
         for (int i = 0; i < TEMP_PER_BOARD; i++) {
-            float raw_v = ((int16_t)IC[ic_master].aux.a_codes[i]) * VOLTAGE_LSB + 1.5f;
+            float raw_v = ((int16_t)IC[ic_master].aux.a_codes[i]) * VOLTAGE_LSB + VOLT_OFFSET;
 
             float t = Convert_Zener_Voltage_To_Temp(raw_v);
 
@@ -511,6 +511,8 @@ void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struc
     SOC_Estimate local_g_soc_estimate[TOTAL_MODULES][CELLS_PER_MOD];
     CAN_Inputs_t local_can;
 
+    copyWithMutex(mutex_struct->soc_estimate_key, &local_g_soc_estimate, &g_soc_estimate);
+
     taskENTER_CRITICAL();
     local_can = *can_data;
     taskEXIT_CRITICAL();
@@ -533,9 +535,10 @@ void adBms6830_soc_run(const CAN_Inputs_t* can_data, TotalPack_t* localPack,
     float currCap = 0;
     float cap = 0;
     float uncertainty = 0;
-    float minSoc = 2;
+    float minSoc = 1;
+    int valid_cells = 0;
     for (int cic = 0; cic < TOTAL_MODULES; cic++) {
-        if ((*localSegment)[cic].fault_flags & 0x08) {
+        if ((*localSegment)[cic].fault_flags & COMMS_FAULT) {
             continue;
         }
 
@@ -545,21 +548,26 @@ void adBms6830_soc_run(const CAN_Inputs_t* can_data, TotalPack_t* localPack,
                                  &((*local_g_soc_estimate)[cic][i]),
                                  (float)((*localSegment)[cic].cell_v_mV[i]) / V_TO_MV,
                                  (*localSegment)[cic].temp_C[temp_idx]);
+
+            // Check for validity
+            SOC_Estimate* est = &(*local_g_soc_estimate)[cic][i];
+            if (!est->valid) continue;
+            valid_cells++;
+
             // Calculate overall pack information
-            if ((*local_g_soc_estimate)[cic][i].soc < minSoc) {
-                minSoc = (*local_g_soc_estimate)[cic][i].soc;
+            if (est->soc < minSoc) {
+                minSoc = est->soc;
             }
-            currCap +=
-                ((*local_g_soc_estimate)[cic][i].capacity_ah) * (local_g_soc_estimate[cic][i]->soc);
-            cap += (*local_g_soc_estimate)[cic][i].capacity_ah;
-            uncertainty += (*local_g_soc_estimate)[cic][i].confidence;
+            currCap += est->capacity_ah * est->soc;
+            cap += est->capacity_ah;
+            uncertainty += est->confidence;
         }
     }
 
     // TotalPack.soc = currCap/cap;
     localPack->soc = minSoc;
     localPack->capacity = cap;
-    localPack->uncertainty = uncertainty / NUM_SERIES_CELLS;
+    localPack->uncertainty = (valid_cells > 0) ? uncertainty / valid_cells : 0.0F;
 
     // Print SOC estimate every 10 loops
     /*

@@ -115,7 +115,7 @@ void bms_can_faults(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* Total
     uint16_t temp_totalVoltage = clamp_u16((local_pack.voltage) / VOLTAGE_SCALE, 0.0F, UINT16_SIZE);
     local_msg.data[0] = (uint8_t)(temp_totalVoltage & UINT8_SIZE);
     local_msg.data[1] = (uint8_t)(temp_totalVoltage >> UINT8_LEN);
-    local_msg.data[2] = local_pack_data[0].fault_flags | (local_pack.balancing_done << 8U);
+    local_msg.data[2] = local_pack_data[0].fault_flags | (local_pack.balancing_done << UINT8_LEN);
     for (int cic = 1; cic < TOTAL_MODULES; cic++) {
         local_msg.data[cic + 2] = local_pack_data[cic].fault_flags;
     }
