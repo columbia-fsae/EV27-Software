@@ -462,9 +462,8 @@ static uint8_t msg_to_error_bit(uint16_t id) {
         return (uint8_t)SOC_CAN_ERROR;
     } else if (id == CAN_ID_PACK_SENSE) {
         return (uint8_t)PACK_SENSE_ERROR;
-    } else {
-        return (uint8_t)UNKNOWN_ERROR;
     }
+    return (uint8_t)UNKNOWN_ERROR;
 }
 
 void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* hfdcan1) {
