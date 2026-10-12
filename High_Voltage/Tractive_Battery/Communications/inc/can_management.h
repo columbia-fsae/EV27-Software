@@ -30,6 +30,7 @@ extern Errors error_info;
 #define PACK_SENSE_ERROR 5
 #define BMS_CAN_STATS_ERROR 6
 #define BMS_CAN_IDS_ERROR 7
+#define UNKNOWN_ERROR 0xFF
 
 // CAN Receive Errors Bits
 #define CAN_RECEPTION_ERROR 0
@@ -67,8 +68,10 @@ extern Errors error_info;
 #define UINT8_SIZE 0xFF
 #define UINT8_LEN 8U
 #define VOLTAGE_SCALE 0.01F
-#define VOLTAGE_OFFSET 1.8
+#define VOLTAGE_OFFSET 1.8F
 #define TEMP_SCALE 4.0F
+#define MIN_TEMP (-128)
+#define MAX_TEMP 127
 
 void can_init(FDCAN_HandleTypeDef* hfdcan1, GPIO_Info_t* gpio);
 void bms_can_stats(SegmentData_t (*PackData)[TOTAL_MODULES], osMessageQueueId_t* Queue_CAN_TxHandle,

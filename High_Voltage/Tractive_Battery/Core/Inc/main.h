@@ -175,10 +175,6 @@ typedef struct MutexHolder {
 extern Mutex_Struct_t mutex_struct;
 extern bsm_obj bsm;
 extern osMessageQueueId_t Queue_CAN_TxHandle;
-extern uint8_t bms_mod_counter;
-extern uint8_t bms_segment_counter;
-extern uint8_t soc_mod_counter;
-extern uint8_t soc_segment_counter;
 
 /* USER CODE END Private defines */
 

@@ -10,6 +10,9 @@ name: C/C++ Lint
 #
 # Style/checks come from the repo-root .clang-format and .clang-tidy files —
 # keep those in sync with the same-named hooks in .pre-commit-config.yaml.
+# clang-tidy uses the nearest .clang-tidy above each file, so a project can
+# override the root rules (High_Voltage/Tractive_Battery/.clang-tidy does,
+# with a C-firmware rule set).
 #
 # To add a new CubeMX/CMake project: add a filter entry under `changes.filter`
 # below, and a matching `project`/`path` pair in the `changes` job's
@@ -140,7 +143,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           style: 'file'          # use repo-root .clang-format
-          tidy-checks: ''        # use repo-root .clang-tidy
+          tidy-checks: ''        # use nearest .clang-tidy (repo root or project override)
           database: ${{ matrix.path }}/build/Debug
           files-changed-only: true
           # Only gate on lines this PR actually touches, not pre-existing
