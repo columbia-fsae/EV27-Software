@@ -62,6 +62,14 @@ extern Errors error_info;
 #define TSENSE_SCALE 0.5f
 #define TSENSE_OFFSET (-10.0f)
 
+// CAN Scalars
+#define UINT16_SIZE 65535.0F
+#define UINT8_SIZE 0xFF
+#define UINT8_LEN 8U
+#define VOLTAGE_SCALE 0.01F
+#define VOLTAGE_OFFSET 1.8
+#define TEMP_SCALE 4.0F
+
 void can_init(FDCAN_HandleTypeDef* hfdcan1, GPIO_Info_t* gpio);
 void bms_can_stats(SegmentData_t (*PackData)[TOTAL_MODULES], osMessageQueueId_t* Queue_CAN_TxHandle,
                    Mutex_Struct_t* mutex_struct);

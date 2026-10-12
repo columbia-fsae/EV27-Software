@@ -8,17 +8,6 @@
 #include "gpio_management.h"
 #include "main.h"
 
-// List of all states
-enum bsmStates {
-    start_dis = 0x0,
-    ir_minus_close = 0x1,
-    precharge = 0x2,
-    ir_plus_close = 0x3,
-    delay_post_pc = 0x4,
-    driving = 0x5,
-    FAULT = 0xF
-};
-
 // State Time Delay and Voltage Defines
 
 #define PRECHARGE_FAULT_TIME_MS 60000

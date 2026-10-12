@@ -156,15 +156,6 @@ const osMutexAttr_t TotalPack_key_attributes = {.name = "TotalPack_key"};
 /* Definitions for error_info_key */
 osMutexId_t error_info_keyHandle;
 const osMutexAttr_t error_info_key_attributes = {.name = "error_info_key"};
-/* Definitions for CAN_Inputs_166 */
-osMutexId_t CAN_Inputs_166Handle;
-const osMutexAttr_t CAN_Inputs_166_attributes = {.name = "CAN_Inputs_166"};
-/* Definitions for CAN_Inputs_167 */
-osMutexId_t CAN_Inputs_167Handle;
-const osMutexAttr_t CAN_Inputs_167_attributes = {.name = "CAN_Inputs_167"};
-/* Definitions for CAN_Inputs_20 */
-osMutexId_t CAN_Inputs_20Handle;
-const osMutexAttr_t CAN_Inputs_20_attributes = {.name = "CAN_Inputs_20"};
 /* USER CODE BEGIN PV */
 uint8_t HeaderTxBuffer[] =
     "****SPI - Two Boards communication based on Polling **** SPI Message ******** SPI Message "
@@ -319,15 +310,6 @@ int main(void) {
     /* creation of error_info_key */
     error_info_keyHandle = osMutexNew(&error_info_key_attributes);
 
-    /* creation of CAN_Inputs_166 */
-    CAN_Inputs_166Handle = osMutexNew(&CAN_Inputs_166_attributes);
-
-    /* creation of CAN_Inputs_167 */
-    CAN_Inputs_167Handle = osMutexNew(&CAN_Inputs_167_attributes);
-
-    /* creation of CAN_Inputs_20 */
-    CAN_Inputs_20Handle = osMutexNew(&CAN_Inputs_20_attributes);
-
     /* USER CODE BEGIN RTOS_MUTEX */
     /* add mutexes, ... */
     mutex_struct.bsm_key = bsm_keyHandle;
@@ -337,9 +319,6 @@ int main(void) {
     mutex_struct.pack_segments_key = PackSegments_keyHandle;
     mutex_struct.total_pack_key = TotalPack_keyHandle;
     mutex_struct.error_info_key = error_info_keyHandle;
-    mutex_struct.can_input_166_key = CAN_Inputs_166Handle;
-    mutex_struct.can_input_167_key = CAN_Inputs_167Handle;
-    mutex_struct.can_input_20_key = CAN_Inputs_20Handle;
 
     /* USER CODE END RTOS_MUTEX */
 
@@ -1311,7 +1290,7 @@ void Error_Handler(void) {
 
     // Set the BSM stae to FAULT to get stuck there
     if (g_bsm_ptr != NULL) {
-        g_bsm_ptr->state = FAULT;
+        g_bsm_ptr->bsm_state = FAULT;
     }
 
     // Software reset

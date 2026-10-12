@@ -27,13 +27,11 @@ extern "C" {
 #endif
 
 /* Includes ------------------------------------------------------------------*/
-#include "FreeRTOSConfig.h"
-#include "common_types.h"
 #include "stm32g4xx_hal.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "common_types.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -170,10 +168,8 @@ typedef struct MutexHolder {
     osMutexId_t pack_segments_key;
     osMutexId_t total_pack_key;
     osMutexId_t error_info_key;
-    osMutexId_t can_data_key;
-    osMutexId_t can_input_166_key;
-    osMutexId_t can_input_167_key;
-    osMutexId_t can_input_20_key;
+    // No key for can_data: it's written from the FDCAN RX interrupt, where mutexes can't be
+    // used. Readers snapshot it inside taskENTER_CRITICAL()/taskEXIT_CRITICAL() instead.
 } Mutex_Struct_t;
 
 extern Mutex_Struct_t mutex_struct;

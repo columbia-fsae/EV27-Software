@@ -139,12 +139,12 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data);
 void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struct);
 
 // SOC Functions
-void adBms6830_soc_run(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,
+void adBms6830_soc_run(const CAN_Inputs_t* can_data, TotalPack_t* localPack,
                        SegmentData_t (*localSegment)[TOTAL_MODULES],
                        SOC_Estimate (*local_g_soc_estimate)[TOTAL_MODULES][CELLS_PER_MOD]);
 void adBms6830_soc_init(void);
-void adBms6830_soc_update(int cic, int cell, SOC_Estimate* single_estimate, float cell_voltage,
-                          float pack_current, float cell_temp);
+void adBms6830_soc_update(int cic, int cell, float pack_current, SOC_Estimate* single_estimate,
+                          float cell_voltage, float cell_temp);
 void adBms6830_print_soc_estimate(int cic, int cell, const SOC_Estimate* est);
 void adBms6830_soc_save_to_flash(void);
 void adBms6830_soc_clear_flash(void);

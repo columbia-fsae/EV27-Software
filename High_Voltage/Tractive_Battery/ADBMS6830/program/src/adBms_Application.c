@@ -246,8 +246,8 @@ void Print_Status_To_Console() {
 
         printf("\r\n[Cell Voltages]:\r\n");
         for (int i = 0; i < CELLS_PER_MOD; i++) {
-            float v = PackSegments[mod].cell_v_mV[i] / V_TO_MV;  // mV back to V
-            printf(" Cell %02d: %6.4f V", i + 1, v);
+            float v_cell = PackSegments[mod].cell_v_mV[i] / V_TO_MV;  // mV back to V
+            printf(" Cell %02d: %6.4f V", i + 1, v_cell);
             if ((i + 1) % 4 == 0) printf("\r\n");
         }
 
@@ -298,21 +298,21 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
         // --- 2. Extract Cell Voltages ---
         // Slave IC (10 Cells) -> Maps to cell_v_mV[0..9]
         for (int i = 0; i < VOLT_PER_SLAVE; i++) {
-            float v = ((int16_t)IC[ic_master].cell.c_codes[i] * VOLTAGE_LSB) + 1.5f;
+            float v_cell = ((int16_t)IC[ic_master].cell.c_codes[i] * VOLTAGE_LSB) + 1.5f;
 
             if (i == 0 || i == VOLT_PER_SLAVE - 1) {
-                v += 0.1f;
+                v_cell += 0.1f;
             }
 
-            (*LocalSegment)[seg].cell_v_mV[i] = (uint16_t)(v * V_TO_MV);
-            totalVoltage += v;
+            (*LocalSegment)[seg].cell_v_mV[i] = (uint16_t)(v_cell * V_TO_MV);
+            totalVoltage += v_cell;
 
-            if (v > 1.0f) {
-                if (v > OV_THRESHOLD) {
-                    (*LocalSegment)[seg].fault_flags |= OV_FAULT
+            if (v_cell > 1.0f) {
+                if (v_cell > OV_THRESHOLD) {
+                    (*LocalSegment)[seg].fault_flags |= OV_FAULT;
                 };
-                if (v < UV_THRESHOLD) {
-                    (*LocalSegment)[seg].fault_flags |= UV_FAULT
+                if (v_cell < UV_THRESHOLD) {
+                    (*LocalSegment)[seg].fault_flags |= UV_FAULT;
                 };
             }
         }
@@ -449,8 +449,8 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
         IC[cic].tx_cfga.gpo = 0X3FF;
 
         // PWM activate for balancing
-        memcpy_s(IC[cic].pwma.tx_data, pwma_tx_data, 6);
-        memcpy_s(IC[cic].pwmb.tx_data, pwmb_tx_data, 6);
+        memcpy(IC[cic].pwma.tx_data, pwma_tx_data, 6);
+        memcpy(IC[cic].pwmb.tx_data, pwmb_tx_data, 6);
 
         // Matching your ADI application initialization perfectly:
         IC[cic].tx_cfgb.vov = SetOverVoltageThreshold(OV_THRESHOLD);
@@ -497,7 +497,7 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
                      &localSegment);  // get real initial values into g_pack_voltage and g_avg_temp
 
     TotalPack = localPack;
-    memcpy_s(PackSegments, localSegment, sizeof(PackSegments));
+    memcpy(PackSegments, localSegment, sizeof(PackSegments));
 
     // Initialize SOC estimator
     adBms6830_soc_init();
@@ -511,7 +511,9 @@ void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struc
     SOC_Estimate local_g_soc_estimate[TOTAL_MODULES][CELLS_PER_MOD];
     CAN_Inputs_t local_can;
 
-    copyWithMutex(mutex_struct->can_data_key, &local_can, can_data);
+    taskENTER_CRITICAL();
+    local_can = *can_data;
+    taskEXIT_CRITICAL();
 
     Update_Charger_Status();  // sample PC6, true if charger plugged in
     measurement_loop(&local_can, &localPack, &localSegment);  // reads ADBMS, updates PackSegments
@@ -525,7 +527,7 @@ void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struc
 }
 
 // SOC Run, called in main BMS loop
-void adBms6830_soc_run(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,
+void adBms6830_soc_run(const CAN_Inputs_t* can_data, TotalPack_t* localPack,
                        SegmentData_t (*localSegment)[TOTAL_MODULES],
                        SOC_Estimate (*local_g_soc_estimate)[TOTAL_MODULES][CELLS_PER_MOD]) {
     float currCap = 0;
@@ -534,14 +536,15 @@ void adBms6830_soc_run(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,
     float minSoc = 2;
     for (int cic = 0; cic < TOTAL_MODULES; cic++) {
         if ((*localSegment)[cic].fault_flags & 0x08) {
-            continue
-        };
+            continue;
+        }
 
         for (int i = 0; i < CELLS_PER_MOD; i++) {
             int temp_idx = cell_to_temp_index(i);
-            adBms6830_soc_update(cic, i, (*local_g_soc_estimate)[cic][i],
-                                 (*localSegment)[cic].cell_v_mV[i] / V_TO_MV,
-                                 can_data->tractive_current, (*localSegment)[cic].temp_C[temp_idx]);
+            adBms6830_soc_update(cic, i, can_data->tractive_current,
+                                 &((*local_g_soc_estimate)[cic][i]),
+                                 (float)((*localSegment)[cic].cell_v_mV[i]) / V_TO_MV,
+                                 (*localSegment)[cic].temp_C[temp_idx]);
             // Calculate overall pack information
             if ((*local_g_soc_estimate)[cic][i].soc < minSoc) {
                 minSoc = (*local_g_soc_estimate)[cic][i].soc;
@@ -614,7 +617,7 @@ void adBms6830_soc_init(void) {
             } else {
             */
             KalmanSOC_InitFromVoltage(&g_kalman_soc[cic][i],
-                                      PackSegments[cic].cell_v_mV[i] / V_TO_MV,
+                                      (float)(PackSegments[cic].cell_v_mV[i]) / V_TO_MV,
                                       PackSegments[cic].temp_C[temp_idx]);
             // printf("  Cell %d: init from voltage (V=%.3fV T=%.1fC SOC=%.1f%%)\r\n",
             //        i + 1, (float) PackSegments[cic].cell_v_mV[i]/V_TO_MV, (float)

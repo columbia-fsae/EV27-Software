@@ -58,46 +58,43 @@ void can_init(FDCAN_HandleTypeDef* hfdcan1, GPIO_Info_t* gpio) {
     }
 }
 
+// Runs in the FDCAN interrupt: RTOS mutexes can't be used here (osMutexAcquire returns
+// osErrorISR without locking). can_data fields are single 32-bit-or-smaller stores, which
+// are atomic on Cortex-M4, so they're written directly; tasks snapshot can_data inside a
+// critical section. error_info is read-modify-write, so it uses the ISR critical section.
 void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs) {
     if ((RxFifo0ITs & FDCAN_IT_RX_FIFO0_NEW_MESSAGE) != RESET) {
         // Retrieve Rx Messages from Rx FIFO0
-        if (HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &RxHeader, RxData) != HAL_OK) {
-            // Reception Error
-            bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
-                               CAN_RECEPTION_ERROR);
-            return;
+        bool rx_ok = HAL_FDCAN_GetRxMessage(hfdcan, FDCAN_RX_FIFO0, &RxHeader, RxData) == HAL_OK;
+
+        UBaseType_t isr_state = taskENTER_CRITICAL_FROM_ISR();
+        if (rx_ok) {
+            error_info.general_errors &= ~(1 << CAN_RECEPTION_ERROR);
         } else {
-            bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
-                                CAN_RECEPTION_ERROR);
+            error_info.general_errors |= (1 << CAN_RECEPTION_ERROR);
+        }
+        taskEXIT_CRITICAL_FROM_ISR(isr_state);
+
+        if (!rx_ok) {
+            return;  // Reception Error
         }
 
-        CAN_Inputs_t local_can_inputs;
-
-        xQueuePeek((QueueHandle_t)Queue_CAN_TxHandle, &local_can_inputs, 0);
         // Switch Statement that reads CAN message ID to fill in correct information
         switch (RxHeader.Identifier) {
             case CAN_ID_CHARGER:
-                bool balancing_enable = (RxData[0] & 0b1);
-                copyWithMutex(mutex_struct.can_input_20_key, &can_data.balancing_enable,
-                              &balancing_enable);
+                can_data.balancing_enable = (RxData[0] & 0b1);
                 break;
             case CAN_ID_INVERTER_CURRENT:
-                float tractive_current_inverter =
+                can_data.tractive_current =
                     (float)((int16_t)((((uint16_t)RxData[7]) << 8) | ((uint16_t)RxData[6]))) * 0.1f;
-                copyWithMutex(mutex_struct.can_input_166_key, &can_data.tractive_current,
-                              &tractive_current_inverter);
                 break;
             case CAN_ID_INVERTER_VOLTAGE:
-                float dc_bus_voltage =
+                can_data.dc_bus_voltage =
                     (float)((((uint16_t)RxData[1]) << 8) | ((uint16_t)RxData[0])) * 0.1f;
-                copyWithMutex(mutex_struct.can_input_167_key, &can_data.dc_bus_voltage,
-                              &dc_bus_voltage);
                 break;
             case CAN_ID_ELCON_CURRENT:
-                float tractive_current_charger =
+                can_data.tractive_current =
                     (float)((int16_t)((((uint16_t)RxData[2]) << 8) | ((uint16_t)RxData[3]))) * 0.1f;
-                copyWithMutex(mutex_struct.can_input_166_key, &can_data.tractive_current,
-                              &tractive_current_charger);
                 break;
             default:
                 break;
@@ -115,9 +112,9 @@ void bms_can_faults(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* Total
     copyWithMutex(mutex_struct->total_pack_key, &local_pack, TotalPack);
 
     // Send total voltage and all BMS fault flags for all Modules
-    uint16_t temp_totalVoltage = clamp_u16((local_pack.voltage) / 0.01f, 0.0f, 65535.0f);
-    local_msg.data[0] = (uint8_t)(temp_totalVoltage & 0xFF);
-    local_msg.data[1] = (uint8_t)(temp_totalVoltage >> 8U);
+    uint16_t temp_totalVoltage = clamp_u16((local_pack.voltage) / VOLTAGE_SCALE, 0.0F, UINT16_SIZE);
+    local_msg.data[0] = (uint8_t)(temp_totalVoltage & UINT8_SIZE);
+    local_msg.data[1] = (uint8_t)(temp_totalVoltage >> UINT8_LEN);
     local_msg.data[2] = local_pack_data[0].fault_flags | (local_pack.balancing_done << 8U);
     for (int cic = 1; cic < TOTAL_MODULES; cic++) {
         local_msg.data[cic + 2] = local_pack_data[cic].fault_flags;
@@ -125,7 +122,7 @@ void bms_can_faults(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* Total
 
     local_msg.id = CAN_ID_BMS_PACK;
     local_msg.length = FDCAN_DLC_BYTES_8;
-    if (osMessageQueueGetSpace(Queue_CAN_TxHandle) > 0) {
+    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
         osMessageQueuePut(Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
@@ -148,8 +145,8 @@ void bms_can_stats(SegmentData_t (*PackData)[TOTAL_MODULES], osMessageQueueId_t*
     uint8_t minTempIdx = 0;
     uint32_t maxVoltage = 0;
     uint32_t minVoltage = 65535;
-    int8_t maxTemp = -128;
-    int8_t minTemp = 127;
+    float maxTemp = -128;
+    float minTemp = 127;
 
     // Calculate min, max, temp and voltage and total voltage from BMS information
     for (int cic = 0; cic < TOTAL_MODULES; cic++) {
@@ -175,10 +172,12 @@ void bms_can_stats(SegmentData_t (*PackData)[TOTAL_MODULES], osMessageQueueId_t*
     }
     // Send min and max voltage and temp values and IDs in structure
 
-    local_msg.data[0] = (uint8_t)clamp_u8((((maxVoltage / 1000.0f) - 1.8) / 0.01), 0.0f, 255.0f);
-    local_msg.data[1] = (uint8_t)clamp_u8((((minVoltage / 1000.0f) - 1.8) / 0.01), 0.0f, 255.0f);
-    local_msg.data[2] = (uint8_t)clamp_u8(maxTemp * 4.0f, 0.0f, 255.0f);
-    local_msg.data[3] = (uint8_t)clamp_u8(minTemp * 4.0f, 0.0f, 255.0f);
+    local_msg.data[0] = clamp_u8(((((float)maxVoltage / V_TO_MV) - VOLTAGE_OFFSET) / VOLTAGE_SCALE),
+                                 0.0F, UINT8_SIZE);
+    local_msg.data[1] = clamp_u8(((((float)minVoltage / V_TO_MV) - VOLTAGE_OFFSET) / VOLTAGE_SCALE),
+                                 0.0F, UINT8_SIZE);
+    local_msg.data[2] = clamp_u8(maxTemp * TEMP_SCALE, 0.0F, UINT8_SIZE);
+    local_msg.data[3] = clamp_u8(minTemp * TEMP_SCALE, 0.0F, UINT8_SIZE);
     local_msg.data[4] = maxVoltageIdx;
     local_msg.data[5] = minVoltageIdx;
     local_msg.data[6] = maxTempIdx;
@@ -187,8 +186,8 @@ void bms_can_stats(SegmentData_t (*PackData)[TOTAL_MODULES], osMessageQueueId_t*
     local_msg.id = (uint16_t)CAN_ID_BMS_STATS;
     local_msg.length = FDCAN_DLC_BYTES_8;
 
-    if (osMessageQueueGetSpace(Queue_CAN_TxHandle) > 0) {
-        osMessageQueuePut(Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_NORM_PRIO, 0);
+    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
+        osMessageQueuePut(*Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_NORM_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
     } else {
@@ -206,7 +205,8 @@ void bms_can_data(SegmentData_t (*PackData)[TOTAL_MODULES], uint8_t* bms_mod_cou
     copyWithMutex(mutex_struct->pack_segments_key, &local_pack_data, PackData);
 
     // BMS CAN ID conversion based on which Module and starting Cell is given to the function
-    local_msg.id = CAN_ID_BMS_INIT + ((*bms_segment_counter) * 6) + ((*bms_mod_counter + 1) / 4);
+    local_msg.id =
+        CAN_ID_BMS_INIT + ((*bms_segment_counter) * TOTAL_MODULES) + ((*bms_mod_counter + 1) / 4);
     local_msg.length = FDCAN_DLC_BYTES_8;
     // Voltage and Temperature Assignment
     for (int i = 0; i < 4; i++) {
@@ -215,12 +215,12 @@ void bms_can_data(SegmentData_t (*PackData)[TOTAL_MODULES], uint8_t* bms_mod_cou
             cell_to_temp_index(*bms_mod_counter);  // Special conversion with offset num of temp
                                                    // sensors and voltage sensors
         local_msg.data[i] = clamp_u8(
-            (((local_pack_data[*bms_segment_counter].cell_v_mV[*bms_mod_counter]) / (1000.0f) -
-              1.8) /
-             0.01),
-            0.0f, 255.0f);
-        local_msg.data[i + 4] =
-            clamp_u8(local_pack_data[*bms_segment_counter].temp_C[temp_idx] * 4.0f, 0.0f, 255.0f);
+            ((((float)local_pack_data[*bms_segment_counter].cell_v_mV[*bms_mod_counter]) / V_TO_MV -
+              VOLTAGE_OFFSET) /
+             VOLTAGE_SCALE),
+            0.0F, UINT8_SIZE);
+        local_msg.data[i + 4] = clamp_u8(
+            local_pack_data[*bms_segment_counter].temp_C[temp_idx] * TEMP_SCALE, 0.0f, UINT8_SIZE);
         *bms_mod_counter += 1;
         // Check for end of module
         if (*bms_mod_counter >= (uint8_t)CELLS_PER_MOD) {
@@ -258,13 +258,13 @@ void bsm_can(bsm_obj* bsmInfo, GPIO_Info_t* gpio_data, osMessageQueueId_t* Queue
     copyWithMutex(mutex_struct->bsm_key, &local_bsm, bsmInfo);
     copyWithMutex(mutex_struct->gpio_data_key, &local_gpio_info, gpio_data);
 
-    local_msg.data[0] = (int8_t)local_bsm.state;
+    local_msg.data[0] = (int8_t)local_bsm.bsm_state;
     local_msg.data[1] = local_bsm.pc_enable;
     local_msg.data[2] = local_bsm.ir_plus_enable;
     local_msg.data[3] = local_bsm.ir_minus_enable;
     local_msg.data[5] = local_gpio_info.ir_plus_aux;
     local_msg.data[6] = local_gpio_info.ir_minus_aux;
-    if (local_bsm.state == FAULT) {
+    if (local_bsm.bsm_state == FAULT) {
         local_msg.data[4] = (uint8_t)1;
     } else {
         local_msg.data[4] = 0;

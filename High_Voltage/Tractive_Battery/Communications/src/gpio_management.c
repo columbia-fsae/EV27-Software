@@ -3,8 +3,6 @@
 #include "common_types.h"
 #include "main.h"
 
-GPIO_Info_t gpio_data = {0};
-
 #define IR_PLUS_AUX_INVERTING 1
 #define IR_MINUS_AUX_INVERTING 1
 #define SLOW_CAN_INVERTING 1

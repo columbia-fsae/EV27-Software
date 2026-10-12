@@ -135,5 +135,5 @@ void bsm_run(bsm_obj* bsm, GPIO_Info_t* gpio, ADC_Inputs_t* adc, TotalPack_t* pa
             break;
         }
     }
-    copyWithMutex(mutex_struct->bsm_key, &bsm, &local_bsm);
+    copyWithMutex(mutex_struct->bsm_key, bsm, &local_bsm);
 }
