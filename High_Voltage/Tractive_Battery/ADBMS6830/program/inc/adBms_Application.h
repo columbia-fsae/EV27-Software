@@ -27,28 +27,41 @@ and its licensor.
 #include "adbms_main.h"
 #include "common_types.h"
 #include "kalman_soc.h"
+#include "main.h"
 
 #define TOTAL_IC 6
 
 // SOC CHANGES
-#define CELL_TIE_TOLERANCE 0.0002f
-#define TOTAL_MODULES 6  // E.g., 12 ICs = 6 Segments
-#define TOTAL_CELLS TOTAL_MODULES* CELLS_PER_MOD
-#define MIN_CELL_THRESH 0.2
-#define SENSOR_DROPOUT_TEMP -99
-#define TEMP_PER_BOARD 10
-#define VOLT_PER_SLAVE 10
-#define VOLT_PER_MASTER 14
-#define COMM_FAULT_LATCH 3  // consecutive bad cycles before hard fault
+#define CELL_TIE_TOLERANCE  0.0002f
+#define TOTAL_MODULES       6  // E.g., 12 ICs = 6 Segments
+#define TOTAL_CELLS         (TOTAL_MODULES * CELLS_PER_MOD)
+#define MIN_CELL_THRESH     0.2F
+#define SENSOR_DROPOUT_TEMP (-99)
+#define TEMP_PER_BOARD      10
+#define VOLT_PER_SLAVE      10
+#define VOLT_PER_MASTER     14
+#define COMM_FAULT_LATCH    3  // consecutive bad cycles before hard fault
+
+// Fault Codes:
+#define OV_FAULT        0x01
+#define UV_FAULT        0x02
+#define OT_FAULT        0x04
+#define COMMS_FAULT     0x08
+#define TEMP_DROP_FAULT 0x10
+
+// Scaling
+#define V_TO_MV               1000.0F
+#define VOLT_OFFSET           1.5F
+#define EDGE_CELL_VOLT_OFFSET 0.1F
 
 // ADBMS6830 Unique 48 Bit IDs
-#define ID1_TOP 0x97DE40006B21ULL
-#define ID2_TOP 0x997CE40586B2ULL
-#define ID3_TOP 0x097EE40006B2ULL
-#define ID4_TOP 0x990DE40686B2ULL
-#define ID5_TOP 0xC97DE40506B2ULL
-#define ID6_TOP 0x590EE40586B2ULL
-#define ID7_TOP 0x9A06E40606B2ULL
+#define ID1_TOP    0x97DE40006B21ULL
+#define ID2_TOP    0x997CE40586B2ULL
+#define ID3_TOP    0x097EE40006B2ULL
+#define ID4_TOP    0x990DE40686B2ULL
+#define ID5_TOP    0xC97DE40506B2ULL
+#define ID6_TOP    0x590EE40586B2ULL
+#define ID7_TOP    0x9A06E40606B2ULL
 #define ID1_BOTTOM 0x0001111111ULL
 #define ID2_BOTTOM 0x0002111111ULL
 #define ID3_BOTTOM 0x0003111111ULL
@@ -76,7 +89,8 @@ void adBms6830_read_aux_voltages(uint8_t tIC, cell_asic* ic);
 void adBms6830_start_raux_voltage_measurment(uint8_t tIC, cell_asic* ic);
 void adBms6830_read_raux_voltages(uint8_t tIC, cell_asic* ic);
 void adBms6830_read_status_registers(uint8_t tIC, cell_asic* ic);
-void measurement_loop(volatile CAN_Inputs_t* can_data);
+void measurement_loop(volatile CAN_Inputs_t* can_data, TotalPack_t* local_pack,
+                      SegmentData_t (*local_segment)[TOTAL_MODULES]);
 void adBms6830_read_device_sid(uint8_t tIC, cell_asic* ic);
 void adBms6830_set_reset_gpio_pins(uint8_t tIC, cell_asic* ic);
 void adBms6830_enable_mute(uint8_t tIC, cell_asic* ic);
@@ -124,13 +138,15 @@ void adBms6830_read_rdasall_voltage(uint8_t tIC, cell_asic* ic);
 
 // Main Functions
 void adbms_main_init(volatile CAN_Inputs_t* can_data);
-void adBms_main_run(volatile CAN_Inputs_t* can_data, GPIO_Info_t* gpio_data);
+void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struct);
 
 // SOC Functions
-void adBms6830_soc_run(volatile CAN_Inputs_t* can_data);
+void adBms6830_soc_run(const CAN_Inputs_t* can_data, TotalPack_t* local_pack,
+                       SegmentData_t (*local_segment)[TOTAL_MODULES],
+                       SOC_Estimate (*local_g_soc_estimate)[TOTAL_MODULES][CELLS_PER_MOD]);
 void adBms6830_soc_init(void);
-void adBms6830_soc_update(int cic, int cell, float cell_voltage, float pack_current,
-                          float cell_temp);
+void adBms6830_soc_update(int cic, int cell, float pack_current, SOC_Estimate* single_estimate,
+                          float cell_voltage, float cell_temp);
 void adBms6830_print_soc_estimate(int cic, int cell, const SOC_Estimate* est);
 void adBms6830_soc_save_to_flash(void);
 void adBms6830_soc_clear_flash(void);

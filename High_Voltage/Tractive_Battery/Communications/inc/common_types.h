@@ -2,11 +2,19 @@
 #ifndef COMMON_TYPES_H
 #define COMMON_TYPES_H
 
+#include "cmsis_os.h"
+#include "cmsis_os2.h"
 #define CELLS_PER_MOD 10
-#define TEMP_PER_MOD 10
+#define TEMP_PER_MOD  10
+
+#define CAN_TX_QUEUE_LOW_PRIO  0
+#define CAN_TX_QUEUE_NORM_PRIO 1
+#define cAN_TX_QUEUE_MED_PRIO  2
+#define CAN_TX_QUEUE_HIGH_PRIO 3
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
 
 // GPIO Storage Structure
 typedef struct {
@@ -14,14 +22,24 @@ typedef struct {
     bool ir_minus_aux;
     bool slow_CAN;
     bool sdc_ok;
-    bool bms_ok_OUT;
     bool mcu_mhs;
     bool mcu_mls;
 } GPIO_Info_t;
 
+// List of all states
+enum bsmStates {
+    start_dis = 0x0,
+    ir_minus_close = 0x1,
+    precharge = 0x2,
+    ir_plus_close = 0x3,
+    delay_post_pc = 0x4,
+    driving = 0x5,
+    FAULT = 0xF
+};
+
 // Battery State Machine Attribute Structure
 typedef struct BsmTag {
-    int8_t state;
+    enum bsmStates bsm_state;
     uint32_t timer;
     bool pc_enable;
     bool ir_plus_enable;
@@ -37,6 +55,12 @@ typedef struct {
     // FROM CHARGER
     volatile bool balancing_enable;
 } CAN_Inputs_t;
+
+typedef struct {
+    uint8_t data[8];
+    uint16_t id;
+    uint32_t length;
+} can_msg;
 
 /* --- GLOBAL PACK STATUS  */
 typedef struct {
@@ -54,6 +78,7 @@ typedef struct {
     float avg_voltage;
     float temp;
     bool balancing_done;
+    bool bms_ok_OUT;
 
     // SOC
     float soc;
@@ -83,5 +108,37 @@ typedef struct {
 } SOC_Estimate;
 
 extern volatile CAN_Inputs_t can_data;
+
+#define COPY_STRUCT(dest_ptr, src_ptr) genericCopy(dest_ptr, src_ptr, sizeof(*(dest_ptr)))
+
+void static inline genericCopy(void* dest_ptr, const void* src_ptr, size_t size) {
+    configASSERT(dest_ptr != NULL && src_ptr != NULL);
+    memcpy(dest_ptr, src_ptr, size);
+}
+
+void static inline copyWithMutexSized(osMutexId_t mutex, void* dest_ptr, const void* src_ptr,
+                                      size_t size) {
+    osMutexAcquire(mutex, osWaitForever);
+    genericCopy(dest_ptr, src_ptr, size);
+    osMutexRelease(mutex);
+}
+
+// Macro so sizeof sees the caller's real type; fails to compile if dest and src sizes differ
+#define copyWithMutex(mutex, dest_ptr, src_ptr)        \
+    copyWithMutexSized((mutex), (dest_ptr), (src_ptr), \
+                       sizeof(*(dest_ptr)) +           \
+                           (0 * sizeof(char[sizeof(*(dest_ptr)) == sizeof(*(src_ptr)) ? 1 : -1])))
+
+void static inline bitwiseAndWithMutex(osMutexId_t mutex, uint8_t* dest_ptr, uint8_t bit) {
+    osMutexAcquire(mutex, osWaitForever);
+    *dest_ptr &= ~(1 << bit);
+    osMutexRelease(mutex);
+}
+
+void static inline bitwiseOrWithMutex(osMutexId_t mutex, uint8_t* dest_ptr, uint8_t bit) {
+    osMutexAcquire(mutex, osWaitForever);
+    *dest_ptr |= (1 << bit);
+    osMutexRelease(mutex);
+}
 
 #endif

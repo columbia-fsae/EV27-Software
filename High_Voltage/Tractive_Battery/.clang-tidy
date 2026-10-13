@@ -40,13 +40,21 @@ CheckOptions:
   #   - unit suffixes:     bal_thresh_mV, temp_C, cell_v_mV
   #   - ADBMS chip arrays: IC, tIC (from Analog Devices' driver API)
   #   - CubeMX/HAL names:  GPIO_InitStruct, sConfig, RxHeader, RxFifo0ITs
+  #   - CubeMX RTOS objects (regenerated from the .ioc task/mutex/queue names):
+  #                        GPIO_ReadHandle, bsm_keyHandle, Queue_CAN_TxHandle
+  #   - ST/CMSIS template: SystemCoreClock, uwTimclock, pFLatency
+  #   - FreeRTOS hook API: xTask, pcTaskName (parameters only)
+  #   - ST HAL callback:   TickPriority (parameter only)
+  # Handle names are variables only, so a *parameter* named like a CubeMX
+  # global (Queue_CAN_TxHandle) is still flagged.
   readability-identifier-naming.VariableCase: lower_case
-  readability-identifier-naming.VariableIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN)|t?IC|s[A-Z][A-Za-z]*|[A-Za-z0-9_]*InitStruct|Rx[A-Za-z0-9]*)$'
+  readability-identifier-naming.VariableIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN)|t?IC|s[A-Z][A-Za-z]*|[A-Za-z0-9_]*InitStruct|Rx[A-Za-z0-9]*|[A-Za-z0-9_]*Handle|SystemCoreClock|uw[A-Z][A-Za-z0-9]*|p[A-Z][A-Za-z0-9]*)$'
   readability-identifier-naming.ParameterCase: lower_case
-  readability-identifier-naming.ParameterIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN)|t?IC|s[A-Z][A-Za-z]*|[A-Za-z0-9_]*InitStruct|Rx[A-Za-z0-9]*)$'
+  readability-identifier-naming.ParameterIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN)|t?IC|s[A-Z][A-Za-z]*|[A-Za-z0-9_]*InitStruct|Rx[A-Za-z0-9]*|x[A-Z][A-Za-z0-9]*|pc[A-Z][A-Za-z0-9]*|TickPriority)$'
   readability-identifier-naming.MemberCase: lower_case
   readability-identifier-naming.MemberIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN))$'
   # File-scope constants may be UPPER_CASE (UV_THRESHOLD, TSENSE_LOOKUP) or
-  # lower_case (crc32_table, g_ocv_lut).
+  # lower_case (crc32_table, g_ocv_lut). CubeMX's RTOS attribute structs
+  # (GPIO_Read_attributes, TotalPack_key_attributes) are also allowed.
   readability-identifier-naming.GlobalConstantCase: lower_case
-  readability-identifier-naming.GlobalConstantIgnoredRegexp: '^[A-Z][A-Z0-9_]*$'
+  readability-identifier-naming.GlobalConstantIgnoredRegexp: '^([A-Z][A-Z0-9_]*|[A-Za-z0-9_]*_attributes)$'
