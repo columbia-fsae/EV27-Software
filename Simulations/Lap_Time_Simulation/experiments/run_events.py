@@ -73,6 +73,7 @@ ECMS_S2_KI = _ecms_gains["s2_ki"]
 ECMS_S2_MAX = _ecms_gains["s2_max"]
 ECMS_S2_0 = _ecms_gains["s2_0"]
 total_distance = LAPS * ENDURANCE_EVENT.total_length
+RMS_WINDOW_S = 30.0  # rolling window for the RMS power plot
 soc_ref_fn = linear_soc_schedule(total_distance, soc_start=1.0, derate=SOC_DERATE)
 temp_ref_fn = linear_temp_schedule(
     total_distance, temp_start=TEMP_START, temp_end=TEMP_END, derate=TEMP_DERATE
@@ -93,8 +94,57 @@ def build_ev27() -> Car:
         hv=HighVoltageSystem(vmax=255, vnom=216),
         l_base=1.530,
         # Fresh Battery per call
-        battery=Battery(series=116, parallel=3, cell_type="ampace_jp50"),
+        battery=Battery(series=144, parallel=3, cell_type="ampace_jp50"),
     )
+
+
+def rms(power: np.ndarray, dt: np.ndarray) -> float:
+    """Time-weighted RMS of a nonuniformly sampled power trace."""
+    return float(np.sqrt(np.sum(power**2 * dt) / np.sum(dt)))
+
+
+def rolling_rms(power: np.ndarray, dt: np.ndarray, tt: np.ndarray, window: float) -> np.ndarray:
+    """Time-weighted trailing RMS over the last `window` seconds at each point."""
+    energy_sq = np.concatenate(([0.0], np.cumsum(power**2 * dt)))
+    time = np.concatenate(([0.0], np.cumsum(dt)))
+    start = np.searchsorted(tt, tt - window, side="right")
+    end = np.arange(1, len(tt) + 1)
+    return np.sqrt((energy_sq[end] - energy_sq[start]) / (time[end] - time[start]))
+
+
+def plot_rms_power(result, window: float = RMS_WINDOW_S):
+    """Car-side (motor electrical demand) vs battery-side (pack terminal) power, with
+    rolling and whole-run RMS."""
+    stats = result.stats
+    sides = [("Car (pelectric)", stats.pelectric)]
+    if stats.batt_i is not None:
+        sides.append(("Battery (V*I)", stats.batt_i * stats.batt_v))
+
+    fig, (ax_inst, ax_rms) = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
+    for label, power in sides:
+        total_rms = rms(power, stats.dt)
+        (line,) = ax_inst.plot(stats.tt, power * 1e-3, linewidth=0.6, alpha=0.6, label=label)
+        ax_rms.plot(
+            stats.tt,
+            rolling_rms(power, stats.dt, stats.tt, window) * 1e-3,
+            color=line.get_color(),
+            label=f"{label}, {window:.0f} s rolling",
+        )
+        ax_rms.axhline(
+            total_rms * 1e-3,
+            color=line.get_color(),
+            linestyle="--",
+            label=f"{label}, overall = {total_rms / 1e3:.2f} kW",
+        )
+        print(f"[Endur]    {label} RMS power = {total_rms / 1e3:.2f} kW")
+    ax_inst.set_ylabel("Power (kW)")
+    ax_inst.legend()
+    ax_rms.set_xlabel("Time (s)")
+    ax_rms.set_ylabel("RMS Power (kW)")
+    ax_rms.legend()
+    fig.suptitle(f"{result.car.name}: car vs battery RMS power")
+    fig.tight_layout()
+    return fig
 
 
 def main():
@@ -162,6 +212,7 @@ def main():
         plotting.plot_battery_stats([endur])
         final_energy = endur.stats.batt_energy
         print(f"[Endur] battery energy usage = {final_energy:.1f} kWh")
+    plot_rms_power(endur)
 
     fig, (ax_v, ax_a) = plt.subplots(2, 1, figsize=(7, 6))
     ax_v.plot(endur.vv)

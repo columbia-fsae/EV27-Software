@@ -87,6 +87,9 @@ jobs:
           if [ "${{ steps.filter.outputs.Tractive_Battery }}" = "true" ] || [ "$config_changed" = "true" ]; then
             path='High_Voltage/Tractive_Battery'
             ignore=".github|$non_firmware|$path/Drivers|$path/Middlewares|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            # Entirely CubeMX-generated: the FreeRTOS HAL timebase (TIM6), and
+            # the HAL config header, which can't be parsed on its own
+            ignore="$ignore|$path/Core/Src/stm32g4xx_hal_timebase_tim.c|$path/Core/Inc/stm32g4xx_hal_conf.h"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Tractive_Battery","path":$path,"ignore":$ignore}]')
           fi
@@ -232,6 +235,10 @@ jobs:
 
       - name: Post clang-tidy review comments
         if: steps.tidy-fixes.outputs.found == 'true'
+        # Advisory only; "Fail on lint errors" below is what gates the PR.
+        # GitHub rejects review comments (HTTP 422) when a PR's diff is too
+        # large to anchor them, which shouldn't fail the lint job.
+        continue-on-error: true
         uses: platisd/clang-tidy-pr-comments@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

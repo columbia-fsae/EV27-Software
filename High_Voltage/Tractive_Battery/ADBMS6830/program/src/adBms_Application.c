@@ -145,12 +145,12 @@ static void Update_Charger_Status(void) {
 }
 
 static void Update_BMS_OK_Output(TotalPack_t* local_pack,
-                                 SegmentData_t (*localSegments)[TOTAL_MODULES]) {
+                                 SegmentData_t (*local_segments)[TOTAL_MODULES]) {
     bool any_fault = false;
 
     // Check all segments for ANY fault flags
     for (int mod = 0; mod < TOTAL_MODULES; mod++) {
-        if ((*localSegments)[mod].fault_flags != 0) {
+        if ((*local_segments)[mod].fault_flags != 0) {
             any_fault = true;
             break;
         }
@@ -283,9 +283,9 @@ void Print_Status_To_Console() {
 /* -------------------------------------------------------------------------- */
 /* Core Data Processing Function (Mapped to 24-Cell Segments)                 */
 /* -------------------------------------------------------------------------- */
-void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TOTAL_MODULES]) {
-    float totalVoltage = 0;
-    float avgTemp = 0;
+void Process_Board_Data(TotalPack_t* local_pack, SegmentData_t (*local_segment)[TOTAL_MODULES]) {
+    float total_voltage = 0;
+    float avg_temp = 0;
     uint8_t dead_cells = 0;
 
     for (int seg = 0; seg < TOTAL_MODULES; seg++) {
@@ -294,7 +294,7 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
         int ic_master = seg;  //* 2 ;       // IC 0, 2, 4... (14 cells)
         // int ic_slave  = (seg * 2) + 1; // IC 1, 3, 5... (10 cells)
 
-        (*LocalSegment)[seg].dcc_active = 0;
+        (*local_segment)[seg].dcc_active = 0;
 
         // TODO: RUN ON TEST BENCH, COMMENT OUT SLAVE PART
         //  --- 1. Check for Communication Dropout (PEC error) ---
@@ -306,13 +306,13 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
             }
 
             if (comm_miss_count[seg] >= COMM_FAULT_LATCH) {
-                (*LocalSegment)[seg].fault_flags |= COMMS_FAULT;  // real comm fault
+                (*local_segment)[seg].fault_flags |= COMMS_FAULT;  // real comm fault
             }
             // else: leave fault_flags clear, KEEP last cycle's cell_v_mV / temp_C untouched
             continue;  // skip re-parsing this cycle's corrupt data either way
         }
 
-        (*LocalSegment)[seg].fault_flags = 0;
+        (*local_segment)[seg].fault_flags = 0;
         // --- 2. Extract Cell Voltages ---
         // Slave IC (10 Cells) -> Maps to cell_v_mV[0..9]
         for (int i = 0; i < VOLT_PER_SLAVE; i++) {
@@ -322,21 +322,21 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
                 v_cell += EDGE_CELL_VOLT_OFFSET;
             }
 
-            (*LocalSegment)[seg].cell_v_mV[i] = (uint16_t)(v_cell * V_TO_MV);
-            totalVoltage += v_cell;
+            (*local_segment)[seg].cell_v_mV[i] = (uint16_t)(v_cell * V_TO_MV);
+            total_voltage += v_cell;
 
             if (v_cell > 1.0F) {
                 if (v_cell > OV_THRESHOLD) {
-                    (*LocalSegment)[seg].fault_flags |= OV_FAULT;
+                    (*local_segment)[seg].fault_flags |= OV_FAULT;
                 };
                 if (v_cell < UV_THRESHOLD) {
-                    (*LocalSegment)[seg].fault_flags |= UV_FAULT;
+                    (*local_segment)[seg].fault_flags |= UV_FAULT;
                 };
             }
         }
 
-        localPack->voltage = totalVoltage;
-        localPack->avg_voltage = totalVoltage / (TOTAL_CELLS);
+        local_pack->voltage = total_voltage;
+        local_pack->avg_voltage = total_voltage / (TOTAL_CELLS);
 
         // --- 3. Extract Temperatures ---
         // Slave IC (10 Temps) -> Maps to temp_C[0..9]
@@ -348,24 +348,24 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
             if (t == SENSOR_DROPOUT_TEMP) {
                 dead_cells += 2;
             }
-            (*LocalSegment)[seg].temp_C[i] = t;
-            avgTemp += t;
+            (*local_segment)[seg].temp_C[i] = t;
+            avg_temp += t;
 
             if (t > OT_THRESHOLD && t != -99.0f) {
-                (*LocalSegment)[seg].fault_flags |= OT_FAULT;
+                (*local_segment)[seg].fault_flags |= OT_FAULT;
             }
         }
     }
 
-    avgTemp = avgTemp / (TOTAL_CELLS);
-    localPack->temp = avgTemp;
+    avg_temp = avg_temp / (TOTAL_CELLS);
+    local_pack->temp = avg_temp;
 
     // Check for minimum 20% of cells having temperature measurements, otherwise call a fault
     for (int mod = 0; mod < TOTAL_MODULES; mod++) {
         if (((float)(TOTAL_CELLS - dead_cells) / (float)TOTAL_CELLS) * 0.5F < MIN_CELL_THRESH) {
-            (*LocalSegment)[mod].fault_flags |= TEMP_DROP_FAULT;
+            (*local_segment)[mod].fault_flags |= TEMP_DROP_FAULT;
         } else {
-            (*LocalSegment)[mod].fault_flags &= ~TEMP_DROP_FAULT;
+            (*local_segment)[mod].fault_flags &= ~TEMP_DROP_FAULT;
         }
     }
 }
@@ -373,8 +373,8 @@ void Process_Board_Data(TotalPack_t* localPack, SegmentData_t (*LocalSegment)[TO
 /* -------------------------------------------------------------------------- */
 /* Real-Time Measurement Loop */
 /* -------------------------------------------------------------------------- */
-void measurement_loop(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,
-                      SegmentData_t (*localSegment)[TOTAL_MODULES]) {
+void measurement_loop(volatile CAN_Inputs_t* can_data, TotalPack_t* local_pack,
+                      SegmentData_t (*local_segment)[TOTAL_MODULES]) {
     // uint32_t old_basepri = __get_BASEPRI();
     //__set_BASEPRI(4 << (8 - __NVIC_PRIO_BITS));   // mask priorities 4..15
 
@@ -467,7 +467,7 @@ void measurement_loop(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,
     adBmsReadData(TOTAL_IC, &IC[0], RDRAXD, RAux, D);
 
     // 4. Process math & Output via Serial
-    Process_Board_Data(localPack, localSegment);
+    Process_Board_Data(local_pack, local_segment);
 
     if (can_data->balancing_enable) {
         Process_Cell_Balancing();
@@ -482,8 +482,8 @@ void measurement_loop(volatile CAN_Inputs_t* can_data, TotalPack_t* localPack,
 /* Main Initializer */
 /* -------------------------------------------------------------------------- */
 void adbms_main_init(volatile CAN_Inputs_t* can_data) {
-    TotalPack_t localPack;
-    SegmentData_t localSegment[TOTAL_MODULES];
+    TotalPack_t local_pack;
+    SegmentData_t local_segment[TOTAL_MODULES];
 
     // printf("\r\n\r\nStarting ADBMS6830 Driver...\r\n");
     uint8_t pwma_tx_data[6] = {0x44, 0x44, 0x44, 0x44, 0x44, 0x44};  // Cells 1-8 at 50%
@@ -539,11 +539,11 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
         }
     }
     adBms6830_Unsnap();
-    measurement_loop(can_data, &localPack,
-                     &localSegment);  // get real initial values into g_pack_voltage and g_avg_temp
+    measurement_loop(can_data, &local_pack,
+                     &local_segment);  // get real initial values into g_pack_voltage and g_avg_temp
 
-    TotalPack = localPack;
-    memcpy(PackSegments, localSegment, sizeof(PackSegments));
+    TotalPack = local_pack;
+    memcpy(PackSegments, local_segment, sizeof(PackSegments));
 
     // Initialize SOC estimator
     adBms6830_soc_init();
@@ -552,8 +552,8 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
 }
 
 void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struct) {
-    TotalPack_t localPack;
-    SegmentData_t localSegment[TOTAL_MODULES];
+    TotalPack_t local_pack;
+    SegmentData_t local_segment[TOTAL_MODULES];
     SOC_Estimate local_g_soc_estimate[TOTAL_MODULES][CELLS_PER_MOD];
     CAN_Inputs_t local_can;
 
@@ -564,27 +564,28 @@ void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struc
     taskEXIT_CRITICAL();
 
     Update_Charger_Status();  // sample PC6, true if charger plugged in
-    measurement_loop(&local_can, &localPack, &localSegment);  // reads ADBMS, updates PackSegments
-    Update_BMS_OK_Output(&localPack,
-                         &localSegment);  // drives PC9 (BMS fault) based on PackSegments + charger
-    adBms6830_soc_run(&local_can, &localPack, &localSegment, &local_g_soc_estimate);  // update SOC
+    measurement_loop(&local_can, &local_pack, &local_segment);  // reads ADBMS, updates PackSegments
+    Update_BMS_OK_Output(&local_pack,
+                         &local_segment);  // drives PC9 (BMS fault) based on PackSegments + charger
+    adBms6830_soc_run(&local_can, &local_pack, &local_segment,
+                      &local_g_soc_estimate);  // update SOC
 
-    copyWithMutex(mutex_struct->total_pack_key, &TotalPack, &localPack);
-    copyWithMutex(mutex_struct->pack_segments_key, &PackSegments, &localSegment);
+    copyWithMutex(mutex_struct->total_pack_key, &TotalPack, &local_pack);
+    copyWithMutex(mutex_struct->pack_segments_key, &PackSegments, &local_segment);
     copyWithMutex(mutex_struct->soc_estimate_key, &g_soc_estimate, &local_g_soc_estimate);
 }
 
 // SOC Run, called in main BMS loop
-void adBms6830_soc_run(const CAN_Inputs_t* can_data, TotalPack_t* localPack,
-                       SegmentData_t (*localSegment)[TOTAL_MODULES],
+void adBms6830_soc_run(const CAN_Inputs_t* can_data, TotalPack_t* local_pack,
+                       SegmentData_t (*local_segment)[TOTAL_MODULES],
                        SOC_Estimate (*local_g_soc_estimate)[TOTAL_MODULES][CELLS_PER_MOD]) {
-    float currCap = 0;
+    float curr_cap = 0;
     float cap = 0;
     float uncertainty = 0;
-    float minSoc = 1;
+    float min_soc = 1;
     int valid_cells = 0;
     for (int cic = 0; cic < TOTAL_MODULES; cic++) {
-        if ((*localSegment)[cic].fault_flags & COMMS_FAULT) {
+        if ((*local_segment)[cic].fault_flags & COMMS_FAULT) {
             continue;
         }
 
@@ -592,8 +593,8 @@ void adBms6830_soc_run(const CAN_Inputs_t* can_data, TotalPack_t* localPack,
             int temp_idx = cell_to_temp_index(i);
             adBms6830_soc_update(cic, i, can_data->tractive_current,
                                  &((*local_g_soc_estimate)[cic][i]),
-                                 (float)((*localSegment)[cic].cell_v_mV[i]) / V_TO_MV,
-                                 (*localSegment)[cic].temp_C[temp_idx]);
+                                 (float)((*local_segment)[cic].cell_v_mV[i]) / V_TO_MV,
+                                 (*local_segment)[cic].temp_C[temp_idx]);
 
             // Check for validity
             SOC_Estimate* est = &(*local_g_soc_estimate)[cic][i];
@@ -603,19 +604,19 @@ void adBms6830_soc_run(const CAN_Inputs_t* can_data, TotalPack_t* localPack,
             valid_cells++;
 
             // Calculate overall pack information
-            if (est->soc < minSoc) {
-                minSoc = est->soc;
+            if (est->soc < min_soc) {
+                min_soc = est->soc;
             }
-            currCap += est->capacity_ah * est->soc;
+            curr_cap += est->capacity_ah * est->soc;
             cap += est->capacity_ah;
             uncertainty += est->confidence;
         }
     }
 
     // TotalPack.soc = currCap/cap;
-    localPack->soc = minSoc;
-    localPack->capacity = cap;
-    localPack->uncertainty = (valid_cells > 0) ? uncertainty / (float)valid_cells : 0.0F;
+    local_pack->soc = min_soc;
+    local_pack->capacity = cap;
+    local_pack->uncertainty = (valid_cells > 0) ? uncertainty / (float)valid_cells : 0.0F;
 
     // Print SOC estimate every 10 loops
     /*

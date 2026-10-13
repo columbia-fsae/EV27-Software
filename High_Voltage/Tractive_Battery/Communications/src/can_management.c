@@ -102,19 +102,20 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
     }
 }
 
-void bms_can_faults(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* TotalPack,
-                    osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_struct) {
+void bms_can_faults(SegmentData_t (*pack_data)[TOTAL_MODULES], TotalPack_t* total_pack,
+                    osMessageQueueId_t* queue_can_tx_handle, Mutex_Struct_t* mutex_struct) {
     can_msg local_msg;
     SegmentData_t local_pack_data[TOTAL_MODULES];
     TotalPack_t local_pack;
 
-    copyWithMutex(mutex_struct->pack_segments_key, &local_pack_data, PackData);
-    copyWithMutex(mutex_struct->total_pack_key, &local_pack, TotalPack);
+    copyWithMutex(mutex_struct->pack_segments_key, &local_pack_data, pack_data);
+    copyWithMutex(mutex_struct->total_pack_key, &local_pack, total_pack);
 
     // Send total voltage and all BMS fault flags for all Modules
-    uint16_t temp_totalVoltage = clamp_u16((local_pack.voltage) / VOLTAGE_SCALE, 0.0F, UINT16_SIZE);
-    local_msg.data[0] = (uint8_t)(temp_totalVoltage & UINT8_SIZE);
-    local_msg.data[1] = (uint8_t)(temp_totalVoltage >> UINT8_LEN);
+    uint16_t temp_total_voltage =
+        clamp_u16((local_pack.voltage) / VOLTAGE_SCALE, 0.0F, UINT16_SIZE);
+    local_msg.data[0] = (uint8_t)(temp_total_voltage & UINT8_SIZE);
+    local_msg.data[1] = (uint8_t)(temp_total_voltage >> UINT8_LEN);
     local_msg.data[2] = local_pack_data[0].fault_flags | (local_pack.balancing_done << UINT8_LEN);
     for (int cic = 1; cic < TOTAL_MODULES; cic++) {
         local_msg.data[cic + 2] = local_pack_data[cic].fault_flags;
@@ -122,8 +123,8 @@ void bms_can_faults(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* Total
 
     local_msg.id = CAN_ID_BMS_PACK;
     local_msg.length = FDCAN_DLC_BYTES_8;
-    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
-        osMessageQueuePut(*Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
     } else {
@@ -132,62 +133,62 @@ void bms_can_faults(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* Total
     }
 }
 
-void bms_can_stats(SegmentData_t (*PackData)[TOTAL_MODULES], osMessageQueueId_t* Queue_CAN_TxHandle,
-                   Mutex_Struct_t* mutex_struct) {
+void bms_can_stats(SegmentData_t (*pack_data)[TOTAL_MODULES],
+                   osMessageQueueId_t* queue_can_tx_handle, Mutex_Struct_t* mutex_struct) {
     can_msg local_msg;
     SegmentData_t local_pack_data[TOTAL_MODULES];
 
-    copyWithMutex(mutex_struct->pack_segments_key, &local_pack_data, PackData);
+    copyWithMutex(mutex_struct->pack_segments_key, &local_pack_data, pack_data);
 
-    uint8_t maxVoltageIdx = 0;
-    uint8_t minVoltageIdx = 0;
-    uint8_t maxTempIdx = 0;
-    uint8_t minTempIdx = 0;
-    uint32_t maxVoltage = 0;
-    uint32_t minVoltage = 65535;
-    float maxTemp = MIN_TEMP;
-    float minTemp = MAX_TEMP;
+    uint8_t max_voltage_idx = 0;
+    uint8_t min_voltage_idx = 0;
+    uint8_t max_temp_idx = 0;
+    uint8_t min_temp_idx = 0;
+    uint32_t max_voltage = 0;
+    uint32_t min_voltage = 65535;
+    float max_temp = MIN_TEMP;
+    float min_temp = MAX_TEMP;
 
     // Calculate min, max, temp and voltage and total voltage from BMS information
     for (int cic = 0; cic < TOTAL_MODULES; cic++) {
         for (int i = 0; i < CELLS_PER_MOD; i++) {
             uint32_t temp_idx = cell_to_temp_index(i);
-            if (local_pack_data[cic].cell_v_mV[i] > maxVoltage) {
-                maxVoltage = local_pack_data[cic].cell_v_mV[i];
-                maxVoltageIdx = (cic * CELLS_PER_MOD) + i;
+            if (local_pack_data[cic].cell_v_mV[i] > max_voltage) {
+                max_voltage = local_pack_data[cic].cell_v_mV[i];
+                max_voltage_idx = (cic * CELLS_PER_MOD) + i;
             }
-            if (local_pack_data[cic].cell_v_mV[i] < minVoltage) {
-                minVoltage = local_pack_data[cic].cell_v_mV[i];
-                minVoltageIdx = (cic * CELLS_PER_MOD) + i;
+            if (local_pack_data[cic].cell_v_mV[i] < min_voltage) {
+                min_voltage = local_pack_data[cic].cell_v_mV[i];
+                min_voltage_idx = (cic * CELLS_PER_MOD) + i;
             }
-            if (local_pack_data[cic].temp_C[temp_idx] > maxTemp) {
-                maxTemp = local_pack_data[cic].temp_C[temp_idx];
-                maxTempIdx = (cic * CELLS_PER_MOD) + i;
+            if (local_pack_data[cic].temp_C[temp_idx] > max_temp) {
+                max_temp = local_pack_data[cic].temp_C[temp_idx];
+                max_temp_idx = (cic * CELLS_PER_MOD) + i;
             }
-            if (local_pack_data[cic].temp_C[temp_idx] < minTemp) {
-                minTemp = local_pack_data[cic].temp_C[temp_idx];
-                minTempIdx = (cic * CELLS_PER_MOD) + i;
+            if (local_pack_data[cic].temp_C[temp_idx] < min_temp) {
+                min_temp = local_pack_data[cic].temp_C[temp_idx];
+                min_temp_idx = (cic * CELLS_PER_MOD) + i;
             }
         }
     }
     // Send min and max voltage and temp values and IDs in structure
 
-    local_msg.data[0] = clamp_u8(((((float)maxVoltage / V_TO_MV) - VOLTAGE_OFFSET) / VOLTAGE_SCALE),
-                                 0.0F, UINT8_SIZE);
-    local_msg.data[1] = clamp_u8(((((float)minVoltage / V_TO_MV) - VOLTAGE_OFFSET) / VOLTAGE_SCALE),
-                                 0.0F, UINT8_SIZE);
-    local_msg.data[2] = clamp_u8(maxTemp * TEMP_SCALE, 0.0F, UINT8_SIZE);
-    local_msg.data[3] = clamp_u8(minTemp * TEMP_SCALE, 0.0F, UINT8_SIZE);
-    local_msg.data[4] = maxVoltageIdx;
-    local_msg.data[5] = minVoltageIdx;
-    local_msg.data[6] = maxTempIdx;
-    local_msg.data[7] = minTempIdx;
+    local_msg.data[0] = clamp_u8(
+        ((((float)max_voltage / V_TO_MV) - VOLTAGE_OFFSET) / VOLTAGE_SCALE), 0.0F, UINT8_SIZE);
+    local_msg.data[1] = clamp_u8(
+        ((((float)min_voltage / V_TO_MV) - VOLTAGE_OFFSET) / VOLTAGE_SCALE), 0.0F, UINT8_SIZE);
+    local_msg.data[2] = clamp_u8(max_temp * TEMP_SCALE, 0.0F, UINT8_SIZE);
+    local_msg.data[3] = clamp_u8(min_temp * TEMP_SCALE, 0.0F, UINT8_SIZE);
+    local_msg.data[4] = max_voltage_idx;
+    local_msg.data[5] = min_voltage_idx;
+    local_msg.data[6] = max_temp_idx;
+    local_msg.data[7] = min_temp_idx;
 
     local_msg.id = (uint16_t)CAN_ID_BMS_STATS;
     local_msg.length = FDCAN_DLC_BYTES_8;
 
-    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
-        osMessageQueuePut(*Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_NORM_PRIO, 0);
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_NORM_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
     } else {
@@ -196,13 +197,13 @@ void bms_can_stats(SegmentData_t (*PackData)[TOTAL_MODULES], osMessageQueueId_t*
     }
 }
 
-void bms_can_data(SegmentData_t (*PackData)[TOTAL_MODULES], uint8_t* bms_mod_counter,
-                  uint8_t* bms_segment_counter, osMessageQueueId_t* Queue_CAN_TxHandle,
+void bms_can_data(SegmentData_t (*pack_data)[TOTAL_MODULES], uint8_t* bms_mod_counter,
+                  uint8_t* bms_segment_counter, osMessageQueueId_t* queue_can_tx_handle,
                   Mutex_Struct_t* mutex_struct) {
     can_msg local_msg;
     SegmentData_t local_pack_data[TOTAL_MODULES];
 
-    copyWithMutex(mutex_struct->pack_segments_key, &local_pack_data, PackData);
+    copyWithMutex(mutex_struct->pack_segments_key, &local_pack_data, pack_data);
 
     // BMS CAN ID conversion based on which Module and starting Cell is given to the function
     local_msg.id =
@@ -239,8 +240,8 @@ void bms_can_data(SegmentData_t (*PackData)[TOTAL_MODULES], uint8_t* bms_mod_cou
         }
     }
 
-    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
-        osMessageQueuePut(*Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
     } else {
@@ -249,13 +250,13 @@ void bms_can_data(SegmentData_t (*PackData)[TOTAL_MODULES], uint8_t* bms_mod_cou
     }
 }
 
-void bsm_can(bsm_obj* bsmInfo, GPIO_Info_t* gpio_data, osMessageQueueId_t* Queue_CAN_TxHandle,
+void bsm_can(bsm_obj* bsm_info, GPIO_Info_t* gpio_data, osMessageQueueId_t* queue_can_tx_handle,
              Mutex_Struct_t* mutex_struct) {
     // Send battery state machine outputs and state
     can_msg local_msg;
     bsm_obj local_bsm;
     GPIO_Info_t local_gpio_info;
-    copyWithMutex(mutex_struct->bsm_key, &local_bsm, bsmInfo);
+    copyWithMutex(mutex_struct->bsm_key, &local_bsm, bsm_info);
     copyWithMutex(mutex_struct->gpio_data_key, &local_gpio_info, gpio_data);
 
     local_msg.data[0] = (int8_t)local_bsm.bsm_state;
@@ -272,8 +273,8 @@ void bsm_can(bsm_obj* bsmInfo, GPIO_Info_t* gpio_data, osMessageQueueId_t* Queue
     local_msg.id = CAN_ID_BSM;
     local_msg.length = FDCAN_DLC_BYTES_7;
 
-    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
-        osMessageQueuePut(*Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
     } else {
@@ -282,12 +283,12 @@ void bsm_can(bsm_obj* bsmInfo, GPIO_Info_t* gpio_data, osMessageQueueId_t* Queue
     }
 }
 
-void bms_can_ids(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* pack,
-                 osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_struct) {
+void bms_can_ids(SegmentData_t (*pack_data)[TOTAL_MODULES], TotalPack_t* pack,
+                 osMessageQueueId_t* queue_can_tx_handle, Mutex_Struct_t* mutex_struct) {
     can_msg local_msg;
     SegmentData_t local_pack_data[TOTAL_MODULES];
     TotalPack_t local_pack;
-    copyWithMutex(mutex_struct->pack_segments_key, &local_pack_data, PackData);
+    copyWithMutex(mutex_struct->pack_segments_key, &local_pack_data, pack_data);
     copyWithMutex(mutex_struct->total_pack_key, &local_pack, pack);
 
     // Send individual BMS board IDs
@@ -302,8 +303,8 @@ void bms_can_ids(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* pack,
     local_msg.id = CAN_ID_BMS_IDS;
     local_msg.length = FDCAN_DLC_BYTES_8;
 
-    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
-        osMessageQueuePut(*Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
     } else {
@@ -312,7 +313,7 @@ void bms_can_ids(SegmentData_t (*PackData)[TOTAL_MODULES], TotalPack_t* pack,
     }
 }
 
-void soc_can_stats(TotalPack_t* pack, osMessageQueueId_t* Queue_CAN_TxHandle,
+void soc_can_stats(TotalPack_t* pack, osMessageQueueId_t* queue_can_tx_handle,
                    Mutex_Struct_t* mutex_struct) {
     can_msg local_msg;
     TotalPack_t local_pack;
@@ -333,8 +334,8 @@ void soc_can_stats(TotalPack_t* pack, osMessageQueueId_t* Queue_CAN_TxHandle,
     local_msg.id = CAN_ID_SOC_STATS;
     local_msg.length = FDCAN_DLC_BYTES_6;
 
-    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
-        osMessageQueuePut(*Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
     } else {
@@ -344,7 +345,7 @@ void soc_can_stats(TotalPack_t* pack, osMessageQueueId_t* Queue_CAN_TxHandle,
 }
 
 void soc_can_data(SOC_Estimate (*soc)[TOTAL_MODULES][CELLS_PER_MOD], uint8_t* soc_mod_counter,
-                  uint8_t* soc_segment_counter, osMessageQueueId_t* Queue_CAN_TxHandle,
+                  uint8_t* soc_segment_counter, osMessageQueueId_t* queue_can_tx_handle,
                   Mutex_Struct_t* mutex_struct) {
     // SOC CAN ID conversion based on which Module and starting Cell is given to the function
     can_msg local_msg;
@@ -374,8 +375,8 @@ void soc_can_data(SOC_Estimate (*soc)[TOTAL_MODULES][CELLS_PER_MOD], uint8_t* so
         }
     }
 
-    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
-        osMessageQueuePut(*Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
     } else {
@@ -384,7 +385,7 @@ void soc_can_data(SOC_Estimate (*soc)[TOTAL_MODULES][CELLS_PER_MOD], uint8_t* so
     }
 }
 
-void error_can(osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_struct) {
+void error_can(osMessageQueueId_t* queue_can_tx_handle, Mutex_Struct_t* mutex_struct) {
     // Send error bits
     can_msg local_msg;
     Errors local_error_info;
@@ -401,8 +402,8 @@ void error_can(osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_str
     local_msg.id = CAN_ID_ERRORS;
     local_msg.length = FDCAN_DLC_BYTES_6;
 
-    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
-        osMessageQueuePut(*Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
     } else {
@@ -411,7 +412,7 @@ void error_can(osMessageQueueId_t* Queue_CAN_TxHandle, Mutex_Struct_t* mutex_str
     }
 }
 
-void adc_can(ADC_Inputs_t* adc_data, osMessageQueueId_t* Queue_CAN_TxHandle,
+void adc_can(ADC_Inputs_t* adc_data, osMessageQueueId_t* queue_can_tx_handle,
              Mutex_Struct_t* mutex_struct) {
     // Convert ADCs and send
     can_msg local_msg;
@@ -435,8 +436,8 @@ void adc_can(ADC_Inputs_t* adc_data, osMessageQueueId_t* Queue_CAN_TxHandle,
     local_msg.id = CAN_ID_PACK_SENSE;
     local_msg.length = FDCAN_DLC_BYTES_7;
 
-    if (osMessageQueueGetSpace(*Queue_CAN_TxHandle) > 0) {
-        osMessageQueuePut(*Queue_CAN_TxHandle, &local_msg, CAN_TX_QUEUE_NORM_PRIO, 0);
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_NORM_PRIO, 0);
         bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_ADD_FULL);
     } else {
@@ -473,13 +474,13 @@ static uint8_t msg_to_error_bit(uint16_t id) {
     return (uint8_t)UNKNOWN_ERROR;
 }
 
-void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* hfdcan1) {
+void CAN_SendData(osMessageQueueId_t* queue_can_tx_handle, FDCAN_HandleTypeDef* hfdcan1) {
     can_msg local_msg = {0};
 
-    if (osMessageQueueGetCount(*Queue_CAN_TxHandle) > 0) {
+    if (osMessageQueueGetCount(*queue_can_tx_handle) > 0) {
         bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
                             QUEUE_CAN_SEND_POP_EMPTY);
-        if (osMessageQueueGet(*Queue_CAN_TxHandle, &local_msg, NULL, 0) != osOK) {
+        if (osMessageQueueGet(*queue_can_tx_handle, &local_msg, NULL, 0) != osOK) {
             bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
                                QUEUE_CAN_SEND_POP_ERROR);
         } else {
@@ -498,18 +499,18 @@ void CAN_SendData(osMessageQueueId_t* Queue_CAN_TxHandle, FDCAN_HandleTypeDef* h
     }
 
     // Set up the transmit header with the proper ID and length
-    FDCAN_TxHeaderTypeDef txHdr;
-    txHdr.Identifier = local_msg.id;
-    txHdr.IdType = FDCAN_STANDARD_ID;
-    txHdr.TxFrameType = FDCAN_DATA_FRAME;
-    txHdr.DataLength = local_msg.length;
-    txHdr.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-    txHdr.BitRateSwitch = FDCAN_BRS_OFF;
-    txHdr.FDFormat = FDCAN_CLASSIC_CAN;  // match your init FrameFormat
-    txHdr.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
-    txHdr.MessageMarker = 0;
+    FDCAN_TxHeaderTypeDef tx_hdr;
+    tx_hdr.Identifier = local_msg.id;
+    tx_hdr.IdType = FDCAN_STANDARD_ID;
+    tx_hdr.TxFrameType = FDCAN_DATA_FRAME;
+    tx_hdr.DataLength = local_msg.length;
+    tx_hdr.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    tx_hdr.BitRateSwitch = FDCAN_BRS_OFF;
+    tx_hdr.FDFormat = FDCAN_CLASSIC_CAN;  // match your init FrameFormat
+    tx_hdr.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+    tx_hdr.MessageMarker = 0;
 
-    if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, &txHdr, local_msg.data) != HAL_OK &&
+    if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, &tx_hdr, local_msg.data) != HAL_OK &&
         error_bit != UNKNOWN_ERROR) {
         bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors, error_bit);
     } else if (error_bit != UNKNOWN_ERROR) {
@@ -525,16 +526,16 @@ HAL_StatusTypeDef CAN_SendData_Init(uint16_t id_m, uint8_t* data, uint32_t lengt
     }
 
     // Set up the transmit header with the proper ID and length
-    FDCAN_TxHeaderTypeDef txHdr;
-    txHdr.Identifier = id_m;
-    txHdr.IdType = FDCAN_STANDARD_ID;
-    txHdr.TxFrameType = FDCAN_DATA_FRAME;
-    txHdr.DataLength = length;
-    txHdr.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-    txHdr.BitRateSwitch = FDCAN_BRS_OFF;
-    txHdr.FDFormat = FDCAN_CLASSIC_CAN;  // match your init FrameFormat
-    txHdr.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
-    txHdr.MessageMarker = 0;
+    FDCAN_TxHeaderTypeDef tx_hdr;
+    tx_hdr.Identifier = id_m;
+    tx_hdr.IdType = FDCAN_STANDARD_ID;
+    tx_hdr.TxFrameType = FDCAN_DATA_FRAME;
+    tx_hdr.DataLength = length;
+    tx_hdr.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+    tx_hdr.BitRateSwitch = FDCAN_BRS_OFF;
+    tx_hdr.FDFormat = FDCAN_CLASSIC_CAN;  // match your init FrameFormat
+    tx_hdr.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+    tx_hdr.MessageMarker = 0;
 
-    return HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, &txHdr, data);
+    return HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, &tx_hdr, data);
 }

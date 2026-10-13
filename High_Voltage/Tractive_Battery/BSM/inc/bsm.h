@@ -24,14 +24,14 @@
 /*.....................................................................*/
 // Transition function
 // Sets state and updates timer to current time
-static inline void TRAN(bsm_obj* bsm, uint8_t Target_) {
-    if (Target_ == FAULT) {
+static inline void TRAN(bsm_obj* bsm, uint8_t target) {
+    if (target == FAULT) {
         // If entering FAULT state, pull the BMS fault low without registering it internally, see
         // BSM state for fault condition Done to discharge the pack in the event of IR driving fault
         // or precharge issue Will not register in BMS fault flags HAL_GPIO_WritePin(GPIOC,
         // GPIO_PIN_9, GPIO_PIN_RESET);
     }
-    bsm->bsm_state = Target_;
+    bsm->bsm_state = target;
     bsm->timer = HAL_GetTick();
 }
 
