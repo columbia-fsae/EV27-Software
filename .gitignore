@@ -109,6 +109,7 @@ sccprj/
 
 # Matlab code generation folders
 codegen/
+*_ert_rtw/
 _yotta/
 
 # Simulink Test Manager result databases (regenerated on every test run)

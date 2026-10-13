@@ -1,0 +1,11 @@
+---
+# Vendored Analog Devices ADBMS6830 driver code. Extends
+# Tractive_Battery/.clang-tidy but drops style checks, since we don't
+# restyle vendor code. Bug checks (clang-analyzer-*, most bugprone-*) stay on.
+InheritParentConfig: true
+
+Checks: >
+  -readability-*,
+  -cppcoreguidelines-init-variables,
+  -bugprone-narrowing-conversions,
+  -bugprone-reserved-identifier
