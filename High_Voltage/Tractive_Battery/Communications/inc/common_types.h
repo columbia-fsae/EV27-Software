@@ -5,11 +5,11 @@
 #include "cmsis_os.h"
 #include "cmsis_os2.h"
 #define CELLS_PER_MOD 10
-#define TEMP_PER_MOD 10
+#define TEMP_PER_MOD  10
 
-#define CAN_TX_QUEUE_LOW_PRIO 0
+#define CAN_TX_QUEUE_LOW_PRIO  0
 #define CAN_TX_QUEUE_NORM_PRIO 1
-#define cAN_TX_QUEUE_MED_PRIO 2
+#define cAN_TX_QUEUE_MED_PRIO  2
 #define CAN_TX_QUEUE_HIGH_PRIO 3
 
 #include <stdbool.h>

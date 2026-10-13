@@ -11,10 +11,10 @@
 // State Time Delay and Voltage Defines
 
 #define PRECHARGE_FAULT_TIME_MS 60000
-#define PRECHARGE_MIN_TIME_MS 25000
+#define PRECHARGE_MIN_TIME_MS   25000
 #define PRECHARGE_POST_DELAY_MS 1000
-#define IR_FAULT_TIME_MS 1000
-#define PRECHARGE_BAT_MIN_V 20.0f
+#define IR_FAULT_TIME_MS        1000
+#define PRECHARGE_BAT_MIN_V     20.0f
 
 // Thresholds
 

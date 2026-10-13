@@ -3,14 +3,14 @@
 #include "common_types.h"
 #include "main.h"
 
-#define IR_PLUS_AUX_INVERTING 1
+#define IR_PLUS_AUX_INVERTING  1
 #define IR_MINUS_AUX_INVERTING 1
-#define SLOW_CAN_INVERTING 1
-#define SDC_OK_INVERTING 1
-#define MCU_MHS_INVERTING 1
-#define MCU_MLS_INVERTING 1
-#define IR_PLUS_EN_INVERTING 0
-#define IR_MINUS_EN_INVERTING 0
+#define SLOW_CAN_INVERTING     1
+#define SDC_OK_INVERTING       1
+#define MCU_MHS_INVERTING      1
+#define MCU_MLS_INVERTING      1
+#define IR_PLUS_EN_INVERTING   0
+#define IR_MINUS_EN_INVERTING  0
 #define PRECHARGE_EN_INVERTING 0
 
 void GPIO_Init(GPIO_Info_t* gpio_data) {

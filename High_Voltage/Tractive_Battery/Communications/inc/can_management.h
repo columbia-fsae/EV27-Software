@@ -22,56 +22,56 @@ typedef struct {
 extern Errors error_info;
 
 // CAN Send Errors Bits
-#define BMS_CAN_ERROR 0
-#define BMS_CAN_PACK_ERROR 1
-#define BSM_CAN_ERROR 2
-#define SOC_CAN_PACK_ERROR 3
-#define SOC_CAN_ERROR 4
-#define PACK_SENSE_ERROR 5
+#define BMS_CAN_ERROR       0
+#define BMS_CAN_PACK_ERROR  1
+#define BSM_CAN_ERROR       2
+#define SOC_CAN_PACK_ERROR  3
+#define SOC_CAN_ERROR       4
+#define PACK_SENSE_ERROR    5
 #define BMS_CAN_STATS_ERROR 6
-#define BMS_CAN_IDS_ERROR 7
-#define UNKNOWN_ERROR 0xFF
+#define BMS_CAN_IDS_ERROR   7
+#define UNKNOWN_ERROR       0xFF
 
 // CAN Receive Errors Bits
-#define CAN_RECEPTION_ERROR 0
+#define CAN_RECEPTION_ERROR      0
 // CAN Init and STM Errors Bits
-#define INIT_CAN_SEND_ERROR 1
+#define INIT_CAN_SEND_ERROR      1
 // INIT Error
-#define INIT_ERROR 2
+#define INIT_ERROR               2
 // CAN Queue Errors
-#define QUEUE_CAN_SEND_ADD_FULL 3
+#define QUEUE_CAN_SEND_ADD_FULL  3
 #define QUEUE_CAN_SEND_POP_EMPTY 4
 #define QUEUE_CAN_SEND_POP_ERROR 5
 
 // CAN IDS
-#define CAN_ID_BSM ((uint16_t)2)
-#define CAN_ID_PACK_SENSE ((uint16_t)6)
-#define CAN_ID_ERRORS ((uint16_t)10)
-#define CAN_ID_CHARGER ((uint16_t)20)
+#define CAN_ID_BSM              ((uint16_t)2)
+#define CAN_ID_PACK_SENSE       ((uint16_t)6)
+#define CAN_ID_ERRORS           ((uint16_t)10)
+#define CAN_ID_CHARGER          ((uint16_t)20)
 #define CAN_ID_INVERTER_CURRENT ((uint16_t)166)
 #define CAN_ID_INVERTER_VOLTAGE ((uint16_t)167)
-#define CAN_ID_BMS_INIT ((uint16_t)200)
-#define CAN_ID_BMS_PACK ((uint16_t)236)
-#define CAN_ID_BMS_STATS ((uint16_t)237)
-#define CAN_ID_BMS_IDS ((uint16_t)238)
-#define CAN_ID_SOC_STATS ((uint16_t)240)
-#define CAN_ID_SOC_INIT ((uint16_t)241)
-#define CAN_ID_ELCON_CURRENT 0x18FF50E7
+#define CAN_ID_BMS_INIT         ((uint16_t)200)
+#define CAN_ID_BMS_PACK         ((uint16_t)236)
+#define CAN_ID_BMS_STATS        ((uint16_t)237)
+#define CAN_ID_BMS_IDS          ((uint16_t)238)
+#define CAN_ID_SOC_STATS        ((uint16_t)240)
+#define CAN_ID_SOC_INIT         ((uint16_t)241)
+#define CAN_ID_ELCON_CURRENT    0x18FF50E7
 
 // ADC CAN Scalars
 #define PACK_VOLTAGE_SCALE 0.25f  // (600.0f-330.0f)/255.0f
-#define TSENSE_SCALE 0.5f
-#define TSENSE_OFFSET (-10.0f)
+#define TSENSE_SCALE       0.5f
+#define TSENSE_OFFSET      (-10.0f)
 
 // CAN Scalars
-#define UINT16_SIZE 65535.0F
-#define UINT8_SIZE 0xFF
-#define UINT8_LEN 8U
-#define VOLTAGE_SCALE 0.01F
+#define UINT16_SIZE    65535.0F
+#define UINT8_SIZE     0xFF
+#define UINT8_LEN      8U
+#define VOLTAGE_SCALE  0.01F
 #define VOLTAGE_OFFSET 1.8F
-#define TEMP_SCALE 4.0F
-#define MIN_TEMP (-128)
-#define MAX_TEMP 127
+#define TEMP_SCALE     4.0F
+#define MIN_TEMP       (-128)
+#define MAX_TEMP       127
 
 void can_init(FDCAN_HandleTypeDef* hfdcan1, GPIO_Info_t* gpio);
 void bms_can_stats(SegmentData_t (*PackData)[TOTAL_MODULES], osMessageQueueId_t* Queue_CAN_TxHandle,

@@ -32,36 +32,36 @@ and its licensor.
 #define TOTAL_IC 6
 
 // SOC CHANGES
-#define CELL_TIE_TOLERANCE 0.0002f
-#define TOTAL_MODULES 6  // E.g., 12 ICs = 6 Segments
-#define TOTAL_CELLS (TOTAL_MODULES * CELLS_PER_MOD)
-#define MIN_CELL_THRESH 0.2F
+#define CELL_TIE_TOLERANCE  0.0002f
+#define TOTAL_MODULES       6  // E.g., 12 ICs = 6 Segments
+#define TOTAL_CELLS         (TOTAL_MODULES * CELLS_PER_MOD)
+#define MIN_CELL_THRESH     0.2F
 #define SENSOR_DROPOUT_TEMP (-99)
-#define TEMP_PER_BOARD 10
-#define VOLT_PER_SLAVE 10
-#define VOLT_PER_MASTER 14
-#define COMM_FAULT_LATCH 3  // consecutive bad cycles before hard fault
+#define TEMP_PER_BOARD      10
+#define VOLT_PER_SLAVE      10
+#define VOLT_PER_MASTER     14
+#define COMM_FAULT_LATCH    3  // consecutive bad cycles before hard fault
 
 // Fault Codes:
-#define OV_FAULT 0x01
-#define UV_FAULT 0x02
-#define OT_FAULT 0x04
-#define COMMS_FAULT 0x08
+#define OV_FAULT        0x01
+#define UV_FAULT        0x02
+#define OT_FAULT        0x04
+#define COMMS_FAULT     0x08
 #define TEMP_DROP_FAULT 0x10
 
 // Scaling
-#define V_TO_MV 1000.0F
-#define VOLT_OFFSET 1.5F
+#define V_TO_MV               1000.0F
+#define VOLT_OFFSET           1.5F
 #define EDGE_CELL_VOLT_OFFSET 0.1F
 
 // ADBMS6830 Unique 48 Bit IDs
-#define ID1_TOP 0x97DE40006B21ULL
-#define ID2_TOP 0x997CE40586B2ULL
-#define ID3_TOP 0x097EE40006B2ULL
-#define ID4_TOP 0x990DE40686B2ULL
-#define ID5_TOP 0xC97DE40506B2ULL
-#define ID6_TOP 0x590EE40586B2ULL
-#define ID7_TOP 0x9A06E40606B2ULL
+#define ID1_TOP    0x97DE40006B21ULL
+#define ID2_TOP    0x997CE40586B2ULL
+#define ID3_TOP    0x097EE40006B2ULL
+#define ID4_TOP    0x990DE40686B2ULL
+#define ID5_TOP    0xC97DE40506B2ULL
+#define ID6_TOP    0x590EE40586B2ULL
+#define ID7_TOP    0x9A06E40606B2ULL
 #define ID1_BOTTOM 0x0001111111ULL
 #define ID2_BOTTOM 0x0002111111ULL
 #define ID3_BOTTOM 0x0003111111ULL
