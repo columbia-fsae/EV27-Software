@@ -26,7 +26,8 @@ class Motor:
     eff_map: np.ndarray
 
     # Hard power limit used as a sweep reference point in the design studies (not part
-    # of the per-point force balance itself).
+    # of the per-point force balance itself -- the regulatory battery-side power limit
+    # enters the force balance via `electrically_limited`).
     hard_power_limit: float
 
     def max_torque(self, omega: np.ndarray) -> np.ndarray:
@@ -45,6 +46,33 @@ class Motor:
 
     def with_power_limit(self, hard_power_limit: float) -> "Motor":
         return replace(self, hard_power_limit=hard_power_limit)
+
+    def electrically_limited(
+        self, p_elec_max: float, count: int = 1, n_w: int = 500, n_t: int = 400
+    ) -> "Motor":
+        """Copy of this motor whose torque-speed envelope also respects a battery-side
+        (electrical) power cap `p_elec_max` (W), shared across `count` motors.
+
+        At each speed, the cap is the largest per-motor torque T such that every torque
+        up to T satisfies `count * T * omega / efficiency(omega, T) <= p_elec_max`. The
+        efficiency map isn't monotone in torque, so "every torque up to T" (rather than
+        just T itself) keeps the resulting curve free of jumps; it is conservative by at
+        most one torque step.
+        """
+        if not np.isfinite(p_elec_max):
+            return self
+        w = np.union1d(
+            np.linspace(self.torque_speed_w[0], self.torque_speed_w[-1], n_w), self.torque_speed_w
+        )
+        t_curve = self.max_torque(w)
+        T = t_curve[:, None] * np.linspace(0.0, 1.0, n_t)[None, :]  # (n_w, n_t) per-motor
+        W = np.broadcast_to(w[:, None], T.shape)
+        eta = self.efficiency(W.ravel(), T.ravel()).reshape(T.shape)
+        feasible = count * T * W / eta <= p_elec_max
+        first_bad = np.where(feasible.all(axis=1), n_t, feasible.argmin(axis=1))
+        # T[:, 0] == 0 is always feasible, so first_bad >= 1
+        t_cap = T[np.arange(len(w)), first_bad - 1]
+        return replace(self, torque_speed_w=w, torque_speed_m=t_cap)
 
 
 def _nearest_2d(xg: np.ndarray, yg: np.ndarray, z: np.ndarray, x, y):

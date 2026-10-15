@@ -77,6 +77,17 @@ def test_accel_event_speed_trace_is_plausible():
     assert result.vv[-1] < result.vv.max()
 
 
+def test_power_limit_caps_battery_side_electric_power():
+    # EV26A (2x Emrax 268) has far more motor than 80 kW, so the regulatory limit binds;
+    # it is a battery-side limit, so it must hold on electrical power, not wheel power.
+    from lap_sim.vehicle import EV26A
+
+    result = LapSimulator(FSAE_EV, ACCEL_EVENT, EV26A, dx=0.05).run()
+    peak = result.stats.pelectric.max()
+    assert peak <= FSAE_EV.power_limit * 1.001, peak
+    assert peak >= FSAE_EV.power_limit * 0.97, peak  # ...and isn't overly conservative
+
+
 if __name__ == "__main__":
     tests = [v for k, v in list(globals().items()) if k.startswith("test_")]
     for test in tests:

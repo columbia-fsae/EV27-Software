@@ -49,6 +49,10 @@ class LapSimulator:
         track, car, regs = self.track, self.car, self.regulations
         drivetrain = car.drivetrain
         motor = drivetrain.motor
+        # The regulatory power limit is on battery (electrical) power, so it is folded into
+        # the motor's torque envelope through the efficiency map rather than applied as a
+        # cap on wheel power -- the force balance itself then gets power_limit=inf.
+        limited_motor = motor.electrically_limited(regs.power_limit, drivetrain.count)
 
         total_length = track.total_length
         n_points = int(np.ceil(total_length / self.dx_target))
@@ -66,11 +70,11 @@ class LapSimulator:
             car.aero.cla,
             track.air_density,
             car.tire,
-            regs.power_limit,
+            float("inf"),
             drivetrain.ratio,
             float(drivetrain.count),
             drivetrain.efficiency,
-            motor,
+            limited_motor,
             None,
         )
 
@@ -107,11 +111,11 @@ class LapSimulator:
                 car.aero.cla,
                 track.air_density,
                 car.tire,
-                regs.power_limit,
+                float("inf"),
                 drivetrain.ratio,
                 float(drivetrain.count),
                 drivetrain.efficiency,
-                motor,
+                limited_motor,
                 car.battery,
                 car.ecms,
             )
@@ -127,6 +131,7 @@ class LapSimulator:
             drivetrain.efficiency,
             car.tire,
             motor,
+            float(drivetrain.count),
             car.battery,
             batt_i,
             batt_v,

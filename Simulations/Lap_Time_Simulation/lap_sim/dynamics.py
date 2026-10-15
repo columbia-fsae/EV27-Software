@@ -53,8 +53,13 @@ def force_balance(
     acceleration by whichever of (electrical power, battery power, weight-transfer-limited
     traction, motor torque curve) is most restrictive.
 
+    `power_limit` and the battery ceiling are both compared against wheel (tractive)
+    power. A battery-side (electrical) limit must be converted first: the regulatory one
+    via `Motor.electrically_limited` (callers then pass `power_limit=inf`), the
+    battery's own via `_wheel_power_from_electric`.
+
     `battery_power_override`, when given, replaces `battery.available_power()` as the
-    battery's power ceiling for this call
+    battery's (wheel-equivalent) power ceiling for this call
     """
     downforce = 0.5 * air_density * cla * v * v
     fz = GRAVITY * mass + downforce
@@ -352,19 +357,34 @@ def battery_forward_pass(
     for i in range(n):
         p = (i - 1) % n
 
-        battery_power_override = None
         if ecms is not None:
             dt_i = dx / vv_base[i] if vv_base[i] > 0.0 else np.inf
             accel_request = (vv_base[i] ** 2 - vv_base[p] ** 2) / (2.0 * dx)
             f_drag_i = 0.5 * air_density * cda * vv_base[i] ** 2
             f_tract_request = accel_request * mass + f_drag_i
-            power_request = f_tract_request * vv_base[i] if f_tract_request > 0.0 else 0.0
+            if f_tract_request > 0.0:
+                t_request = f_tract_request * tire.radius / ratio / efficiency / count
+                w_request = vv_base[i] / tire.radius * ratio
+                power_request = (
+                    f_tract_request
+                    * vv_base[i]
+                    / efficiency
+                    / motor.efficiency(w_request, t_request)
+                )
+            else:
+                power_request = 0.0
             i_request = power_request / battery.voltage
 
             i_ecms = ecms.command_current(
                 battery, i_request, battery.batt_ocv, battery.batt_r0, dt_i
             )
-            battery_power_override = i_ecms * battery.voltage
+            battery_power = i_ecms * battery.voltage
+        else:
+            battery_power = battery.available_power()
+        # force_balance compares this against wheel power, so convert from battery side
+        battery_power_override = _wheel_power_from_electric(
+            battery_power, vv[p], efficiency, count, ratio, tire, motor
+        )
 
         _, accel = force_balance(
             vv[p],
@@ -390,7 +410,7 @@ def battery_forward_pass(
         vv[i] = min(v_candidate, vv_base[i])
 
         batt_i[i] = step_battery(
-            battery, motor, vv, dx, mass, i, p, cda, air_density, efficiency, tire, ratio
+            battery, motor, vv, dx, mass, i, p, cda, air_density, efficiency, tire, ratio, count
         )
         batt_v[i] = battery.voltage
         batt_soc[i] = battery.soc
@@ -405,14 +425,37 @@ def battery_forward_pass(
     return vv, batt_i, batt_v, batt_soc, cell_t, batt_p_limit
 
 
-def step_battery(battery, motor, vv, dx, mass, i, p, cda, air_density, efficiency, tire, ratio):
+def _wheel_power_from_electric(p_elec, v, efficiency, count, ratio, tire, motor, iters=3):
+    """Wheel power (W) that battery-side electrical power `p_elec` delivers at speed `v`.
+
+    Motor efficiency depends on the torque, which depends on the power being converted,
+    so this does a few fixed-point passes and keeps the lowest efficiency seen (the
+    nearest-neighbor map can make the iteration flip between cells; the lowest is the
+    safe side of the battery limit).
+    """
+    if not np.isfinite(p_elec) or p_elec <= 0.0:
+        return p_elec
+    omega = v / tire.radius * ratio
+    t_max = motor.max_torque(omega)
+    eta = 1.0
+    eta_min = 1.0
+    for _ in range(iters):
+        t = min(p_elec * eta / (count * omega), t_max) if omega > 0.0 else t_max
+        eta = motor.efficiency(omega, t)
+        eta_min = min(eta_min, eta)
+    return p_elec * eta_min * efficiency
+
+
+def step_battery(
+    battery, motor, vv, dx, mass, i, p, cda, air_density, efficiency, tire, ratio, count
+):
     dt = dx / vv[i]
     ax = (vv[i] - vv[p]) / dt
     f_drag = 0.5 * cda * air_density * vv[i] ** 2
     f_tract = ax * mass + f_drag
     power = f_tract * vv[i] if f_tract > 0.0 else 0.0
     power = power / efficiency
-    tmotor = f_tract * tire.radius / ratio / efficiency if f_tract > 0.0 else 0.0
+    tmotor = f_tract * tire.radius / ratio / efficiency / count if f_tract > 0.0 else 0.0
     wmotor = vv[i] / tire.radius * ratio
     numotor = motor.efficiency(wmotor, tmotor)
     power_electric = power / numotor if f_tract > 0.0 else 0.0
@@ -432,6 +475,7 @@ def power_and_energy(
     efficiency,
     tire,
     motor,
+    count,
     battery,
     batt_i,
     batt_v,
@@ -466,7 +510,8 @@ def power_and_energy(
 
     ptraction = np.where(traction_mask, ft * vv, 0.0)
     pmotor = np.where(traction_mask, ptraction / efficiency, 0.0)
-    tmotor = np.where(traction_mask, ft * tire.radius / ratio / efficiency, 0.0)
+    # Per-motor torque: the efficiency map is per motor, and power is split evenly.
+    tmotor = np.where(traction_mask, ft * tire.radius / ratio / efficiency / count, 0.0)
     wmotor = vv / tire.radius * ratio
     numotor = motor.efficiency(wmotor, tmotor)
     pelectric = np.where(traction_mask, pmotor / numotor, 0.0)
