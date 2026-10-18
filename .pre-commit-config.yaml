@@ -1,4 +1,5 @@
-# Vendor/generated firmware code (STM32 CMSIS/HAL drivers, CubeMX glue) is
+# Vendor/generated firmware code (STM32 CMSIS/HAL drivers, CubeMX glue,
+# third-party test frameworks under vendor/) is
 # excluded from every hook below via this global pattern
 exclude: '(^|/)(Drivers|build|Debug|vendor)/|/cmake/stm32cubemx/|\.(ld|ioc|s|S)$'
 
