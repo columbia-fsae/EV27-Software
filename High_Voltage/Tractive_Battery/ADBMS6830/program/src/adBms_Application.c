@@ -172,8 +172,8 @@ static void Update_BMS_OK_Output(TotalPack_t* local_pack,
 void Process_Cell_Balancing() {
     bool check_balance = false;
     for (int seg = 0; seg < TOTAL_MODULES; seg++) {
-        int ic_master = seg * 2;
-        int ic_slave = (seg * 2) + 1;
+        int ic_master = seg;  //* 2;
+        // int ic_slave = (seg * 2) + 1;
 
         // Skip balancing if communication is dropped for this segment
         if (PackSegments[seg].fault_flags & 0x08) {
@@ -214,8 +214,8 @@ void Process_Cell_Balancing() {
 
         // Slave IC handles the remaining 10 cells (Bits 14-23)
         // Shift right by 14 to align with the slave's cell 0
-        uint16_t slave_dcc = (uint16_t)((segment_dcc_mask >> 14) & 0x03FF);
-        IC[ic_slave].tx_cfgb.dcc = slave_dcc;
+        // uint16_t slave_dcc = (uint16_t)((segment_dcc_mask >> 14) & 0x03FF);
+        // IC[ic_slave].tx_cfgb.dcc = slave_dcc;
         if (segment_dcc_mask) {
             check_balance = false;
         } else {
