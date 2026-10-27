@@ -32,6 +32,9 @@ jobs:
             Charging_Cart_UI:
               - 'High_Voltage/Charging_Cart/UI/STM32/**'
               - '.github/workflows/firmware-build.yml'
+            Sensor_Hubs:
+              - 'Low_Voltage/Sensor_Hubs/**'
+              - '.github/workflows/firmware-build.yml'
 
   # ──────────────── Build changed firmware projects ────────────────
   build:
@@ -48,6 +51,8 @@ jobs:
             path: High_Voltage/Tractive_Battery
           - project: Charging_Cart_UI
             path: High_Voltage/Charging_Cart/UI/STM32
+          - project: Sensor_Hubs
+            path: Low_Voltage/Sensor_Hubs
     env:
       PROJECT_PATH: ${{ matrix.path }}
     steps:

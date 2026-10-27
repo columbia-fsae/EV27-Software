@@ -48,6 +48,11 @@ jobs:
               - '.clang-format'
               - '.clang-tidy'
               - '.github/workflows/cpp-linter.yml'
+            Sensor_Hubs:
+              - 'Low_Voltage/Sensor_Hubs/**'
+              - '.clang-format'
+              - '.clang-tidy'
+              - '.github/workflows/cpp-linter.yml'
 
       # dorny/paths-filter only tells us WHICH projects changed\
       #
@@ -60,15 +65,16 @@ jobs:
       # so clang-tidy can't resolve its includes (e.g. Arduino.h) and would
       # fail the job. Add new non-CMake C/C++ directories here.
       #
-      # Each project's own $path/Drivers (vendor CMSIS/HAL) and
+      # Each project's own $path/Drivers (vendor CMSIS/HAL),
+      # $path/Middlewares (CubeMX-bundled FreeRTOS etc.) and
       # $path/cmake/stm32cubemx (CubeMX-generated glue) are also ignored —
       # same generated-code exclusion .pre-commit-config.yaml already
       # applies
       - name: Build project/path matrix
         id: build-matrix
         run: |
-          all_paths='High_Voltage/Tractive_Battery|High_Voltage/Charging_Cart/UI/STM32'
-          non_firmware='Low_Voltage|Simulations'
+          all_paths='High_Voltage/Tractive_Battery|High_Voltage/Charging_Cart/UI/STM32|Low_Voltage/Sensor_Hubs'
+          non_firmware='Low_Voltage/SDC_Test_PCB_Firmware|Simulations'
           matrix='[]'
           if [ "${{ steps.filter.outputs.Tractive_Battery }}" = "true" ]; then
             path='High_Voltage/Tractive_Battery'
@@ -85,6 +91,14 @@ jobs:
             ignore="$ignore|$path/Core/Inc/stm32f0xx_hal_conf.h"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Charging_Cart_UI","path":$path,"ignore":$ignore}]')
+          fi
+          if [ "${{ steps.filter.outputs.Sensor_Hubs }}" = "true" ]; then
+            path='Low_Voltage/Sensor_Hubs'
+            ignore=".github|$non_firmware|$path/Drivers|$path/Middlewares|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
+            # CubeMX's HAL config header can't be parsed on its own
+            ignore="$ignore|$path/Core/Inc/stm32g4xx_hal_conf.h"
+            matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
+              '. + [{"project":"Sensor_Hubs","path":$path,"ignore":$ignore}]')
           fi
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
 
@@ -202,7 +216,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           # changed C/C++ files in this project, minus vendor/CubeMX code
-          FILE_REGEX: ${{ matrix.path }}/(?!Drivers/|cmake/stm32cubemx/|Core/Inc/stm32\w+_hal_conf\.h$).*\.(c|cc|cpp|cxx|h|hpp)
+          FILE_REGEX: ${{ matrix.path }}/(?!Drivers/|Middlewares/|cmake/stm32cubemx/|Core/Inc/stm32\w+_hal_conf\.h$).*\.(c|cc|cpp|cxx|h|hpp)
           ARM_INC_ARGS: ${{ steps.arm-inc.outputs.args }}
         run: |
           pip install clang-tidy==21.1.6 pyyaml

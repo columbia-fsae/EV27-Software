@@ -36,6 +36,10 @@ insert_final_newline = false
 trim_trailing_whitespace = false
 insert_final_newline = false
 
+[**/Middlewares/**]
+trim_trailing_whitespace = false
+insert_final_newline = false
+
 [**/codegen/**]
 trim_trailing_whitespace = false
 insert_final_newline = false
