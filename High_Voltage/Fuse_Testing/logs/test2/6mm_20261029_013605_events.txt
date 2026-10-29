@@ -1,0 +1,7 @@
+01:36:05.345  Logging to C:\Users\fordr\Documents\School\Clubs\FSAE\EV27-Software\High_Voltage\Fuse_Testing\logs\test2\6mm_20261029_013605.csv
+01:36:05.346  MCU: Restart requested by PC
+01:36:05.361  MCU: ADBMS2950B found (DEVID 0x06)
+01:36:05.497  MCU: I1ADC running continuously, I1CAL set
+01:36:05.498  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0x06, I1CAL=1
+01:36:10.611  Run finished: 5164 samples, 0 frames lost on the link, 0 ADC conversions missed, 0 CRC errors
+MCU totals since boot: sent=4245595 missed=76 retries=4 pec_errors=19597 spi_errors=0 tx_dropped=0 reinit=28
