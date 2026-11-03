@@ -349,7 +349,7 @@ void soc_can_data(SOC_Estimate (*soc)[TOTAL_MODULES][CELLS_PER_MOD], uint8_t* so
                   Mutex_Struct_t* mutex_struct) {
     // SOC CAN ID conversion based on which Module and starting Cell is given to the function
     can_msg local_msg;
-    SOC_Estimate local_soc[TOTAL_MODULES][CELLS_PER_MOD];
+    static SOC_Estimate local_soc[TOTAL_MODULES][CELLS_PER_MOD];
     copyWithMutex(mutex_struct->soc_estimate_key, &local_soc, soc);
 
     local_msg.id = CAN_ID_SOC_INIT + ((*soc_segment_counter) * 3) + ((*soc_mod_counter + 1) / 8);
@@ -490,6 +490,7 @@ void CAN_SendData(osMessageQueueId_t* queue_can_tx_handle, FDCAN_HandleTypeDef* 
     } else {
         bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
                            QUEUE_CAN_SEND_POP_EMPTY);
+        return;  // Nothing to send
     }
 
     uint8_t error_bit = msg_to_error_bit(local_msg.id);

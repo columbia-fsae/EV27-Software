@@ -18,9 +18,10 @@ and its licensor.
  */
 #include "mcuWrapper.h"
 
+#include "cmsis_os2.h"
 #include "common.h"
 #define WAKEUP_DELAY 1 /* BMS ic wakeup delay  */
-#define TIM_EN 0
+#define TIM_EN       0
 
 #ifdef MBED
 extern Serial pc;
@@ -198,9 +199,9 @@ uint32_t getTimCount() {
 
 #else
 
-#define SPI_TIME_OUT 500            /* SPI Time out delay   */
+#define SPI_TIME_OUT  500           /* SPI Time out delay   */
 #define UART_TIME_OUT HAL_MAX_DELAY /* UART Time out delay  */
-#define I2C_TIME_OUT HAL_MAX_DELAY  /* I2C Time out delay   */
+#define I2C_TIME_OUT  HAL_MAX_DELAY /* I2C Time out delay   */
 
 SPI_HandleTypeDef* hspi = &hspi1; /* MUC SPI Handler      */
 extern UART_HandleTypeDef huart2;
@@ -221,7 +222,14 @@ UART_HandleTypeDef* huart = &huart2; /* MUC UART Handler     */
  *
  *******************************************************************************
  */
-void Delay_ms(uint32_t delay) { HAL_Delay(delay); }
+void Delay_ms(uint32_t delay) {
+    // Yield to other tasks once the scheduler runs; HAL_Delay busy-waits and starves them
+    if (osKernelGetState() == osKernelRunning) {
+        osDelay(delay + 1);  // +1 guarantees at least `delay` ms, matching HAL_Delay
+    } else {
+        HAL_Delay(delay);  // Before scheduler start (adbms_main_init)
+    }
+}
 
 /**
  *******************************************************************************

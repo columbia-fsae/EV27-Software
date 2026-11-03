@@ -78,6 +78,25 @@ target_compile_definitions(${CMAKE_PROJECT_NAME} PRIVATE
     # Add user defined symbols
 )
 
+# Emit per-function stack usage and call graphs (.su/.ci in the build dir); no codegen change.
+# Set on the stm32cubemx interface so HAL and FreeRTOS objects get it too.
+target_compile_options(stm32cubemx INTERFACE
+    -fstack-usage
+    -fcallgraph-info=su
+)
+
+# Worst-case stack per FreeRTOS task: cmake --build build/Debug --target stack-report
+find_package(Python3 COMPONENTS Interpreter)
+if(Python3_FOUND)
+    add_custom_target(stack-report
+        COMMAND ${Python3_EXECUTABLE} ${CMAKE_SOURCE_DIR}/tools/stack_report.py
+                --build-dir ${CMAKE_BINARY_DIR}
+                --main ${CMAKE_SOURCE_DIR}/Core/Src/main.c
+        DEPENDS ${CMAKE_PROJECT_NAME}
+        USES_TERMINAL
+    )
+endif()
+
 # Remove wrong libob.a library dependency when using cpp files
 list(REMOVE_ITEM CMAKE_C_IMPLICIT_LINK_LIBRARIES ob)
 

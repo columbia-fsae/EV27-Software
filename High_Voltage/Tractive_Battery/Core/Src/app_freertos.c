@@ -60,6 +60,10 @@ void vApplicationStackOverflowHook(xTaskHandle xTask, signed char* pcTaskName) {
     /* Run time stack overflow checking is performed if
     configCHECK_FOR_STACK_OVERFLOW is defined to 1 or 2. This hook function is
     called if a stack overflow is detected. */
+    /* Halt so the debugger stops here; pcTaskName is the overflowing task. */
+    taskDISABLE_INTERRUPTS();
+    __BKPT(0);
+    for (;;);
 }
 /* USER CODE END 4 */
 

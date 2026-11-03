@@ -553,8 +553,8 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
 
 void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struct) {
     TotalPack_t local_pack;
-    SegmentData_t local_segment[TOTAL_MODULES];
-    SOC_Estimate local_g_soc_estimate[TOTAL_MODULES][CELLS_PER_MOD];
+    static SegmentData_t local_segment[TOTAL_MODULES];
+    static SOC_Estimate local_g_soc_estimate[TOTAL_MODULES][CELLS_PER_MOD];
     CAN_Inputs_t local_can;
 
     copyWithMutex(mutex_struct->soc_estimate_key, &local_g_soc_estimate, &g_soc_estimate);

@@ -139,11 +139,11 @@ void Error_Handler(void);
 #define BMS_CAN_FAULTS_RUN_TIME 100
 #define SOC_CAN_STATS_RUN_TIME  100
 #define BMS_CAN_IDS_RUN_TIME    100
-#define BMS_CAN_DATA_RUN_TIME   100
-#define SOC_CAN_DATA_RUN_TIME   100
+#define BMS_CAN_DATA_RUN_TIME   10
+#define SOC_CAN_DATA_RUN_TIME   10
 #define GPIO_WRITE_RUN_TIME     10
 #define TRACK_USAGE_RUN_TIME    1000
-#define CAN_SEND_RUN_TIME       20
+#define CAN_SEND_RUN_TIME       5
 
 #define TASK_NUM 14
 void reset_counter_init(void);

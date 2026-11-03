@@ -26,7 +26,7 @@ void bsm_run(bsm_obj* bsm, GPIO_Info_t* gpio, ADC_Inputs_t* adc, TotalPack_t* pa
     copyWithMutex(mutex_struct->gpio_data_key, &local_gpio_data, gpio);
     copyWithMutex(mutex_struct->adc_data_key, &local_adc_inputs, adc);
     copyWithMutex(mutex_struct->bsm_key, &local_bsm, bsm);
-    copyWithMutex(mutex_struct->pack_segments_key, &local_pack, pack);
+    copyWithMutex(mutex_struct->total_pack_key, &local_pack, pack);
 
     switch (local_bsm.bsm_state) {
         case start_dis: {

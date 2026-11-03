@@ -76,50 +76,50 @@ const osThreadAttr_t GPIO_Read_attributes = {
 /* Definitions for BMS_Read */
 osThreadId_t BMS_ReadHandle;
 const osThreadAttr_t BMS_Read_attributes = {
-    .name = "BMS_Read", .priority = (osPriority_t)osPriorityHigh, .stack_size = 128 * 4};
+    .name = "BMS_Read", .priority = (osPriority_t)osPriorityNormal, .stack_size = 512 * 4};
 /* Definitions for BSM_Run */
 osThreadId_t BSM_RunHandle;
 const osThreadAttr_t BSM_Run_attributes = {
-    .name = "BSM_Run", .priority = (osPriority_t)osPriorityHigh1, .stack_size = 128 * 4};
+    .name = "BSM_Run", .priority = (osPriority_t)osPriorityHigh1, .stack_size = 256 * 4};
 /* Definitions for Error_CAN */
 osThreadId_t Error_CANHandle;
 const osThreadAttr_t Error_CAN_attributes = {
-    .name = "Error_CAN", .priority = (osPriority_t)osPriorityNormal, .stack_size = 128 * 4};
+    .name = "Error_CAN", .priority = (osPriority_t)osPriorityNormal, .stack_size = 256 * 4};
 /* Definitions for ADC_Read */
 osThreadId_t ADC_ReadHandle;
 const osThreadAttr_t ADC_Read_attributes = {
-    .name = "ADC_Read", .priority = (osPriority_t)osPriorityNormal1, .stack_size = 128 * 4};
+    .name = "ADC_Read", .priority = (osPriority_t)osPriorityNormal1, .stack_size = 256 * 4};
 /* Definitions for BSM_CAN */
 osThreadId_t BSM_CANHandle;
 const osThreadAttr_t BSM_CAN_attributes = {
-    .name = "BSM_CAN", .priority = (osPriority_t)osPriorityBelowNormal1, .stack_size = 128 * 4};
+    .name = "BSM_CAN", .priority = (osPriority_t)osPriorityBelowNormal1, .stack_size = 256 * 4};
 /* Definitions for BMS_CAN_Stats */
 osThreadId_t BMS_CAN_StatsHandle;
 const osThreadAttr_t BMS_CAN_Stats_attributes = {
-    .name = "BMS_CAN_Stats", .priority = (osPriority_t)osPriorityNormal, .stack_size = 128 * 4};
+    .name = "BMS_CAN_Stats", .priority = (osPriority_t)osPriorityNormal, .stack_size = 384 * 4};
 /* Definitions for BMS_CAN_Faults */
 osThreadId_t BMS_CAN_FaultsHandle;
 const osThreadAttr_t BMS_CAN_Faults_attributes = {.name = "BMS_CAN_Faults",
                                                   .priority = (osPriority_t)osPriorityAboveNormal1,
-                                                  .stack_size = 128 * 4};
+                                                  .stack_size = 384 * 4};
 /* Definitions for SOC_CAN_Stats */
 osThreadId_t SOC_CAN_StatsHandle;
 const osThreadAttr_t SOC_CAN_Stats_attributes = {.name = "SOC_CAN_Stats",
                                                  .priority = (osPriority_t)osPriorityBelowNormal2,
-                                                 .stack_size = 128 * 4};
+                                                 .stack_size = 256 * 4};
 /* Definitions for BMS_CAN_IDS */
 osThreadId_t BMS_CAN_IDSHandle;
 const osThreadAttr_t BMS_CAN_IDS_attributes = {
-    .name = "BMS_CAN_IDS", .priority = (osPriority_t)osPriorityLow, .stack_size = 128 * 4};
+    .name = "BMS_CAN_IDS", .priority = (osPriority_t)osPriorityLow, .stack_size = 384 * 4};
 /* Definitions for BMS_CAN_Data */
 osThreadId_t BMS_CAN_DataHandle;
 const osThreadAttr_t BMS_CAN_Data_attributes = {
-    .name = "BMS_CAN_Data", .priority = (osPriority_t)osPriorityAboveNormal, .stack_size = 128 * 4};
+    .name = "BMS_CAN_Data", .priority = (osPriority_t)osPriorityAboveNormal, .stack_size = 384 * 4};
 /* Definitions for SOC_CAN_Data */
 osThreadId_t SOC_CAN_DataHandle;
 const osThreadAttr_t SOC_CAN_Data_attributes = {.name = "SOC_CAN_Data",
                                                 .priority = (osPriority_t)osPriorityBelowNormal3,
-                                                .stack_size = 128 * 4};
+                                                .stack_size = 384 * 4};
 /* Definitions for GPIO_Write */
 osThreadId_t GPIO_WriteHandle;
 const osThreadAttr_t GPIO_Write_attributes = {
@@ -127,11 +127,11 @@ const osThreadAttr_t GPIO_Write_attributes = {
 /* Definitions for Track_Usage */
 osThreadId_t Track_UsageHandle;
 const osThreadAttr_t Track_Usage_attributes = {
-    .name = "Track_Usage", .priority = (osPriority_t)osPriorityLow, .stack_size = 128 * 4};
+    .name = "Track_Usage", .priority = (osPriority_t)osPriorityLow, .stack_size = 256 * 4};
 /* Definitions for CAN_Send */
 osThreadId_t CAN_SendHandle;
 const osThreadAttr_t CAN_Send_attributes = {
-    .name = "CAN_Send", .priority = (osPriority_t)osPriorityHigh, .stack_size = 128 * 4};
+    .name = "CAN_Send", .priority = (osPriority_t)osPriorityHigh, .stack_size = 256 * 4};
 /* Definitions for Queue_CAN_Tx */
 osMessageQueueId_t Queue_CAN_TxHandle;
 const osMessageQueueAttr_t Queue_CAN_Tx_attributes = {.name = "Queue_CAN_Tx"};
@@ -332,7 +332,7 @@ int main(void) {
 
     /* Create the queue(s) */
     /* creation of Queue_CAN_Tx */
-    Queue_CAN_TxHandle = osMessageQueueNew(16, sizeof(uint8_t), &Queue_CAN_Tx_attributes);
+    Queue_CAN_TxHandle = osMessageQueueNew(16, sizeof(can_msg), &Queue_CAN_Tx_attributes);
 
     /* USER CODE BEGIN RTOS_QUEUES */
     /* add queues, ... */
@@ -423,12 +423,11 @@ void SystemClock_Config(void) {
     /** Initializes the RCC Oscillators according to the specified parameters
      * in the RCC_OscInitTypeDef structure.
      */
-    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-    RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-    RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+    RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+    RCC_OscInitStruct.HSEState = RCC_HSE_ON;
     RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-    RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV4;
+    RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+    RCC_OscInitStruct.PLL.PLLM = RCC_PLLM_DIV6;
     RCC_OscInitStruct.PLL.PLLN = 85;
     RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
     RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
@@ -1190,8 +1189,10 @@ void Start_Track_Usage(void* argument) {
             }
         }
         copyWithMutex(mutex_struct.error_info_key, &error_info.min_stack_size, &min_stack_size);
-        osMessageQueueGetCount(Queue_CAN_TxHandle);
-        osMessageQueueGetSpace(Queue_CAN_TxHandle);
+        uint32_t queue_count = osMessageQueueGetCount(Queue_CAN_TxHandle);
+        uint32_t queue_space = osMessageQueueGetSpace(Queue_CAN_TxHandle);
+        copyWithMutex(mutex_struct.error_info_key, &error_info.queue_num, &queue_count);
+        copyWithMutex(mutex_struct.error_info_key, &error_info.queue_space, &queue_space);
         osDelay(curr_tick + TRACK_USAGE_RUN_TIME);
         curr_tick += TRACK_USAGE_RUN_TIME;
     }
@@ -1211,7 +1212,7 @@ void Start_CAN_Send(void* argument) {
     /* Infinite loop */
     for (;;) {
         CAN_SendData(&Queue_CAN_TxHandle, &hfdcan1);
-        osDelay(curr_tick + CAN_SEND_RUN_TIME);
+        osDelayUntil(curr_tick + CAN_SEND_RUN_TIME);
         curr_tick += CAN_SEND_RUN_TIME;
     }
     /* USER CODE END Start_CAN_Send */
