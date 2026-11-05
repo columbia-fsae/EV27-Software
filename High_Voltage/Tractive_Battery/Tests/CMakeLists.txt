@@ -32,9 +32,18 @@ target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE UNITY_SUPPORT_64)
 add_library(hal_fakes STATIC fakes/hal_fakes.c)
 target_include_directories(hal_fakes PUBLIC fakes vendor/fff)
 
+# Shared test helpers (support/), such as the ISR simulator for checking data
+# shared between interrupts and the main loop / RTOS tasks.
+find_package(Threads REQUIRED)
+add_library(test_support STATIC support/isr_sim.c)
+target_include_directories(test_support PUBLIC support)
+target_link_libraries(test_support PUBLIC hal_fakes Threads::Threads)
+
 # Firmware headers shared by all tests
 set(FW_INCLUDES
     ${FW_DIR}/ADBMS6830/program/inc
+    ${FW_DIR}/ADBMS6830/lib/inc
+    ${FW_DIR}/BSM/inc
     ${FW_DIR}/Communications/inc
 )
 
@@ -45,24 +54,31 @@ function(add_fw_test name)
     target_include_directories(${name} PRIVATE ${FW_INCLUDES})
     target_compile_definitions(${name} PRIVATE ${ARG_DEFINES})
     target_compile_options(${name} PRIVATE -Wall -Wextra)
-    target_link_libraries(${name} PRIVATE unity hal_fakes m)
+    target_link_libraries(${name} PRIVATE unity hal_fakes test_support m)
     add_test(NAME ${name} COMMAND ${name})
 endfunction()
 
-add_fw_test(test_kalman_soc
+add_fw_test(test_adc_management
     SOURCES
-        ${FW_DIR}/ADBMS6830/program/src/kalman_soc.c
-        ${FW_DIR}/ADBMS6830/program/src/battery_model.c
+        ${FW_DIR}/Communications/src/adc_management.c
 )
+
+# TODO: test_kalman_soc.c and test_soc_flash_storage.c have not been written
+# yet. Uncomment each block once its test file exists.
+# add_fw_test(test_kalman_soc
+#     SOURCES
+#         ${FW_DIR}/ADBMS6830/program/src/kalman_soc.c
+#         ${FW_DIR}/ADBMS6830/program/src/battery_model.c
+# )
 
 # STM32G474xx/STM32G4 turn on the HAL code paths that are normally compiled
 # only for the target, so the FFF fakes get called.
-add_fw_test(test_soc_flash_storage
-    SOURCES
-        ${FW_DIR}/ADBMS6830/program/src/soc_flash_storage.c
-        ${FW_DIR}/ADBMS6830/program/src/kalman_soc.c
-        ${FW_DIR}/ADBMS6830/program/src/battery_model.c
-    DEFINES
-        STM32G474xx
-        STM32G4
-)
+# add_fw_test(test_soc_flash_storage
+#     SOURCES
+#         ${FW_DIR}/ADBMS6830/program/src/soc_flash_storage.c
+#         ${FW_DIR}/ADBMS6830/program/src/kalman_soc.c
+#         ${FW_DIR}/ADBMS6830/program/src/battery_model.c
+#     DEFINES
+#         STM32G474xx
+#         STM32G4
+# )
