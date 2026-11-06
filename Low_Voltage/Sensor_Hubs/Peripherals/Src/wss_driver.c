@@ -31,7 +31,7 @@ void HAL_TIM_IC_CaptureCallback(TIM_HandleTypeDef* htim) {
 
             float frequency = refClock / Difference;
 
-            wss = frequency / PULSES_PER_REV * CIRCUMFERENCE;
+            wss = frequency / PULSES_PER_REV * CIRCUMFERENCE * TO_KPH;
             if (osMessageQueueGetSpace() == 0) {
                 QueueHandle_t temp_WSS_Native_Queue = (QueueHandle_t)WSS_QueueHandle;
                 xQueueOverwriteFromISR(temp_WSS_Native_Queue, &wss,

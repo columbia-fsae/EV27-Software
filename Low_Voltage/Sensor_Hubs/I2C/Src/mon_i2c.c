@@ -18,7 +18,7 @@ void i2c2_read(uint16_t reg, uint8_t* buf, uint16_t n) {
     }
     return i2c_wait();
 }
-void mon_i2c_read(mon_i2c_data* board_mon_data) {
+void mon_i2c_read(mon_i2c_data* board_mon_data, Mutex_Struct_t* mutex_struct) {
     mon_i2c_data local_board_mon_data;
     uint8_t buf[5][2];
     HAL_StatusTypeDef status = HAL_OK;

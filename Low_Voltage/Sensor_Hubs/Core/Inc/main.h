@@ -114,6 +114,7 @@ void Error_Handler(void);
 #define ADC1_PROCESS_TIME    10
 #define ADC2_PROCESS_TIME    10
 #define WSS_PROCESS_TIME     10
+#define MON_PROCESS_TIME     10
 
 typedef struct MutexHolder {
     osMutexId_t error_info_key;
@@ -129,6 +130,7 @@ typedef struct SemaphoreHolder {
     osSemaphoreId_t sem_MON_I2C;
     osSemaphoreId_t sem_WSS;
     osSemaphoreId_t sem_ADC1;
+    osSemaphoreId_t sem_ADC2;
 } Semaphore_Struct_t;
 
 extern Mutex_Struct_t mutex_struct;
@@ -137,7 +139,6 @@ extern osMessageQueueId_t WSS_QueueHandle;
 extern osEventFlagsId_t wss_write_flagHandle;
 extern I2C_HandleTypeDef hi2c1;
 extern I2C_HandleTypeDef hi2c2;
-extern mon_i2c_data board_mon_data;
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

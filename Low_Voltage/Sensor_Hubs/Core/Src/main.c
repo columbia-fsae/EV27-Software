@@ -19,7 +19,11 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
+#include "Common.h"
+#include "adc_driver.h"
 #include "cmsis_os.h"
+#include "cmsis_os2.h"
+#include "local_can.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -93,6 +97,10 @@ const osThreadAttr_t ADC2_Process_attributes = {
 osThreadId_t Process_WSSHandle;
 const osThreadAttr_t Process_WSS_attributes = {
     .name = "Process_WSS", .priority = (osPriority_t)osPriorityNormal, .stack_size = 128 * 4};
+/* Definitions for MON_Process */
+osThreadId_t MON_ProcessHandle;
+const osThreadAttr_t MON_Process_attributes = {
+    .name = "MON_Process", .priority = (osPriority_t)osPriorityBelowNormal, .stack_size = 128 * 4};
 /* Definitions for Global_CAN_Queue */
 osMessageQueueId_t Global_CAN_QueueHandle;
 const osMessageQueueAttr_t Global_CAN_Queue_attributes = {.name = "Global_CAN_Queue"};
@@ -126,6 +134,9 @@ const osSemaphoreAttr_t sem_WSS_attributes = {.name = "sem_WSS"};
 /* Definitions for sem_ADC1 */
 osSemaphoreId_t sem_ADC1Handle;
 const osSemaphoreAttr_t sem_ADC1_attributes = {.name = "sem_ADC1"};
+/* Definitions for sem_ADC2 */
+osSemaphoreId_t sem_ADC2Handle;
+const osSemaphoreAttr_t sem_ADC2_attributes = {.name = "sem_ADC2"};
 /* Definitions for wss_write_flag */
 osEventFlagsId_t wss_write_flagHandle;
 const osEventFlagsAttr_t wss_write_flag_attributes = {.name = "wss_write_flag"};
@@ -154,6 +165,7 @@ void Start_Board_Diag_MSG(void* argument);
 void Start_ADC1_Process(void* argument);
 void Start_ADC2_Process(void* argument);
 void Start_Process_WSS(void* argument);
+void Start_MON_Process(void* argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -163,6 +175,9 @@ void Start_Process_WSS(void* argument);
 /* USER CODE BEGIN 0 */
 Mutex_Struct_t mutex_struct;
 Semaphore_Struct_t semaphore_struct;
+adc1_info global_adc1 = {0};
+adc2_info global_adc2 = {0};
+mon_i2c_data global_mon = {0};
 
 /* USER CODE END 0 */
 
@@ -207,12 +222,11 @@ int main(void) {
     MX_TIM2_Init();
     MX_TIM8_Init();
     /* USER CODE BEGIN 2 */
-    HAL_ADCEx_Calibration_Start(&hadc1, ADC_SINGLE_ENDED);
-    HAL_ADC_Start_DMA(&hadc1, uint32_t* pData, uint32_t Length)
-        /* USER CODE END 2 */
 
-        /* Init scheduler */
-        osKernelInitialize();
+    /* USER CODE END 2 */
+
+    /* Init scheduler */
+    osKernelInitialize();
     /* Create the mutex(es) */
     /* creation of ADC1_key */
     ADC1_keyHandle = osMutexNew(&ADC1_key_attributes);
@@ -252,9 +266,13 @@ int main(void) {
     /* creation of sem_ADC1 */
     sem_ADC1Handle = osSemaphoreNew(1, 0, &sem_ADC1_attributes);
 
+    /* creation of sem_ADC2 */
+    sem_ADC2Handle = osSemaphoreNew(1, 0, &sem_ADC2_attributes);
+
     /* USER CODE BEGIN RTOS_SEMAPHORES */
     /* add semaphores, ... */
     semaphore_struct.sem_ADC1 = sem_ADC1Handle;
+    semaphore_struct.sem_ADC2 = sem_ADC2Handle;
     semaphore_struct.sem_MON_I2C = sem_MON_I2CHandle;
     semaphore_struct.sem_WSS = sem_WSSHandle;
     /* USER CODE END RTOS_SEMAPHORES */
@@ -301,6 +319,9 @@ int main(void) {
 
     /* creation of Process_WSS */
     Process_WSSHandle = osThreadNew(Start_Process_WSS, NULL, &Process_WSS_attributes);
+
+    /* creation of MON_Process */
+    MON_ProcessHandle = osThreadNew(Start_MON_Process, NULL, &MON_Process_attributes);
 
     /* USER CODE BEGIN RTOS_THREADS */
     /* add threads, ... */
@@ -922,6 +943,7 @@ void Start_Sensor_MSG_1(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
+        sensor1_can(&mutex_struct, &Global_CAN_QueueHandle, &global_adc1, &global_adc2);
         osDelayUntil(curr_tick + SENSOR_MSG_1_TIME);
         curr_tick += SENSOR_MSG_1_TIME;
     }
@@ -940,6 +962,7 @@ void Start_Sensor_MSG_2(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
+        sensor2_can(&mutex_struct, &Global_CAN_QueueHandle, wss);
         osDelayUntil(curr_tick + SENSOR_MSG_2_TIME);
         curr_tick += SENSOR_MSG_2_TIME;
     }
@@ -958,7 +981,8 @@ void Start_Temps_MSG(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        osDelayUntil(curr_tick + TEMPS_MSG_TIME);
+        temps_can(&mutex_struct, &Global_CAN_QueueHandle, &temp_data)
+            osDelayUntil(curr_tick + TEMPS_MSG_TIME);
         curr_tick += TEMPS_MSG_TIME;
     }
     /* USER CODE END Start_Temps_MSG */
@@ -976,6 +1000,7 @@ void Start_Board_Diag_MSG(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
+        diag_can(&mutex_struct, &Global_CAN_QueueHandle, &global_mon, &global_adc1);
         osDelayUntil(curr_tick + BOARD_DIAG_MSG_TIME);
         curr_tick += BOARD_DIAG_MSG_TIME;
     }
@@ -994,13 +1019,8 @@ void Start_ADC1_Process(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
-        if (osSemaphoreAcquire(semaphore_struct.sem_ADC1, 10) != osOK) {
-            continue;
-        }
-        adc1_info local_adc1;
-        convert_adc1_to_real(&local_adc1);
-        copyWithMutex(&mutex_struct.adc1_key, dest_ptr, src_ptr)
-            osDelayUntil(curr_tick + ADC1_PROCESS_TIME);
+        convert_adc1_to_real(&global_adc1, &mutex_struct, &semaphore_struct);
+        osDelayUntil(curr_tick + ADC1_PROCESS_TIME);
         curr_tick += ADC1_PROCESS_TIME;
     }
     /* USER CODE END Start_ADC1_Process */
@@ -1018,6 +1038,7 @@ void Start_ADC2_Process(void* argument) {
     uint32_t curr_tick = osKernelGetTickCount();
     /* Infinite loop */
     for (;;) {
+        convert_adc2_to_real(&global_adc2, &mutex_struct, &semaphore_struct);
         osDelayUntil(curr_tick + ADC2_PROCESS_TIME);
         curr_tick += ADC2_PROCESS_TIME;
     }
@@ -1033,14 +1054,14 @@ void Start_ADC2_Process(void* argument) {
 /* USER CODE END Header_Start_Process_WSS */
 void Start_Process_WSS(void* argument) {
     /* USER CODE BEGIN Start_Process_WSS */
+    uint32_t curr_tick = osKernelGetTickCount();
     uint32_t flags;
     /* Infinite loop */
     for (;;) {
         flags = osThreadFlagsWait(0x0001, osFlagsWaitAny, osWaitForever);
         if (flags & 0x0001) {
             float temp_wss;
-            osMessageQueueGet(WSS_QueueHandle, &temp_wss, QUEUE_NORM_PRIO, 0);
-            copyWithMutex(WSS_KeyHandle, &wss, &temp_wss);
+            osMessageQueueGet(WSS_QueueHandle, &wss, QUEUE_NORM_PRIO, 0);
 
             uint32_t curr_tick = osKernelGetTickCount();
             osDelayUntil(curr_tick + WSS_PROCESS_TIME);
@@ -1048,6 +1069,25 @@ void Start_Process_WSS(void* argument) {
         }
     }
     /* USER CODE END Start_Process_WSS */
+}
+
+/* USER CODE BEGIN Header_Start_MON_Process */
+/**
+ * @brief Function implementing the MON_Process thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_Start_MON_Process */
+void Start_MON_Process(void* argument) {
+    /* USER CODE BEGIN Start_MON_Process */
+    uint32_t curr_tick = osKernelGetTickCount();
+    /* Infinite loop */
+    for (;;) {
+        mon_i2c_read(&global_mon, &mutex_struct);
+        osDelayUntil(curr_tick + MON_PROCESS_TIME);
+        curr_tick += MON_PROCESS_TIME;
+    }
+    /* USER CODE END Start_MON_Process */
 }
 
 /**

@@ -6,6 +6,7 @@
 
 #include "Common.h"
 #include "cmsis_os2.h"
+#include "comms_config.h"
 #include "main.h"
 #include "stm32g4xx_hal_fdcan.h"
 
@@ -66,7 +67,91 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
         }
     }
 }
+void sensor1_can(Mutex_Struct_t* mutex_struct, osMessageQueueId_t* queue_can_tx_handle,
+                 adc1_info* global_adc1, adc2_info* global_adc2) {
+    adc1_info local_adc1;
+    adc2_info local_adc2;
+    can_msg local_msg;
+    copyWithMutex(mutex_struct->adc1_key, &local_adc1, global_adc1);
+    copyWithMutex(mutex_struct->adc2_key, &local_adc2, global_adc2);
 
+    local_adc1.lin_pot = clamp_u16(local_adc1.lin_pot / ADC1_SCALE, 0, CAN_U16_MAX);
+    local_adc1.adc_2 = clamp_u16(local_adc1.adc_2 / ADC2_SCALE, 0, CAN_U16_MAX);
+    local_adc2.adc_3 = clamp_u16(local_adc2.adc_3 / ADC1_SCALE, 0, CAN_U16_MAX);
+    local_adc2.adc_4 = clamp_u16(local_adc2.adc_4 / ADC2_SCALE, 0, CAN_U16_MAX);
+
+    local_msg.data[0] = (uint8_t)(local_adc1.lin_pot & CAN_U8_MAX);
+    local_msg.data[1] = (uint8_t)(local_adc1.lin_pot >> UINT8_LEN);
+    local_msg.data[2] = (uint8_t)(local_adc1.adc_2 & CAN_U8_MAX);
+    local_msg.data[3] = (uint8_t)(local_adc1.adc_2 >> UINT8_LEN);
+    local_msg.data[4] = (uint8_t)(local_adc2.adc_3 & CAN_U8_MAX);
+    local_msg.data[5] = (uint8_t)(local_adc2.adc_3 >> UINT8_LEN);
+    local_msg.data[6] = (uint8_t)(local_adc2.adc_4 & CAN_U8_MAX);
+    local_msg.data[7] = (uint8_t)(local_adc2.adc_4 >> UINT8_LEN);
+
+    local_msg.id = CAN_ID_SHFL_1;
+    local_msg.length = FDCAN_DLC_BYTES_8;
+
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
+        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
+                            QUEUE_CAN_SEND_ADD_FULL);
+    } else {
+        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
+                           QUEUE_CAN_SEND_ADD_FULL);
+    }
+}
+void sensor2_can(Mutex_Struct_t* mutex_struct, osMessageQueueId_t* queue_can_tx_handle, float wss) {
+    can_msg local_msg;
+    wss = clamp_u16(wss / WSS_SCALE, 0, CAN_U16_MAX);
+    local_msg.data[0] = (uint8_t)(wss & CAN_U8_MAX);
+    local_msg.data[1] = (uint8_t)(wss >> UINT8_LEN);
+
+    local_msg.id = CAN_ID_SHFL_2;
+    local_msg.length = FDCAN_DLC_BYTES_2;
+
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
+        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
+                            QUEUE_CAN_SEND_ADD_FULL);
+    } else {
+        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
+                           QUEUE_CAN_SEND_ADD_FULL);
+    }
+}
+
+void diag_can(Mutex_Struct_t* mutex_struct, osMessageQueueId_t* queue_can_tx_handle,
+              mon_i2c_data* mon_data, adc1_info* global_adc1) {
+    mon_i2c_data local_mon_data;
+    adc1_info local_adc1;
+    can_msg local_msg;
+    copyWithMutex(mutex_struct->board_mon_key, &local_mon_data, mon_data);
+    copyWithMutex(mutex_struct->adc1_key, &local_adc1, global_adc1);
+
+    local_msg.data[0] = clamp_u8(
+        (local_mon_data.shunt_voltage - SHUNT_VOLT_OFFSET) / SHUNT_VOLT_SCALE, 0, CAN_U8_MAX);
+    local_msg.data[1] =
+        clamp_u8((local_mon_data.bus_voltage - BUS_VOLT_OFFSET) / BUS_VOLT_SCALE, 0, CAN_U8_MAX);
+    local_msg.data[2] = clamp_u8(
+        ((float)local_adc1.mon_5v - STM_VOLT_MON_OFFSET) / STM_VOLT_MON_SCALE, 0, CAN_U8_MAX);
+    local_msg.data[3] = clamp_u8(local_mon_data.current / CURRENT_SCALE, 0, CAN_U8_MAX);
+    local_msg.data[4] =
+        clamp_u8((local_mon_data.temperature - TEMP_OFFSET) / TEMP_SCALE, 0, CAN_U8_MAX);
+    local_msg.data[5] =
+        clamp_u8((local_mon_data.power - POWER_OFFSET) / POWER_SCALE, 0, CAN_U8_MAX);
+
+    local_msg.id = CAN_ID_SHFL_DIAG;
+    local_msg.length = FDCAN_DLC_BYTES_6;
+
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
+        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
+                            QUEUE_CAN_SEND_ADD_FULL);
+    } else {
+        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
+                           QUEUE_CAN_SEND_ADD_FULL);
+    }
+}
 void temps_can(Mutex_Struct_t* mutex_struct, osMessageQueueId_t* queue_can_tx_handle,
                struct temp (*temp_data)[16]) {
     can_msg local_msg;
