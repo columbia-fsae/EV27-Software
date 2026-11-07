@@ -72,7 +72,7 @@ SPI_HandleTypeDef hspi1;
 /* Definitions for GPIO_Read */
 osThreadId_t GPIO_ReadHandle;
 const osThreadAttr_t GPIO_Read_attributes = {
-    .name = "GPIO_Read", .priority = (osPriority_t)osPriorityLow1, .stack_size = 128 * 4};
+    .name = "GPIO_Read", .priority = (osPriority_t)osPriorityLow1, .stack_size = 256 * 4};
 /* Definitions for BMS_Read */
 osThreadId_t BMS_ReadHandle;
 const osThreadAttr_t BMS_Read_attributes = {
@@ -123,7 +123,7 @@ const osThreadAttr_t SOC_CAN_Data_attributes = {.name = "SOC_CAN_Data",
 /* Definitions for GPIO_Write */
 osThreadId_t GPIO_WriteHandle;
 const osThreadAttr_t GPIO_Write_attributes = {
-    .name = "GPIO_Write", .priority = (osPriority_t)osPriorityLow, .stack_size = 128 * 4};
+    .name = "GPIO_Write", .priority = (osPriority_t)osPriorityLow, .stack_size = 256 * 4};
 /* Definitions for Track_Usage */
 osThreadId_t Track_UsageHandle;
 const osThreadAttr_t Track_Usage_attributes = {
@@ -615,7 +615,7 @@ static void MX_FDCAN1_Init(void) {
     hfdcan1.Init.ClockDivider = FDCAN_CLOCK_DIV1;
     hfdcan1.Init.FrameFormat = FDCAN_FRAME_CLASSIC;
     hfdcan1.Init.Mode = FDCAN_MODE_NORMAL;
-    hfdcan1.Init.AutoRetransmission = DISABLE;
+    hfdcan1.Init.AutoRetransmission = ENABLE;
     hfdcan1.Init.TransmitPause = DISABLE;
     hfdcan1.Init.ProtocolException = DISABLE;
     hfdcan1.Init.NominalPrescaler = 1;
@@ -1193,7 +1193,7 @@ void Start_Track_Usage(void* argument) {
         uint32_t queue_space = osMessageQueueGetSpace(Queue_CAN_TxHandle);
         copyWithMutex(mutex_struct.error_info_key, &error_info.queue_num, &queue_count);
         copyWithMutex(mutex_struct.error_info_key, &error_info.queue_space, &queue_space);
-        osDelay(curr_tick + TRACK_USAGE_RUN_TIME);
+        osDelayUntil(curr_tick + TRACK_USAGE_RUN_TIME);
         curr_tick += TRACK_USAGE_RUN_TIME;
     }
     /* USER CODE END Start_Track_Usage */

@@ -531,7 +531,7 @@ bool KalmanSOC_Update(KalmanSOC* kf, const SOC_Measurement* meas, SOC_Estimate* 
         }
     }
 
-    kf->c_theta[0][0] = i + c_dx[0][0];
+    kf->c_theta[0][0] = -i + c_dx[0][0];
     kf->c_theta[0][1] = 0.0f + c_dx[0][1];
     kf->c_theta[1][0] = 0.0f + c_dx[1][0];
     kf->c_theta[1][1] = 0.0f + c_dx[1][1];

@@ -102,6 +102,53 @@ void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs)
     }
 }
 
+static uint8_t msg_to_error_bit(uint16_t id) {
+    if (id == CAN_ID_BSM) {
+        return (uint8_t)BSM_CAN_ERROR;
+    }
+    if (id == CAN_ID_BMS_PACK) {
+        return (uint8_t)BMS_CAN_PACK_ERROR;
+    }
+    if (id == CAN_ID_BMS_STATS) {
+        return (uint8_t)BMS_CAN_STATS_ERROR;
+    }
+    if (id == CAN_ID_BMS_IDS) {
+        return (uint8_t)BMS_CAN_IDS_ERROR;
+    }
+    if (id >= CAN_ID_BMS_INIT && id < CAN_ID_BMS_PACK) {
+        return (uint8_t)BMS_CAN_ERROR;
+    }
+    if (id == CAN_ID_SOC_STATS) {
+        return (uint8_t)SOC_CAN_PACK_ERROR;
+    }
+    if (id >= CAN_ID_SOC_INIT && id < 300) {
+        return (uint8_t)SOC_CAN_ERROR;
+    }
+    if (id == CAN_ID_PACK_SENSE) {
+        return (uint8_t)PACK_SENSE_ERROR;
+    }
+    return (uint8_t)UNKNOWN_ERROR;
+}
+
+// Queue a message for CAN_Send. On a full queue the message is dropped: flag the general
+// queue-full bit and the message's own message_send_errors bit (cleared once it sends).
+static void queue_can_msg(const can_msg* msg, uint8_t prio, osMessageQueueId_t* queue_can_tx_handle,
+                          Mutex_Struct_t* mutex_struct) {
+    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
+        osMessageQueuePut(*queue_can_tx_handle, msg, prio, 0);
+        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
+                            QUEUE_CAN_SEND_ADD_FULL);
+    } else {
+        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
+                           QUEUE_CAN_SEND_ADD_FULL);
+        uint8_t error_bit = msg_to_error_bit(msg->id);
+        if (error_bit != UNKNOWN_ERROR) {
+            bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.message_send_errors,
+                               error_bit);
+        }
+    }
+}
+
 void bms_can_faults(SegmentData_t (*pack_data)[TOTAL_MODULES], TotalPack_t* total_pack,
                     osMessageQueueId_t* queue_can_tx_handle, Mutex_Struct_t* mutex_struct) {
     can_msg local_msg;
@@ -123,14 +170,7 @@ void bms_can_faults(SegmentData_t (*pack_data)[TOTAL_MODULES], TotalPack_t* tota
 
     local_msg.id = CAN_ID_BMS_PACK;
     local_msg.length = FDCAN_DLC_BYTES_8;
-    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
-        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
-        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                            QUEUE_CAN_SEND_ADD_FULL);
-    } else {
-        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                           QUEUE_CAN_SEND_ADD_FULL);
-    }
+    queue_can_msg(&local_msg, CAN_TX_QUEUE_HIGH_PRIO, queue_can_tx_handle, mutex_struct);
 }
 
 void bms_can_stats(SegmentData_t (*pack_data)[TOTAL_MODULES],
@@ -187,14 +227,7 @@ void bms_can_stats(SegmentData_t (*pack_data)[TOTAL_MODULES],
     local_msg.id = (uint16_t)CAN_ID_BMS_STATS;
     local_msg.length = FDCAN_DLC_BYTES_8;
 
-    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
-        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_NORM_PRIO, 0);
-        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                            QUEUE_CAN_SEND_ADD_FULL);
-    } else {
-        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                           QUEUE_CAN_SEND_ADD_FULL);
-    }
+    queue_can_msg(&local_msg, CAN_TX_QUEUE_NORM_PRIO, queue_can_tx_handle, mutex_struct);
 }
 
 void bms_can_data(SegmentData_t (*pack_data)[TOTAL_MODULES], uint8_t* bms_mod_counter,
@@ -240,14 +273,7 @@ void bms_can_data(SegmentData_t (*pack_data)[TOTAL_MODULES], uint8_t* bms_mod_co
         }
     }
 
-    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
-        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
-        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                            QUEUE_CAN_SEND_ADD_FULL);
-    } else {
-        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                           QUEUE_CAN_SEND_ADD_FULL);
-    }
+    queue_can_msg(&local_msg, CAN_TX_QUEUE_HIGH_PRIO, queue_can_tx_handle, mutex_struct);
 }
 
 void bsm_can(bsm_obj* bsm_info, GPIO_Info_t* gpio_data, osMessageQueueId_t* queue_can_tx_handle,
@@ -273,14 +299,7 @@ void bsm_can(bsm_obj* bsm_info, GPIO_Info_t* gpio_data, osMessageQueueId_t* queu
     local_msg.id = CAN_ID_BSM;
     local_msg.length = FDCAN_DLC_BYTES_7;
 
-    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
-        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_HIGH_PRIO, 0);
-        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                            QUEUE_CAN_SEND_ADD_FULL);
-    } else {
-        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                           QUEUE_CAN_SEND_ADD_FULL);
-    }
+    queue_can_msg(&local_msg, CAN_TX_QUEUE_HIGH_PRIO, queue_can_tx_handle, mutex_struct);
 }
 
 void bms_can_ids(SegmentData_t (*pack_data)[TOTAL_MODULES], TotalPack_t* pack,
@@ -303,14 +322,7 @@ void bms_can_ids(SegmentData_t (*pack_data)[TOTAL_MODULES], TotalPack_t* pack,
     local_msg.id = CAN_ID_BMS_IDS;
     local_msg.length = FDCAN_DLC_BYTES_8;
 
-    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
-        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
-        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                            QUEUE_CAN_SEND_ADD_FULL);
-    } else {
-        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                           QUEUE_CAN_SEND_ADD_FULL);
-    }
+    queue_can_msg(&local_msg, CAN_TX_QUEUE_LOW_PRIO, queue_can_tx_handle, mutex_struct);
 }
 
 void soc_can_stats(TotalPack_t* pack, osMessageQueueId_t* queue_can_tx_handle,
@@ -334,14 +346,7 @@ void soc_can_stats(TotalPack_t* pack, osMessageQueueId_t* queue_can_tx_handle,
     local_msg.id = CAN_ID_SOC_STATS;
     local_msg.length = FDCAN_DLC_BYTES_6;
 
-    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
-        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
-        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                            QUEUE_CAN_SEND_ADD_FULL);
-    } else {
-        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                           QUEUE_CAN_SEND_ADD_FULL);
-    }
+    queue_can_msg(&local_msg, CAN_TX_QUEUE_LOW_PRIO, queue_can_tx_handle, mutex_struct);
 }
 
 void soc_can_data(SOC_Estimate (*soc)[TOTAL_MODULES][CELLS_PER_MOD], uint8_t* soc_mod_counter,
@@ -375,14 +380,7 @@ void soc_can_data(SOC_Estimate (*soc)[TOTAL_MODULES][CELLS_PER_MOD], uint8_t* so
         }
     }
 
-    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
-        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
-        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                            QUEUE_CAN_SEND_ADD_FULL);
-    } else {
-        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                           QUEUE_CAN_SEND_ADD_FULL);
-    }
+    queue_can_msg(&local_msg, CAN_TX_QUEUE_LOW_PRIO, queue_can_tx_handle, mutex_struct);
 }
 
 void error_can(osMessageQueueId_t* queue_can_tx_handle, Mutex_Struct_t* mutex_struct) {
@@ -393,23 +391,16 @@ void error_can(osMessageQueueId_t* queue_can_tx_handle, Mutex_Struct_t* mutex_st
 
     local_msg.data[0] = local_error_info.message_send_errors;
     local_msg.data[1] = local_error_info.general_errors;
-    local_msg.data[2] =
-        (uint8_t)((uint64_t)local_error_info.min_stack_size * UINT8_MAX / UINT32_MAX);
+    // Smallest free stack across tasks in words (x4 = bytes), saturating at 255 (>= 1020 B)
+    uint32_t min_stack_words = local_error_info.min_stack_size / 4;
+    local_msg.data[2] = (uint8_t)(min_stack_words > UINT8_MAX ? UINT8_MAX : min_stack_words);
     local_msg.data[3] = local_error_info.stack_overflow;
-    local_msg.data[4] = (uint8_t)((uint64_t)local_error_info.queue_num * UINT8_MAX / UINT32_MAX);
-    local_msg.data[5] = (uint8_t)((uint64_t)local_error_info.queue_space * UINT8_MAX /
-                                  UINT64_MAX);  // Message existing
+    local_msg.data[4] = (uint8_t)local_error_info.queue_num;    // Messages waiting (0-16)
+    local_msg.data[5] = (uint8_t)local_error_info.queue_space;  // Free slots (0-16)
     local_msg.id = CAN_ID_ERRORS;
     local_msg.length = FDCAN_DLC_BYTES_6;
 
-    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
-        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_LOW_PRIO, 0);
-        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                            QUEUE_CAN_SEND_ADD_FULL);
-    } else {
-        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                           QUEUE_CAN_SEND_ADD_FULL);
-    }
+    queue_can_msg(&local_msg, CAN_TX_QUEUE_LOW_PRIO, queue_can_tx_handle, mutex_struct);
 }
 
 void adc_can(ADC_Inputs_t* adc_data, osMessageQueueId_t* queue_can_tx_handle,
@@ -436,87 +427,53 @@ void adc_can(ADC_Inputs_t* adc_data, osMessageQueueId_t* queue_can_tx_handle,
     local_msg.id = CAN_ID_PACK_SENSE;
     local_msg.length = FDCAN_DLC_BYTES_7;
 
-    if (osMessageQueueGetSpace(*queue_can_tx_handle) > 0) {
-        osMessageQueuePut(*queue_can_tx_handle, &local_msg, CAN_TX_QUEUE_NORM_PRIO, 0);
-        bitwiseAndWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                            QUEUE_CAN_SEND_ADD_FULL);
-    } else {
-        bitwiseOrWithMutex(mutex_struct->error_info_key, &error_info.general_errors,
-                           QUEUE_CAN_SEND_ADD_FULL);
-    }
-}
-
-static uint8_t msg_to_error_bit(uint16_t id) {
-    if (id == CAN_ID_BSM) {
-        return (uint8_t)BSM_CAN_ERROR;
-    }
-    if (id == CAN_ID_BMS_PACK) {
-        return (uint8_t)BMS_CAN_PACK_ERROR;
-    }
-    if (id == CAN_ID_BMS_STATS) {
-        return (uint8_t)BMS_CAN_STATS_ERROR;
-    }
-    if (id == CAN_ID_BMS_IDS) {
-        return (uint8_t)BMS_CAN_IDS_ERROR;
-    }
-    if (id >= CAN_ID_BMS_INIT && id < CAN_ID_BMS_PACK) {
-        return (uint8_t)BMS_CAN_ERROR;
-    }
-    if (id == CAN_ID_SOC_STATS) {
-        return (uint8_t)SOC_CAN_PACK_ERROR;
-    }
-    if (id >= CAN_ID_SOC_INIT && id < 300) {
-        return (uint8_t)SOC_CAN_ERROR;
-    }
-    if (id == CAN_ID_PACK_SENSE) {
-        return (uint8_t)PACK_SENSE_ERROR;
-    }
-    return (uint8_t)UNKNOWN_ERROR;
+    queue_can_msg(&local_msg, CAN_TX_QUEUE_NORM_PRIO, queue_can_tx_handle, mutex_struct);
 }
 
 void CAN_SendData(osMessageQueueId_t* queue_can_tx_handle, FDCAN_HandleTypeDef* hfdcan1) {
-    can_msg local_msg = {0};
-
-    if (osMessageQueueGetCount(*queue_can_tx_handle) > 0) {
-        bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
-                            QUEUE_CAN_SEND_POP_EMPTY);
-        if (osMessageQueueGet(*queue_can_tx_handle, &local_msg, NULL, 0) != osOK) {
-            bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
-                               QUEUE_CAN_SEND_POP_ERROR);
-        } else {
-            bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
-                                QUEUE_CAN_SEND_POP_ERROR);
-        }
-    } else {
+    if (osMessageQueueGetCount(*queue_can_tx_handle) == 0) {
         bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
                            QUEUE_CAN_SEND_POP_EMPTY);
         return;  // Nothing to send
     }
+    bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
+                        QUEUE_CAN_SEND_POP_EMPTY);
 
-    uint8_t error_bit = msg_to_error_bit(local_msg.id);
+    // Drain the queue until it is empty or the 3-slot hardware TX FIFO is full. Anything left
+    // goes out next run instead of producers dropping it on a full queue.
+    while (osMessageQueueGetCount(*queue_can_tx_handle) > 0 &&
+           HAL_FDCAN_GetTxFifoFreeLevel(hfdcan1) > 0) {
+        can_msg local_msg;
+        if (osMessageQueueGet(*queue_can_tx_handle, &local_msg, NULL, 0) != osOK) {
+            bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
+                               QUEUE_CAN_SEND_POP_ERROR);
+            return;
+        }
+        bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.general_errors,
+                            QUEUE_CAN_SEND_POP_ERROR);
 
-    if (HAL_FDCAN_GetTxFifoFreeLevel(hfdcan1) == 0 && error_bit != UNKNOWN_ERROR) {
-        bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors, error_bit);
-    }
+        uint8_t error_bit = msg_to_error_bit(local_msg.id);
 
-    // Set up the transmit header with the proper ID and length
-    FDCAN_TxHeaderTypeDef tx_hdr;
-    tx_hdr.Identifier = local_msg.id;
-    tx_hdr.IdType = FDCAN_STANDARD_ID;
-    tx_hdr.TxFrameType = FDCAN_DATA_FRAME;
-    tx_hdr.DataLength = local_msg.length;
-    tx_hdr.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
-    tx_hdr.BitRateSwitch = FDCAN_BRS_OFF;
-    tx_hdr.FDFormat = FDCAN_CLASSIC_CAN;  // match your init FrameFormat
-    tx_hdr.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
-    tx_hdr.MessageMarker = 0;
+        // Set up the transmit header with the proper ID and length
+        FDCAN_TxHeaderTypeDef tx_hdr;
+        tx_hdr.Identifier = local_msg.id;
+        tx_hdr.IdType = FDCAN_STANDARD_ID;
+        tx_hdr.TxFrameType = FDCAN_DATA_FRAME;
+        tx_hdr.DataLength = local_msg.length;
+        tx_hdr.ErrorStateIndicator = FDCAN_ESI_ACTIVE;
+        tx_hdr.BitRateSwitch = FDCAN_BRS_OFF;
+        tx_hdr.FDFormat = FDCAN_CLASSIC_CAN;  // match your init FrameFormat
+        tx_hdr.TxEventFifoControl = FDCAN_NO_TX_EVENTS;
+        tx_hdr.MessageMarker = 0;
 
-    if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, &tx_hdr, local_msg.data) != HAL_OK &&
-        error_bit != UNKNOWN_ERROR) {
-        bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors, error_bit);
-    } else if (error_bit != UNKNOWN_ERROR) {
-        bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors,
-                            error_bit);
+        if (HAL_FDCAN_AddMessageToTxFifoQ(hfdcan1, &tx_hdr, local_msg.data) != HAL_OK &&
+            error_bit != UNKNOWN_ERROR) {
+            bitwiseOrWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors,
+                               error_bit);
+        } else if (error_bit != UNKNOWN_ERROR) {
+            bitwiseAndWithMutex(mutex_struct.error_info_key, &error_info.message_send_errors,
+                                error_bit);
+        }
     }
 }
 

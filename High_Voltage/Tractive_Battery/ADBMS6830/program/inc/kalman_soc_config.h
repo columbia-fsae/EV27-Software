@@ -39,15 +39,15 @@
 #define Q_VDIF (1e-5f)  //(0.01f * 1e-4f)
 
 // Measurement noise (from MATLAB)
-#define R_VOLTAGE    1e-3f
-#define R_SOC_PSEUDO 1e-1f
+#define R_VOLTAGE    10.0f
+#define R_SOC_PSEUDO 1.0f
 
 // Parameter estimation noise (from MATLAB)
 #define Q_R0   1e-11f
-#define Q_QNOM 1e-14f
+#define Q_QNOM 1e-1f
 
 #define R_PARAM_R0   1.0f
-#define R_PARAM_QNOM 1000.0f
+#define R_PARAM_QNOM 1.0f
 
 // Innovation window for adaptive covariance
 #define INNOVATION_WINDOW_SIZE 100
@@ -56,7 +56,7 @@
 #define SOC_UPDATE_PERIOD_MS 100  // 10 Hz
 
 #define MAX_ALLOWED_DI_DT         40.0f   // Amps per second threshold (adjust to your car)
-#define MAX_PHYSICAL_INNOVATION_V 0.250f  // 250 mV gate limit
+#define MAX_PHYSICAL_INNOVATION_V 0.500f  // 250 mV gate limit
 
 // ============================================================================
 // FLASH STORAGE CONFIGURATION
