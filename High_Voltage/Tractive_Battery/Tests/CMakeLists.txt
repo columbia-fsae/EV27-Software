@@ -12,7 +12,7 @@ cmake_minimum_required(VERSION 3.22)
 #   cmake --build Tests/build
 #   ctest --test-dir Tests/build --output-on-failure
 #
-# To add a test, see the "Tests" section at the bottom and Tests/TUTORIAL.md.
+# To add a test, see the "Tests" section at the bottom and Tests/WORKFLOW.md.
 #
 
 project(TractiveBatteryTests C)
