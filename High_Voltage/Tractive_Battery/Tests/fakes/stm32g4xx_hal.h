@@ -29,6 +29,8 @@ typedef enum {
 
 #define HAL_MAX_DELAY 0xFFFFFFFFU
 
+typedef enum { RESET = 0U, SET = !RESET } FlagStatus, ITStatus;
+
 // ---------------------------------------------------------------- DMA
 
 typedef struct {
@@ -97,13 +99,81 @@ extern GPIO_TypeDef hal_fake_gpio_ports[7];
 #define GPIO_PIN_14 ((uint16_t)0x4000)
 #define GPIO_PIN_15 ((uint16_t)0x8000)
 
-// ---------------------------------------------------------------- Opaque handles
-// Only passed around by pointer in the code under test so far. Give them real
-// fields when a test needs to look inside one.
+// ---------------------------------------------------------------- FDCAN
+
+typedef struct {
+    uint32_t NominalPrescaler;
+    uint32_t NominalSyncJumpWidth;
+    uint32_t NominalTimeSeg1;
+    uint32_t NominalTimeSeg2;
+    uint32_t DataPrescaler;
+    uint32_t DataSyncJumpWidth;
+    uint32_t DataTimeSeg1;
+    uint32_t DataTimeSeg2;
+} FDCAN_InitTypeDef;
 
 typedef struct {
     void* Instance;
+    FDCAN_InitTypeDef Init;
 } FDCAN_HandleTypeDef;
+
+typedef struct {
+    uint32_t Identifier;
+    uint32_t IdType;
+    uint32_t TxFrameType;
+    uint32_t DataLength;
+    uint32_t ErrorStateIndicator;
+    uint32_t BitRateSwitch;
+    uint32_t FDFormat;
+    uint32_t TxEventFifoControl;
+    uint32_t MessageMarker;
+} FDCAN_TxHeaderTypeDef;
+
+typedef struct {
+    uint32_t Identifier;
+    uint32_t IdType;
+    uint32_t RxFrameType;
+    uint32_t DataLength;
+    uint32_t ErrorStateIndicator;
+    uint32_t BitRateSwitch;
+    uint32_t FDFormat;
+    uint32_t RxTimestamp;
+    uint32_t FilterIndex;
+    uint32_t IsFilterMatchingFrame;
+} FDCAN_RxHeaderTypeDef;
+
+// Weak callback in the real HAL, overridden by the firmware
+void HAL_FDCAN_RxFifo0Callback(FDCAN_HandleTypeDef* hfdcan, uint32_t RxFifo0ITs);
+
+#define FDCAN_STANDARD_ID             0x00000000U
+#define FDCAN_DATA_FRAME              0x00000000U
+#define FDCAN_ESI_ACTIVE              0x00000000U
+#define FDCAN_BRS_OFF                 0x00000000U
+#define FDCAN_CLASSIC_CAN             0x00000000U
+#define FDCAN_NO_TX_EVENTS            0x00000000U
+#define FDCAN_DLC_BYTES_4             0x00000004U
+#define FDCAN_DLC_BYTES_6             0x00000006U
+#define FDCAN_DLC_BYTES_7             0x00000007U
+#define FDCAN_DLC_BYTES_8             0x00000008U
+#define FDCAN_RX_FIFO0                0x00000040U
+#define FDCAN_IT_RX_FIFO0_NEW_MESSAGE (1UL << 0)
+
+// ---------------------------------------------------------------- Flash
+
+typedef struct {
+    uint32_t TypeErase;
+    uint32_t Banks;
+    uint32_t Page;
+    uint32_t NbPages;
+} FLASH_EraseInitTypeDef;
+
+#define FLASH_TYPEERASE_PAGES        0x00U
+#define FLASH_TYPEPROGRAM_DOUBLEWORD 0x00U
+#define FLASH_BANK_1                 0x00000001U
+
+// ---------------------------------------------------------------- Opaque handles
+// Only passed around by pointer in the code under test so far. Give them real
+// fields when a test needs to look inside one.
 
 typedef struct {
     void* Instance;

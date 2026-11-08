@@ -8,8 +8,9 @@
  * zeroes. Add `FAKES can_management` to add_fw_test() to use it.
  *
  * custom_fake needed:
- *   - CAN_SendData: `data` points at the caller's stack buffer. To check the
- *     payload, copy it inside a custom_fake (see TUTORIAL.md, pointer arguments).
+ *   - CAN_SendData: `data` points at the caller's stack buffer, so arg1_val
+ *     dangles once the call returns. To check the payload, copy it inside a
+ *     custom_fake.
  *   - The bms_/soc_ functions with counter pointers (bms_can_data, soc_can_data)
  *     only advance *_counter in a custom_fake.
  */
