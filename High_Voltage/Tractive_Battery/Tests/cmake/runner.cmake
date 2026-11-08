@@ -1,15 +1,3 @@
-# Generates the Unity runner (the file with main()) for one test file.
-#
-#   tb_generate_runner(<test .c file> <runner .c to write> [FAKES <module>...])
-#
-# Every function written as `void test_<name>(void)` starting at column 0 is a
-# test. Before each one the runner calls hal_fakes_reset() and then
-# fake_<module>_reset() for every FAKES entry, in order. Unity calls setUp()
-# after that, so whatever setUp() configures is kept. If the test file has no
-# setUp()/tearDown(), the runner defines empty ones.
-#
-# The test file is added to CMAKE_CONFIGURE_DEPENDS, so adding a test and
-# running `cmake --build` regenerates the runner without re-running cmake.
 
 function(tb_generate_runner test_src runner_out)
     cmake_parse_arguments(ARG "" "" "FAKES" ${ARGN})
@@ -17,7 +5,6 @@ function(tb_generate_runner test_src runner_out)
 
     set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${test_src}")
     file(READ "${test_src}" content)
-    # Make "start of a line" the same as "after a newline" for the regexes below
     set(content "\n${content}")
 
     set(test_regex "\nvoid[ \t]+(test_[A-Za-z0-9_]+)[ \t]*\\([ \t]*void[ \t]*\\)")
@@ -27,7 +14,7 @@ function(tb_generate_runner test_src runner_out)
         string(REGEX REPLACE "${test_regex}" "\\1" name "${match}")
         list(APPEND tests "${name}")
     endforeach()
-    list(REMOVE_DUPLICATES tests)  # a prototype plus its definition count once
+    list(REMOVE_DUPLICATES tests)
 
     if(NOT tests)
         message(FATAL_ERROR
@@ -59,13 +46,8 @@ function(tb_generate_runner test_src runner_out)
         string(APPEND src "void ${name}(void);\n")
     endforeach()
 
-    # Unity prints the file name passed to UnityBegin on every result line,
-    # so pass the test file's name rather than this runner's.
     string(APPEND src "\nint main(void) {\n    UnityBegin(\"${test_file_name}\");\n")
     foreach(name IN LISTS tests)
-        # Line of the test in the test file, for Unity's PASS/IGNORE lines
-        # (content starts with an extra "\n", so the newlines before the
-        # match equal the test's 1-based line number minus one)
         string(REGEX MATCH "\nvoid[ \t]+${name}[ \t]*\\(" decl "${content}")
         string(FIND "${content}" "${decl}" pos)
         string(SUBSTRING "${content}" 0 ${pos} before)
@@ -81,7 +63,5 @@ function(tb_generate_runner test_src runner_out)
     endforeach()
     string(APPEND src "\n    return UNITY_END();\n}\n")
 
-    # Only touches the file when the content changes, so unchanged runners
-    # don't trigger a rebuild.
     file(GENERATE OUTPUT "${runner_out}" CONTENT "${src}")
 endfunction()

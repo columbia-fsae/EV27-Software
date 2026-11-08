@@ -1,24 +1,8 @@
-# Build-quality options for the host unit tests.
-#
-#   TB_TESTS_SANITIZE  AddressSanitizer + UndefinedBehaviorSanitizer. Default ON
-#                      when the compiler supports them (never on Windows).
-#   TB_TESTS_WERROR    -Werror on test, fake and support code. Firmware sources
-#                      keep their warnings as warnings. Default ON.
-#   TB_TESTS_COVERAGE  --coverage, plus a `coverage` target that runs the tests
-#                      and writes an HTML report to <build>/coverage/. Needs
-#                      gcovr (pip install gcovr). Default OFF.
-#
-# CMakeLists.txt calls tb_apply_quality_flags(<target>) for every test.
-#
-# This file also runs as a script (cmake -P) for the coverage target, see the
-# bottom of the file.
 
 if(CMAKE_SCRIPT_MODE_FILE)
-    # ------------------------------------------------ coverage script mode
-    # Inputs: TB_BUILD_DIR, TB_FW_DIR, TB_CTEST, TB_GCOVR, TB_GCOV_EXECUTABLE
     file(GLOB_RECURSE gcda_files "${TB_BUILD_DIR}/*.gcda")
     if(gcda_files)
-        file(REMOVE ${gcda_files})  # zero the counters from earlier runs
+        file(REMOVE ${gcda_files})
     endif()
 
     execute_process(
@@ -32,7 +16,6 @@ if(CMAKE_SCRIPT_MODE_FILE)
     if(TB_GCOV_EXECUTABLE)
         set(gcov_args --gcov-executable "${TB_GCOV_EXECUTABLE}")
     endif()
-    # Paths in the filters are relative to the working directory (Tractive_Battery/)
     execute_process(
         COMMAND ${TB_GCOVR} ${TB_BUILD_DIR}
                 --root ${TB_FW_DIR}
@@ -47,8 +30,6 @@ if(CMAKE_SCRIPT_MODE_FILE)
         message(FATAL_ERROR "gcovr failed (${gcovr_result})")
     endif()
     message(STATUS "Coverage report: ${out_dir}/index.html")
-    # The report is still useful when tests fail, so don't fail the target.
-    # The test job is what reports failures.
     if(NOT ctest_result EQUAL 0)
         message(WARNING "Some tests failed; the coverage report covers the run anyway.")
     endif()
@@ -62,7 +43,6 @@ include(CMakePushCheckState)
 set(TB_SANITIZE_FLAGS -fsanitize=address,undefined -fno-sanitize-recover=undefined
                       -fno-omit-frame-pointer)
 
-# Sanitizers default to ON only where they work
 set(tb_sanitize_default OFF)
 if(NOT WIN32)
     cmake_push_check_state(RESET)
@@ -84,17 +64,14 @@ set(TB_GCOV_EXECUTABLE "" CACHE STRING
 message(STATUS "TB_TESTS_SANITIZE=${TB_TESTS_SANITIZE} TB_TESTS_WERROR=${TB_TESTS_WERROR} "
                "TB_TESTS_COVERAGE=${TB_TESTS_COVERAGE}")
 
-# Tests/ itself. Sources under it (or generated into the build dir) are test
-# code; everything else is firmware.
 get_filename_component(TB_TESTS_DIR "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 
-# -Werror for the shared test libraries, once
 function(tb_quality_werror_libs)
     get_property(done GLOBAL PROPERTY TB_QUALITY_LIBS_DONE)
     if(done OR NOT TB_TESTS_WERROR)
         return()
     endif()
-    foreach(lib hal_fakes test_support)  # not unity: vendor code
+    foreach(lib hal_fakes test_support)
         if(TARGET ${lib})
             target_compile_options(${lib} PRIVATE -Werror)
         endif()
@@ -111,12 +88,11 @@ function(tb_apply_quality_flags target)
     if(TB_TESTS_COVERAGE)
         target_compile_options(${target} PRIVATE --coverage -O0)
         target_link_options(${target} PRIVATE --coverage)
-        add_dependencies(coverage ${target})  # build tests before running them
+        add_dependencies(coverage ${target})
     endif()
 
     if(TB_TESTS_WERROR)
         tb_quality_werror_libs()
-        # Per source file, so firmware sources in the same target are left alone
         get_target_property(sources ${target} SOURCES)
         get_target_property(src_dir ${target} SOURCE_DIR)
         foreach(src IN LISTS sources)
