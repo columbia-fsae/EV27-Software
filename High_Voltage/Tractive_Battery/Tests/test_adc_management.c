@@ -214,16 +214,3 @@ void test_main_loop_never_reads_half_updated_adc_data(void) {
         TEST_FAIL_MESSAGE(msg);
     }
 }
-
-int main(void) {
-    UNITY_BEGIN();
-    RUN_TEST(test_init_calibrates_both_adcs_and_starts_dma);
-    RUN_TEST(test_init_reports_error_when_calibration_fails);
-    RUN_TEST(test_init_reports_error_when_adc2_never_ready);
-    RUN_TEST(test_temp_convert_mid_scale_is_25C);
-    RUN_TEST(test_temp_convert_interpolates_between_table_points);
-    RUN_TEST(test_temp_convert_clamps_to_table_ends);
-    RUN_TEST(test_callback_converts_every_channel);
-    RUN_TEST(test_main_loop_never_reads_half_updated_adc_data);
-    return UNITY_END();
-}
