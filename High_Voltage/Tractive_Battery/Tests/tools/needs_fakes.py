@@ -109,14 +109,27 @@ def find_source(module: str, src_dirs: list[Path]) -> Path:
 def compile_object(cc: list[str], flags: list[str], src: Path, out: Path) -> None:
     cmd = cc + flags + ["-w", "-c", str(src), "-o", str(out)]
     proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0:
-        sys.stderr.write(proc.stdout + proc.stderr)
-        raise ToolError(
-            f"compiling {src.name} failed (output above).\n"
-            "This usually means a HAL type, register bit or macro is missing from\n"
-            "Tests/fakes/stm32g4xx_hal.h (or a CubeMX pin name from Tests/fakes/main.h).\n"
-            "Copy the definition from Drivers/ or Core/Inc/main.h and rerun."
-        )
+    if proc.returncode == 0:
+        return
+    output = proc.stdout + proc.stderr
+    sys.stderr.write(output)
+    msg = (
+        f"compiling {src.name} failed (output above).\n"
+        "This usually means a HAL type, register bit or macro is missing from\n"
+        "Tests/fakes/stm32g4xx_hal.h (or a CubeMX pin name from Tests/fakes/main.h).\n"
+        "Copy the definition from Drivers/ or Core/Inc/main.h and rerun."
+    )
+    # HAL functions are only declared through HAL_FAKE_LIST, so a missing HAL
+    # function shows up here as an undeclared function rather than at link time.
+    undeclared = re.findall(
+        r"(?:undeclared function|implicit declaration of function) '(\w+)'", output
+    )
+    if undeclared:
+        msg += "\n\nUndeclared functions: add a fake for each, then rerun.\n"
+        include_dirs = [Path(f[2:]) for f in flags if f.startswith("-I")]
+        for name in dict.fromkeys(undeclared):
+            msg += "\n" + missing_function_advice(name, include_dirs)
+    raise ToolError(msg)
 
 
 # --------------------------------------------------------------------------- symbols
@@ -272,9 +285,10 @@ def fake_lists() -> dict[str, tuple[str, str]]:
                 name = args[1] if entry.group(1) == "VALUE" else args[0]
                 provided.setdefault(name, (provider, "function"))
     # Global variables that fake .c files define (FFF can't fake data)
-    for src in sorted(FAKES_DIR.glob("fake_*.c")):
+    for src in [FAKES_DIR / "hal_fakes.c"] + sorted(FAKES_DIR.glob("fake_*.c")):
+        provider = "HAL" if src.name == "hal_fakes.c" else src.stem[len("fake_") :]
         for name in defined_variables(src.read_text()):
-            provided.setdefault(name, (src.stem[len("fake_") :], "variable"))
+            provided.setdefault(name, (provider, "variable"))
     return provided
 
 
@@ -353,6 +367,24 @@ def to_fake_line(name: str, ret: str, params: str) -> str:
 
 
 # --------------------------------------------------------------------------- main
+
+
+def missing_function_advice(name: str, include_dirs: list[Path]) -> str:
+    """The fake-list line to paste for `name`, and the file it goes in."""
+    found = find_prototype(name, include_dirs + [DRIVERS_DIR])
+    if not found:
+        return f"  {name}: no declaration found in the firmware or Drivers/ headers"
+    line, header = found
+    if not line:
+        return (
+            f"  {name}: global variable declared in {rel(header)}; define it in\n"
+            f"      Tests/fakes/fake_{header.stem}.c and zero it in the reset"
+        )
+    if DRIVERS_DIR in header.parents or header.name.startswith("cmsis"):
+        where = "HAL_FAKE_LIST in Tests/fakes/hal_fakes.h"
+    else:
+        where = f"FAKE_{header.stem.upper()}_LIST in Tests/fakes/fake_{header.stem}.h"
+    return f"  {line}\n      -> {where}  (declared in {rel(header)})"
 
 
 def rel(path: Path) -> str:
@@ -443,21 +475,7 @@ def main(argv: list[str]) -> int:
     if missing:
         print("\nMISSING: paste each line into the fake list shown.\n")
         for name in missing:
-            found = find_prototype(name, include_dirs + [DRIVERS_DIR])
-            if not found:
-                print(f"  {name}: no declaration found in the firmware or Drivers/ headers")
-                continue
-            line, header = found
-            if DRIVERS_DIR in header.parents or header.name.startswith("cmsis"):
-                where = "HAL_FAKE_LIST in Tests/fakes/hal_fakes.h"
-            else:
-                where = f"FAKE_{header.stem.upper()}_LIST in Tests/fakes/fake_{header.stem}.h"
-            if not line:
-                print(f"  {name}: global variable declared in {rel(header)}; define it in")
-                print(f"      Tests/fakes/fake_{header.stem}.c and zero it in the reset")
-            else:
-                print(f"  {line}")
-                print(f"      -> {where}  (declared in {rel(header)})")
+            print(missing_function_advice(name, include_dirs))
 
     parts = [args.module]
     sources = modules[1:] + real  # real firmware with no fake has to be linked
