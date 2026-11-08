@@ -170,6 +170,20 @@ function(add_fw_test module)
     add_test(NAME ${target} COMMAND ${target})
 endfunction()
 
+# Build info for tools/needs_fakes.py: how a firmware .c is compiled here.
+string(STRIP "${CMAKE_C_COMPILER_ARG1}" cc_arg1)
+string(STRIP "${CMAKE_C_COMPILER} ${cc_arg1}" fw_test_cc)
+file(WRITE ${CMAKE_BINARY_DIR}/fw_test_cc.txt "${fw_test_cc}\n")
+set(fw_test_flags "")
+foreach(dir IN LISTS FW_INCLUDES ITEMS ${CMAKE_CURRENT_SOURCE_DIR}/fakes
+                                       ${CMAKE_CURRENT_SOURCE_DIR}/vendor/fff)
+    string(APPEND fw_test_flags "-I${dir}\n")
+endforeach()
+string(APPEND fw_test_flags "-std=gnu11\n")
+file(WRITE ${CMAKE_BINARY_DIR}/fw_test_flags.txt "${fw_test_flags}")
+list(JOIN FW_SRC_DIRS "\n" fw_src_dirs)
+file(WRITE ${CMAKE_BINARY_DIR}/fw_src_dirs.txt "${fw_src_dirs}\n")
+
 # ---------------------------------------------------------------- Tests
 # One line per firmware module. tools/needs_fakes.py <module> prints the line
 # to use.
