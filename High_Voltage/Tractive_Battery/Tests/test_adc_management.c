@@ -47,8 +47,8 @@ static void dma_transfer_complete(const uint16_t raw[ADC1_CHANNEL_COUNT]) {
     HAL_ADC_ConvCpltCallback(&hadc1);
 }
 
+// The runner has already reset the HAL fakes when setUp runs.
 void setUp(void) {
-    hal_fakes_reset();
     memset(&adc_data, 0, sizeof(adc_data));
     memset(&adc1_regs, 0, sizeof(adc1_regs));
     memset(&adc2_regs, 0, sizeof(adc2_regs));
