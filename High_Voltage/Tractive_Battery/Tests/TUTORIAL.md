@@ -881,19 +881,29 @@ When you're done practising, delete `Tests/thermostat.{h,c}`,
 ## 8. How do I know I need a new fake?
 
 **Run the tool first.** `python Tests/tools/needs_fakes.py <module>` answers
-the question before you write a test. Exit code 0 means everything links.
-Exit code 1 means something is `MISSING`, and the tool prints the line to add
-and the file it goes in. For example, for a module that reads a GPIO pin:
+the question before you write a test. It exits with:
 
-```
-MISSING: paste each line into the fake list shown.
+- **0**: everything links. Use the suggested `add_fw_test` line.
+- **1**: a firmware function or variable is `MISSING`. The tool prints the
+  line to add and the fake library it goes in.
+- **2**: the module didn't compile. The tool prints the compiler errors. The
+  stand-in HAL only declares the functions in `HAL_FAKE_LIST`, so a HAL
+  function nobody has faked yet shows up here, as "undeclared". For those the
+  tool also prints the line to paste. For example, `soc_flash_storage` with
+  its target defines:
 
-  VALUE(GPIO_PinState, HAL_GPIO_ReadPin, GPIO_TypeDef const*, uint16_t)
-      -> HAL_FAKE_LIST in Tests/fakes/hal_fakes.h  (declared in Drivers/STM32G4xx_HAL_Driver/Inc/stm32g4xx_hal_gpio.h)
-```
+  ```
+  Undeclared functions: add a fake for each, then rerun.
 
-Exit code 2 means the module didn't even compile. The tool prints the
-compiler errors.
+    VALUE(HAL_StatusTypeDef, HAL_FLASH_Unlock)
+        -> HAL_FAKE_LIST in Tests/fakes/hal_fakes.h  (declared in Drivers/STM32G4xx_HAL_Driver/Inc/stm32g4xx_hal_flash.h)
+    VALUE(HAL_StatusTypeDef, HAL_FLASHEx_Erase, FLASH_EraseInitTypeDef*, uint32_t*)
+        -> HAL_FAKE_LIST in Tests/fakes/hal_fakes.h  (declared in Drivers/STM32G4xx_HAL_Driver/Inc/stm32g4xx_hal_flash_ex.h)
+  ```
+
+  Type errors (like `FLASH_EraseInitTypeDef` above) need the type copied into
+  `fakes/stm32g4xx_hal.h` first. Fix them, paste the lines, and rerun until
+  the exit code is 0.
 
 If you skip the tool, the build tells you the same things, just less
 politely. Each kind of error comes from a different step and has a different
@@ -901,10 +911,10 @@ fix:
 
 | Error looks like | Step | Cause | Fix |
 |---|---|---|---|
-| `unknown type name 'FDCAN_RxHeaderTypeDef'`, `use of undeclared identifier 'GPIOB'`, `no member named 'Init'` | Compile | A HAL type, register, field or macro is missing from the stand-in HAL | Copy it from `Drivers/` into `fakes/stm32g4xx_hal.h`. Only add the fields the firmware touches |
-| `use of undeclared identifier 'BMS_OK_Pin'` | Compile | A CubeMX pin name from `Core/Inc/main.h` | Add it to `fakes/main.h` |
+| `unknown type name 'FDCAN_RxHeaderTypeDef'`, `use of undeclared identifier 'FLASH_TYPEERASE_PAGES'`, `no member named 'Init'` | Compile | A HAL type, register, field or macro is missing from the stand-in HAL | Copy it from `Drivers/` into `fakes/stm32g4xx_hal.h`. Only add the fields the firmware touches |
+| `use of undeclared identifier 'Fan_EN_Pin'` | Compile | A CubeMX pin name that isn't in `fakes/main.h` yet (new pin in the `.ioc`) | Copy it from `Core/Inc/main.h` into `fakes/main.h` |
 | `call to undeclared function 'HAL_FLASH_Unlock'` | Compile | A HAL function the stand-in doesn't declare | Add one line to `HAL_FAKE_LIST` (it declares and defines the fake) |
-| `undefined reference to 'HAL_GPIO_ReadPin'` (gcc), `undefined symbol` (clang/lld) | Link | Nothing defines a function the module calls | HAL/CMSIS: add a line to `HAL_FAKE_LIST`. Firmware: add `FAKES <module>` or `SOURCES <module>`, or a line to that module's fake list |
+| `undefined reference to 'KalmanSOC_Update'` (gcc), `undefined symbol` (clang/lld) | Link | Nothing defines a function the module calls | Add `FAKES <module>` or `SOURCES <module>`, or a line to that module's fake list |
 | `multiple definition of 'KalmanSOC_Init'` (gcc), `duplicate symbol` (clang/lld) | Link | Two things define it: the real module and its fake, or a local fake and a fake library | Link one or the other. Delete local copies of fakes that a fake library already has |
 | `multiple definition of 'fff'` | Link | `DEFINE_FFF_GLOBALS` in a test or fake file | Remove it. It lives in `hal_fakes.c` only |
 
@@ -913,7 +923,7 @@ fix:
 One line in `HAL_FAKE_LIST` in `fakes/hal_fakes.h`:
 
 ```c
-    VALUE(GPIO_PinState, HAL_GPIO_ReadPin, GPIO_TypeDef const*, uint16_t)      \
+    VALUE(HAL_StatusTypeDef, HAL_FLASH_Unlock)                                               \
 ```
 
 `VALUE(return type, name, argument types...)` for functions that return
