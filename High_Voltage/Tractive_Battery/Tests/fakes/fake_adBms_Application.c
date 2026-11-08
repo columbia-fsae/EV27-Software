@@ -4,7 +4,6 @@
 
 FAKE_ADBMS_APPLICATION_LIST(DEFINE_FAKE_VALUE_FUNC, DEFINE_FAKE_VOID_FUNC)
 
-// Globals owned by the real adBms_Application.c
 bool g_charger_present;
 cell_asic IC[TOTAL_IC];
 SegmentData_t PackSegments[TOTAL_MODULES];
@@ -15,7 +14,6 @@ SOC_Estimate g_soc_estimate[TOTAL_MODULES][CELLS_PER_MOD];
 bool g_soc_initialized[TOTAL_MODULES][CELLS_PER_MOD];
 uint32_t g_soc_update_counter[TOTAL_MODULES][CELLS_PER_MOD];
 
-// Same values as the real module (adbms_config.h)
 const float OV_THRESHOLD = CELL_OV_THRESHOLD_V;
 const float UV_THRESHOLD = CELL_UV_THRESHOLD_V;
 const float OT_THRESHOLD = CELL_OT_THRESHOLD_C;

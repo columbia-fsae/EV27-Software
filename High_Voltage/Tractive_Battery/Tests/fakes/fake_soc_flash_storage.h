@@ -29,7 +29,6 @@
 
 FAKE_SOC_FLASH_STORAGE_LIST(DECLARE_FAKE_VALUE_FUNC, DECLARE_FAKE_VOID_FUNC)
 
-// Reset every fake above.
 void fake_soc_flash_storage_reset(void);
 
 #endif

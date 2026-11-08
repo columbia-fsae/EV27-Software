@@ -3,9 +3,8 @@
  * @brief Use when testing adBms_Application: stands in for the ADBMS6830 chip, its
  * SPI driver library (ADBMS6830/lib) and mcuWrapper.c.
  *
- * FFF fakes for the driver functions adBms_Application.c calls (found by
- * listing the undefined symbols of its object file). This is a pseudo-module:
- * the functions come from adBms6830GenericType.c, adBms6830ParseCreate.c and
+ * FFF fakes for the driver functions adBms_Application.c calls. This is a
+ * pseudo-module: * the functions come from adBms6830GenericType.c, adBms6830ParseCreate.c and
  * mcuWrapper.c. None of the globals those files define are used by
  * adBms_Application.c, so none are defined here. Add `FAKES adbms_driver` to
  * add_fw_test() to use it. If a new caller needs another driver function, add
@@ -29,10 +28,8 @@
 
 // clang-format off
 #define FAKE_ADBMS_DRIVER_LIST(VALUE, VOID)                        \
-    /* mcuWrapper.c */                                             \
     VOID(Delay_ms, uint32_t)                                       \
     VOID(adBmsWakeupIc, uint8_t)                                   \
-    /* lib/src/adBms6830GenericType.c */                           \
     VOID(adBmsReadData, uint8_t, cell_asic*, uint8_t*, TYPE, GRP)  \
     VOID(adBmsWriteData, uint8_t, cell_asic*, uint8_t*, TYPE, GRP) \
     VOID(adBms6830_Adcv, RD, CONT, DCP, RSTF, OW_C_S)              \
@@ -40,14 +37,12 @@
     VOID(adBms6830_Adax2, CH)                                      \
     VOID(adBms6830_Snap)                                           \
     VOID(adBms6830_Unsnap)                                         \
-    /* lib/src/adBms6830ParseCreate.c */                           \
     VALUE(uint16_t, SetOverVoltageThreshold, float)                \
     VALUE(uint16_t, SetUnderVoltageThreshold, float)
 // clang-format on
 
 FAKE_ADBMS_DRIVER_LIST(DECLARE_FAKE_VALUE_FUNC, DECLARE_FAKE_VOID_FUNC)
 
-// Reset every fake above.
 void fake_adbms_driver_reset(void);
 
 #endif

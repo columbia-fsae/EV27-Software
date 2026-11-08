@@ -19,7 +19,6 @@
 #include "can_management.h"
 #include "fff.h"
 
-// FFF writes "TYPE argN", so an array-of-rows parameter needs a one-word type
 typedef SOC_Estimate (*fake_soc_rows_t)[CELLS_PER_MOD];
 
 // clang-format off
@@ -39,7 +38,6 @@ typedef SOC_Estimate (*fake_soc_rows_t)[CELLS_PER_MOD];
 
 FAKE_CAN_MANAGEMENT_LIST(DECLARE_FAKE_VALUE_FUNC, DECLARE_FAKE_VOID_FUNC)
 
-// Reset every fake above and zero can_data and error_info.
 void fake_can_management_reset(void);
 
 #endif

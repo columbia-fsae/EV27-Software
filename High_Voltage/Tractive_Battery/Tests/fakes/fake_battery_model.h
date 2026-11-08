@@ -33,7 +33,6 @@
 
 FAKE_BATTERY_MODEL_LIST(DECLARE_FAKE_VALUE_FUNC, DECLARE_FAKE_VOID_FUNC)
 
-// Reset every fake above.
 void fake_battery_model_reset(void);
 
 #endif

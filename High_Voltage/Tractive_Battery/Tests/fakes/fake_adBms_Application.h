@@ -40,8 +40,6 @@
 
 FAKE_ADBMS_APPLICATION_LIST(DECLARE_FAKE_VALUE_FUNC, DECLARE_FAKE_VOID_FUNC)
 
-// Globals adBms_Application.c defines without declaring them in its header
-// (PackSegments, TotalPack and g_soc_estimate are declared there).
 extern bool g_charger_present;
 extern cell_asic IC[TOTAL_IC];
 extern int g_active_cells[TOTAL_IC];
@@ -55,7 +53,6 @@ extern const float VOLTAGE_LSB;
 extern const float BAL_THRESHOLD_V;
 extern const float V_TEMP_TABLE[TEMP_TABLE_SIZE];
 
-// Reset every fake above and zero the non-const globals.
 void fake_adBms_Application_reset(void);
 
 #endif

@@ -41,7 +41,6 @@
 
 FAKE_KALMAN_SOC_LIST(DECLARE_FAKE_VALUE_FUNC, DECLARE_FAKE_VOID_FUNC)
 
-// Reset every fake above.
 void fake_kalman_soc_reset(void);
 
 #endif

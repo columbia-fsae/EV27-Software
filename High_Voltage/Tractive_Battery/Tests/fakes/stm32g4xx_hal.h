@@ -71,9 +71,6 @@ typedef struct {
 
 typedef enum { GPIO_PIN_RESET = 0U, GPIO_PIN_SET } GPIO_PinState;
 
-// Port instances. On the target these are register addresses; here they point
-// at plain variables (defined in hal_fakes.c), so a test can check which port
-// a HAL_GPIO_* fake was called with.
 extern GPIO_TypeDef hal_fake_gpio_ports[7];
 #define GPIOA (&hal_fake_gpio_ports[0])
 #define GPIOB (&hal_fake_gpio_ports[1])

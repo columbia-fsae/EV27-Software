@@ -4,7 +4,6 @@
 
 FAKE_CAN_MANAGEMENT_LIST(DEFINE_FAKE_VALUE_FUNC, DEFINE_FAKE_VOID_FUNC)
 
-// Globals owned by the real can_management.c
 volatile CAN_Inputs_t can_data;
 Errors error_info;
 
