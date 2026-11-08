@@ -1,15 +1,18 @@
 cmake_minimum_required(VERSION 3.22)
 
 #
-# Host-side unit tests for the Tractive Battery firmware.
+# Host-side unit tests for the Tractive Battery firmware (Unity + FFF).
 #
 # This is a separate CMake project from ../CMakeLists.txt on purpose: the
 # firmware build uses the arm-none-eabi toolchain, while tests are compiled
-# with the PC's native gcc. Build and run with:
+# with the PC's own C compiler (gcc, clang or zig cc). From
+# High_Voltage/Tractive_Battery:
 #
 #   cmake -S Tests -B Tests/build
 #   cmake --build Tests/build
 #   ctest --test-dir Tests/build --output-on-failure
+#
+# To add a test, see the "Tests" section at the bottom and Tests/TUTORIAL.md.
 #
 
 project(TractiveBatteryTests C)
@@ -24,16 +27,20 @@ set(FW_DIR ${CMAKE_CURRENT_SOURCE_DIR}/..)
 cmake_path(NORMAL_PATH FW_DIR)
 string(REGEX REPLACE "/$" "" FW_DIR "${FW_DIR}")
 
+# Runner generation, and the TB_TESTS_SANITIZE / _WERROR / _COVERAGE options
 include(cmake/runner.cmake)
 include(cmake/quality.cmake OPTIONAL)
+
+# ---------------------------------------------------------------- Libraries
 
 # Unity test framework (vendor/unity, v2.7.0)
 add_library(unity STATIC vendor/unity/unity.c)
 target_include_directories(unity PUBLIC vendor/unity)
 target_compile_definitions(unity PUBLIC UNITY_INCLUDE_DOUBLE UNITY_SUPPORT_64)
 
-# FFF fakes for the STM32 HAL (vendor/fff, v1.1). The fakes/ directory also
-# holds a stub stm32g4xx_hal.h that replaces the real HAL headers.
+# FFF fakes for the STM32 HAL (vendor/fff, v1.1), linked into every test. The
+# fakes/ directory also holds a stub stm32g4xx_hal.h that replaces the real HAL
+# headers, and the fake_<module>.{h,c} libraries used through FAKES.
 add_library(hal_fakes STATIC fakes/hal_fakes.c)
 target_include_directories(hal_fakes PUBLIC fakes vendor/fff)
 
@@ -44,7 +51,10 @@ add_library(test_support STATIC support/isr_sim.c)
 target_include_directories(test_support PUBLIC support)
 target_link_libraries(test_support PUBLIC hal_fakes Threads::Threads)
 
-# Firmware headers shared by all tests
+# ---------------------------------------------------------------- Firmware paths
+
+# Firmware headers shared by all tests. Add a folder here when a new firmware
+# module's headers live somewhere else.
 set(FW_INCLUDES
     ${FW_DIR}/ADBMS6830/program/inc
     ${FW_DIR}/ADBMS6830/lib/inc
@@ -52,6 +62,8 @@ set(FW_INCLUDES
     ${FW_DIR}/Communications/inc
 )
 
+# Folders add_fw_test searches for <module>.c. Add a folder here when new
+# firmware sources live somewhere else.
 set(FW_SRC_DIRS
     ${FW_DIR}/BSM/src
     ${FW_DIR}/Communications/src
@@ -59,6 +71,9 @@ set(FW_SRC_DIRS
     ${FW_DIR}/ADBMS6830/lib/src
 )
 
+# ---------------------------------------------------------------- add_fw_test
+
+# Finds <module>.c in FW_SRC_DIRS. Fails configure unless exactly one matches.
 function(tb_find_fw_source module out_var context)
     set(found "")
     foreach(dir IN LISTS FW_SRC_DIRS)
@@ -82,6 +97,14 @@ function(tb_find_fw_source module out_var context)
     set(${out_var} "${found}" PARENT_SCOPE)
 endfunction()
 
+# add_fw_test(<module>
+#     [SOURCES <real firmware modules or .c paths to link too>]
+#     [FAKES   <modules to replace with fakes/fake_<module>.{h,c}>]
+#     [DEFINES <macros>]
+#     [NO_DEFAULT_SOURCE])
+#
+# Builds the test_<module> executable and ctest test from test_<module>.c, the
+# real <module>.c and a generated runner (main() is written for you).
 function(add_fw_test module)
     cmake_parse_arguments(ARG "NO_DEFAULT_SOURCE" "" "SOURCES;FAKES;DEFINES" ${ARGN})
     set(target test_${module})
@@ -151,6 +174,9 @@ function(add_fw_test module)
     add_test(NAME ${target} COMMAND ${target})
 endfunction()
 
+# ---------------------------------------------------------------- Build info
+
+# How a firmware .c is compiled here, for tools/needs_fakes.py
 string(STRIP "${CMAKE_C_COMPILER_ARG1}" cc_arg1)
 string(STRIP "${CMAKE_C_COMPILER} ${cc_arg1}" fw_test_cc)
 file(WRITE ${CMAKE_BINARY_DIR}/fw_test_cc.txt "${fw_test_cc}\n")
@@ -164,6 +190,11 @@ file(WRITE ${CMAKE_BINARY_DIR}/fw_test_flags.txt "${fw_test_flags}")
 list(JOIN FW_SRC_DIRS "\n" fw_src_dirs)
 file(WRITE ${CMAKE_BINARY_DIR}/fw_src_dirs.txt "${fw_src_dirs}\n")
 
+# ---------------------------------------------------------------- Tests
+#
+# Add one line per firmware module here, for Tests/test_<module>.c.
+# `python Tests/tools/needs_fakes.py <module>` prints the line to use.
+# New test functions in an existing file need no change here.
 
 add_fw_test(adc_management)
 add_fw_test(bsm)
@@ -172,8 +203,9 @@ add_fw_test(bsm)
 # yet. Uncomment each block once its test file exists.
 # add_fw_test(kalman_soc SOURCES battery_model)
 
-# STM32G474xx/STM32G4 turn on the HAL code paths that are normally compiled
-# only for the target, so the FFF fakes get called.
+# STM32G474xx/STM32G4 turn on the HAL flash code paths that are normally
+# compiled only for the target. Their flash HAL types and fakes don't exist
+# yet; `needs_fakes.py soc_flash_storage -D STM32G474xx -D STM32G4` lists them.
 # add_fw_test(soc_flash_storage
 #     SOURCES kalman_soc battery_model
 #     DEFINES STM32G474xx STM32G4
