@@ -5,11 +5,14 @@ cmake_minimum_required(VERSION 3.22)
 #
 # This is a separate CMake project from ../CMakeLists.txt on purpose: the
 # firmware build uses the arm-none-eabi toolchain, while tests are compiled
-# with the PC's native gcc. Build and run with:
+# with the PC's own C compiler (gcc, clang or zig cc). From
+# High_Voltage/Tractive_Battery:
 #
 #   cmake -S Tests -B Tests/build
 #   cmake --build Tests/build
 #   ctest --test-dir Tests/build --output-on-failure
+#
+# Adding a test: see Tests/TUTORIAL.md, and run tools/needs_fakes.py first.
 #
 
 project(TractiveBatteryTests C)
@@ -195,8 +198,11 @@ add_fw_test(bsm)
 # yet. Uncomment each line once its test file exists.
 # add_fw_test(kalman_soc SOURCES battery_model)
 
-# STM32G474xx/STM32G4 turn on the HAL code paths that are normally compiled
-# only for the target, so the FFF fakes get called.
+# STM32G474xx/STM32G4 turn on the HAL flash code paths that are normally
+# compiled only for the target. Those need the flash HAL types and fakes
+# first (TO_TEST.md T0.2): run
+#   tools/needs_fakes.py soc_flash_storage -D STM32G474xx -D STM32G4
+# for the list.
 # add_fw_test(soc_flash_storage
 #     SOURCES kalman_soc battery_model
 #     DEFINES STM32G474xx STM32G4
