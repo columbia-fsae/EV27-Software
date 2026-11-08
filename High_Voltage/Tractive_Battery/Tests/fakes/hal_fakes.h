@@ -35,6 +35,7 @@
     VALUE(HAL_StatusTypeDef, HAL_ADC_Start_DMA, ADC_HandleTypeDef*, uint32_t*, uint32_t)     \
     VALUE(HAL_StatusTypeDef, HAL_DMA_Start, DMA_HandleTypeDef*, uint32_t, uint32_t, uint32_t) \
     /* GPIO */                                                                               \
+    VALUE(GPIO_PinState, HAL_GPIO_ReadPin, GPIO_TypeDef const*, uint16_t)                    \
     VOID(HAL_GPIO_WritePin, GPIO_TypeDef*, uint16_t, GPIO_PinState)
 // clang-format on
 
