@@ -45,8 +45,8 @@ ninja-build`.
 <summary>Windows without a C compiler (zig, via pip)</summary>
 
 ```sh
-py -3 -m venv .venv-tests
-.venv-tests/Scripts/python -m pip install ziglang cmake ninja
+py -3 -m venv Tests/.venv-tests
+Tests/.venv-tests/Scripts/python -m pip install ziglang cmake ninja
 ```
 
 CMake also needs an archiver, which zig only has as a subcommand. Make two

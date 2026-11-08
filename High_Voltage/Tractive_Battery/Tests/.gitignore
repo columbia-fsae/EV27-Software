@@ -1,1 +1,3 @@
-build/
+# Build trees (Tests/build, Tests/build-cov, ...) and the zig/cmake venv from TUTORIAL.md
+build*/
+.venv*/
