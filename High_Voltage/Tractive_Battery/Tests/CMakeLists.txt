@@ -189,6 +189,7 @@ file(WRITE ${CMAKE_BINARY_DIR}/fw_src_dirs.txt "${fw_src_dirs}\n")
 # to use.
 
 add_fw_test(adc_management)
+add_fw_test(bsm)
 
 # TODO: test_kalman_soc.c and test_soc_flash_storage.c have not been written
 # yet. Uncomment each line once its test file exists.
