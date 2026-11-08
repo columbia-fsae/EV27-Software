@@ -45,12 +45,11 @@ FAKES_DIR = TESTS_DIR / "fakes"
 FW_DIR = TESTS_DIR.parent
 DRIVERS_DIR = FW_DIR / "Drivers"
 
-# C library, libm and compiler runtime: provided by the host toolchain.
 RUNTIME_RE = re.compile(
     r"""^(
-        __.*                                   # compiler/libc internals, sanitizers
-      | _.*                                    # reserved names (e.g. _fltused, _assert)
-      | .*\..*                                 # .refptr.* and other linker artefacts
+        __.*
+      | _.*
+      | .*\..*
       | mem(cpy|set|move|cmp|chr)
       | str[a-z]*
       | (s|sn|f|v|vs|vsn|vf)?printf | puts | putchar | fputs | fputc | fwrite | fflush
@@ -70,9 +69,6 @@ LIST_DEF_RE = re.compile(r"^#define\s+(\w+_LIST)\s*\(\s*VALUE\s*,\s*VOID\s*\)", 
 
 class ToolError(Exception):
     pass
-
-
-# --------------------------------------------------------------------------- build info
 
 
 def read_lines(path: Path) -> list[str]:
@@ -119,8 +115,6 @@ def compile_object(cc: list[str], flags: list[str], src: Path, out: Path) -> Non
         "Tests/fakes/stm32g4xx_hal.h (or a CubeMX pin name from Tests/fakes/main.h).\n"
         "Copy the definition from Drivers/ or Core/Inc/main.h and rerun."
     )
-    # HAL functions are only declared through HAL_FAKE_LIST, so a missing HAL
-    # function shows up here as an undeclared function rather than at link time.
     undeclared = re.findall(
         r"(?:undeclared function|implicit declaration of function) '(\w+)'", output
     )
@@ -130,9 +124,6 @@ def compile_object(cc: list[str], flags: list[str], src: Path, out: Path) -> Non
         for name in dict.fromkeys(undeclared):
             msg += "\n" + missing_function_advice(name, include_dirs)
     raise ToolError(msg)
-
-
-# --------------------------------------------------------------------------- symbols
 
 
 def object_format(data: bytes) -> str:
@@ -162,7 +153,7 @@ def elf_symbols(data: bytes) -> tuple[set[str], set[str]]:
     sections = [struct.unpack_from(sh_fmt, data, shoff + i * shentsize) for i in range(shnum)]
     undefined, defined = set(), set()
     for sec in sections:
-        if sec[1] != 2:  # SHT_SYMTAB
+        if sec[1] != 2:
             continue
         str_off = sections[sec[6]][4]
         for off in range(sec[4], sec[4] + sec[5], sym_size):
@@ -171,7 +162,7 @@ def elf_symbols(data: bytes) -> tuple[set[str], set[str]]:
                 name_off, info, _, shndx = fields[0], fields[1], fields[2], fields[3]
             else:
                 name_off, info, shndx = fields[0], fields[3], fields[5]
-            if info >> 4 not in (1, 2):  # GLOBAL or WEAK
+            if info >> 4 not in (1, 2):
                 continue
             name = data[str_off + name_off : data.index(b"\0", str_off + name_off)].decode()
             if name:
@@ -195,8 +186,7 @@ def coff_symbols(data: bytes) -> tuple[set[str], set[str]]:
             name = data[name_off : data.index(b"\0", name_off)].decode()
         else:
             name = raw.rstrip(b"\0").decode()
-        if storage == 2:  # IMAGE_SYM_CLASS_EXTERNAL
-            # section 0 with a value is a common (tentative) definition
+        if storage == 2:
             (undefined if section == 0 and value == 0 else defined).add(name)
         i += 1 + naux
     return undefined, defined
@@ -228,16 +218,13 @@ def object_symbols(obj: Path) -> tuple[set[str], set[str]]:
         undefined, defined = coff_symbols(data)
     else:
         raise ToolError("no nm or llvm-nm on PATH to read this object file")
-    if fmt in ("coff-i386", "macho"):  # these formats prefix C names with '_'
+    if fmt in ("coff-i386", "macho"):
 
         def strip(names: set[str]) -> set[str]:
             return {n[1:] if n.startswith("_") else n for n in names}
 
         undefined, defined = strip(undefined), strip(defined)
     return undefined, defined
-
-
-# --------------------------------------------------------------------------- source scans
 
 
 def strip_comments(text: str) -> str:
@@ -284,7 +271,6 @@ def fake_lists() -> dict[str, tuple[str, str]]:
                 args = split_top_level(body_text[entry.end() : j - 1])
                 name = args[1] if entry.group(1) == "VALUE" else args[0]
                 provided.setdefault(name, (provider, "function"))
-    # Global variables that fake .c files define (FFF can't fake data)
     for src in [FAKES_DIR / "hal_fakes.c"] + sorted(FAKES_DIR.glob("fake_*.c")):
         provider = "HAL" if src.name == "hal_fakes.c" else src.stem[len("fake_") :]
         for name in defined_variables(src.read_text()):
@@ -338,7 +324,7 @@ def find_prototype(name: str, header_dirs: list[Path]) -> tuple[str, Path] | Non
             if m:
                 return to_fake_line(name, m.group(1), m.group(2)), header
             if var.search(text):
-                return "", header  # a variable: no list line
+                return "", header
     return None
 
 
@@ -354,7 +340,7 @@ def to_fake_line(name: str, ret: str, params: str) -> str:
             continue
         arrays = len(re.findall(r"\[[^\]]*\]", p))
         p = re.sub(r"\[[^\]]*\]", "", p).strip()
-        if "(" not in p:  # drop the parameter name, keep the type
+        if "(" not in p:
             m = re.match(r"^(.*?[\s*])([A-Za-z_]\w*)$", p)
             if m and m.group(1).strip() not in ("", "const", "volatile", "struct", "enum"):
                 p = m.group(1)
@@ -364,9 +350,6 @@ def to_fake_line(name: str, ret: str, params: str) -> str:
     if ret == "void":
         return f"VOID({name}{args})"
     return f"VALUE({ret}, {name}{args})"
-
-
-# --------------------------------------------------------------------------- main
 
 
 def missing_function_advice(name: str, include_dirs: list[Path]) -> str:
@@ -413,7 +396,7 @@ def main(argv: list[str]) -> int:
 
     modules = [args.module] + [m for m in args.with_ if m != args.module]
     sources = {m: find_source(m, src_dirs) for m in modules}
-    undefined: dict[str, set[str]] = {}  # symbol -> modules that need it
+    undefined: dict[str, set[str]] = {}
     defined: set[str] = set()
     with tempfile.TemporaryDirectory() as tmp:
         for m, src in sources.items():
@@ -478,7 +461,7 @@ def main(argv: list[str]) -> int:
             print(missing_function_advice(name, include_dirs))
 
     parts = [args.module]
-    sources = modules[1:] + real  # real firmware with no fake has to be linked
+    sources = modules[1:] + real
     if sources:
         parts.append("SOURCES " + " ".join(sources))
     if fakes:
