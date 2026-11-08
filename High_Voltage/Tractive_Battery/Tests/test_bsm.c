@@ -6,7 +6,7 @@
 static bsm_obj bsm;
 
 void setUp(void) {
-    memset(&bsm, 0xAA, sizeof(bsm));  // garbage, so the test proves bsm_init sets it
+    memset(&bsm, 0xAA, sizeof(bsm));
     bsm_init(&bsm);
 }
 
