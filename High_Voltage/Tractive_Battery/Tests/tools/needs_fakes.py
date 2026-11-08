@@ -71,6 +71,9 @@ class ToolError(Exception):
     pass
 
 
+# --------------------------------------------------------------------------- build info
+
+
 def read_lines(path: Path) -> list[str]:
     if not path.exists():
         raise ToolError(
@@ -124,6 +127,9 @@ def compile_object(cc: list[str], flags: list[str], src: Path, out: Path) -> Non
         for name in dict.fromkeys(undeclared):
             msg += "\n" + missing_function_advice(name, include_dirs)
     raise ToolError(msg)
+
+
+# --------------------------------------------------------------------------- symbols
 
 
 def object_format(data: bytes) -> str:
@@ -225,6 +231,9 @@ def object_symbols(obj: Path) -> tuple[set[str], set[str]]:
 
         undefined, defined = strip(undefined), strip(defined)
     return undefined, defined
+
+
+# --------------------------------------------------------------------------- source scans
 
 
 def strip_comments(text: str) -> str:
@@ -352,6 +361,9 @@ def to_fake_line(name: str, ret: str, params: str) -> str:
     return f"VALUE({ret}, {name}{args})"
 
 
+# --------------------------------------------------------------------------- output
+
+
 def missing_function_advice(name: str, include_dirs: list[Path]) -> str:
     """The fake-list line to paste for `name`, and the file it goes in."""
     found = find_prototype(name, include_dirs + [DRIVERS_DIR])
@@ -375,6 +387,9 @@ def rel(path: Path) -> str:
         return path.resolve().relative_to(FW_DIR).as_posix()
     except ValueError:
         return str(path)
+
+
+# --------------------------------------------------------------------------- main
 
 
 def main(argv: list[str]) -> int:
