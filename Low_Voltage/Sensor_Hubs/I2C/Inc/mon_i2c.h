@@ -19,4 +19,8 @@
 #define POWER_LSB_VAL   16384  // Inverse of datasheet
 #define TEMP_LSB_VAL    125
 
+void i2c2_read(uint16_t reg, uint8_t* buf, uint16_t n);
+void mon_i2c_read(mon_i2c_data* board_mon_data, Mutex_Struct_t* mutex_struct);
+static HAL_StatusTypeDef mon_i2c_wait();
+
 #endif

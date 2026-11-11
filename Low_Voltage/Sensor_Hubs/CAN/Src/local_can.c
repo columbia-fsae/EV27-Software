@@ -6,6 +6,7 @@
 
 #include "Common.h"
 #include "cmsis_os2.h"
+#include "comms_config.h"
 #include "global_can.h"
 #include "main.h"
 #include "stm32g4xx_hal_fdcan.h"

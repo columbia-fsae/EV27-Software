@@ -50,6 +50,8 @@
 #define STM_VOLT_MON_OFFSET 4.8F
 #define STM_VOLT_MON_SCALE  0.4F  // 5.2 - 4.8
 
+#define WSS_SCALE 150.0F
+
 // CAN Send Errors Bits
 #define SH_MSG_1_ERROR  0
 #define SH_MSG_2_ERROR  1
