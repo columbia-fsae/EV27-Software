@@ -1,0 +1,5 @@
+00:26:15.452  Logging to C:\Users\fordr\Documents\School\Clubs\FSAE\EV27-Software\High_Voltage\Fuse_Testing\logs\bringupflash_check_20261029_002615.csv
+00:26:15.452  MCU: Restart requested by PC
+00:26:15.467  MCU: ADBMS2950B found (DEVID 0x06)
+00:26:15.603  MCU: I1ADC running continuously, I1CAL set
+00:26:15.603  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0x06, I1CAL=1

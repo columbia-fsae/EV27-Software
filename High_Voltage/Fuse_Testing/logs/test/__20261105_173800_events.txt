@@ -1,0 +1,56 @@
+17:38:00.021  Logging to C:\Users\fordr\Documents\School\Clubs\FSAE\EV27-Software\High_Voltage\Fuse_Testing\logs\test\__20261105_173800.csv
+17:38:00.058  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:00.059  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:00.059  MCU: Restart requested by PC
+17:38:00.073  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:00.483  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:00.484  WARNING: firmware restarted the measurement mid-run
+17:38:00.485  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:00.659  MCU: ERROR: no new conversions for 2000 polls, re-initialising
+17:38:00.673  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:01.084  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:01.084  WARNING: firmware restarted the measurement mid-run
+17:38:01.084  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:01.259  MCU: ERROR: no new conversions for 2000 polls, re-initialising
+17:38:01.274  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:01.684  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:01.698  WARNING: firmware restarted the measurement mid-run
+17:38:01.698  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:01.860  MCU: ERROR: no new conversions for 2000 polls, re-initialising
+17:38:01.975  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:02.285  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:02.295  WARNING: firmware restarted the measurement mid-run
+17:38:02.295  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:02.461  MCU: ERROR: no new conversions for 2000 polls, re-initialising
+17:38:02.476  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:02.885  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:02.886  WARNING: firmware restarted the measurement mid-run
+17:38:02.886  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:03.062  MCU: ERROR: no new conversions for 2000 polls, re-initialising
+17:38:03.075  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:03.487  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:03.488  WARNING: firmware restarted the measurement mid-run
+17:38:03.488  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:03.662  MCU: ERROR: no new conversions for 2000 polls, re-initialising
+17:38:03.676  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:04.088  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:04.088  WARNING: firmware restarted the measurement mid-run
+17:38:04.089  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:04.262  MCU: ERROR: no new conversions for 2000 polls, re-initialising
+17:38:04.276  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:04.687  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:04.687  WARNING: firmware restarted the measurement mid-run
+17:38:04.687  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:04.863  MCU: ERROR: no new conversions for 2000 polls, re-initialising
+17:38:04.877  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:05.287  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:05.288  WARNING: firmware restarted the measurement mid-run
+17:38:05.288  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:05.463  MCU: ERROR: no new conversions for 2000 polls, re-initialising
+17:38:05.478  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:05.888  MCU: WARNING: I1CAL not set after 400 ms; samples flagged UNCAL
+17:38:05.889  WARNING: firmware restarted the measurement mid-run
+17:38:05.889  Measurement started: shunt=50.000 uOhm, I1 sign=+1, I2 on, DEVID=0xFF, I1CAL=0
+17:38:06.065  MCU: ERROR: no new conversions for 2000 polls, re-initialising
+17:38:06.081  MCU: ERROR: RDSID failed (PEC/SPI). Check isoSPI wiring and 2950B power.
+17:38:06.453  Run finished: 0 samples, 0 frames lost on the link, 0 ADC conversions missed, 0 CRC errors
