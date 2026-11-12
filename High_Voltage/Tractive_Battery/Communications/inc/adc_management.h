@@ -17,6 +17,8 @@ typedef struct {
 extern ADC_Inputs_t adc_data;
 
 void adc_init(ADC_HandleTypeDef* hadc1, ADC_HandleTypeDef* hadc);
+// Raw 12-bit NTC divider count -> degC, clamped to the lookup table's range
+float temp_convert(uint16_t adc_value);
 void adc_read(ADC_Inputs_t* adc, ADC_HandleTypeDef* hadc1, ADC_HandleTypeDef* hadc2);
 
 #endif
