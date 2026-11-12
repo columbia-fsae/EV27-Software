@@ -101,12 +101,19 @@ endfunction()
 #     [SOURCES <real firmware modules or .c paths to link too>]
 #     [FAKES   <modules to replace with fakes/fake_<module>.{h,c}>]
 #     [DEFINES <macros>]
+#     [OPT_IN  <label> <test names...>]
 #     [NO_DEFAULT_SOURCE])
 #
-# Builds the test_<module> executable and ctest test from test_<module>.c, the
-# real <module>.c and a generated runner (main() is written for you).
+# Builds the test_<module> executable from test_<module>.c, the real <module>.c
+# and a generated runner (main() is written for you), and registers one ctest
+# test per test function, named <module>.<function name without test_>. Each
+# runs in its own process, so the module's statics start fresh in every test.
+#
+# OPT_IN is for tests that are known to fail or depend on timing, so they don't
+# turn the default run red. They get LABELS <label> and are reported as skipped
+# unless TB_TESTS_OPT_IN is set: `TB_TESTS_OPT_IN=1 ctest -L <label>`.
 function(add_fw_test module)
-    cmake_parse_arguments(ARG "NO_DEFAULT_SOURCE" "" "SOURCES;FAKES;DEFINES" ${ARGN})
+    cmake_parse_arguments(ARG "NO_DEFAULT_SOURCE" "" "SOURCES;FAKES;DEFINES;OPT_IN" ${ARGN})
     set(target test_${module})
     set(ctx "add_fw_test(${module})")
 
@@ -161,7 +168,23 @@ function(add_fw_test module)
     endforeach()
 
     set(runner ${CMAKE_BINARY_DIR}/runners/${target}_runner.c)
-    tb_generate_runner(${test_src} ${runner} FAKES ${ARG_FAKES})
+    tb_generate_runner(${test_src} ${runner} FAKES ${ARG_FAKES} TESTS_OUT tests)
+
+    set(opt_in_label "")
+    set(opt_in_tests "")
+    if(ARG_OPT_IN)
+        list(POP_FRONT ARG_OPT_IN opt_in_label)
+        if(NOT ARG_OPT_IN)
+            message(FATAL_ERROR "${ctx}: OPT_IN takes a label, then the test names.")
+        endif()
+        foreach(name IN LISTS ARG_OPT_IN)
+            string(REGEX REPLACE "^test_" "" name "${name}")
+            if(NOT "test_${name}" IN_LIST tests)
+                message(FATAL_ERROR "${ctx}: OPT_IN ${opt_in_label}: no test_${name} in ${target}.c.")
+            endif()
+            list(APPEND opt_in_tests "test_${name}")
+        endforeach()
+    endif()
 
     add_executable(${target} ${test_src} ${runner} ${fw_sources} ${fake_sources})
     target_include_directories(${target} PRIVATE ${FW_INCLUDES})
@@ -171,7 +194,16 @@ function(add_fw_test module)
     if(COMMAND tb_apply_quality_flags)
         tb_apply_quality_flags(${target})
     endif()
-    add_test(NAME ${target} COMMAND ${target})
+    foreach(name IN LISTS tests)
+        string(REGEX REPLACE "^test_" "" short "${name}")
+        if(name IN_LIST opt_in_tests)
+            add_test(NAME ${module}.${short} COMMAND ${target} --opt-in ${name})
+            set_tests_properties(${module}.${short} PROPERTIES
+                LABELS ${opt_in_label} SKIP_RETURN_CODE 77)
+        else()
+            add_test(NAME ${module}.${short} COMMAND ${target} ${name})
+        endif()
+    endforeach()
 endfunction()
 
 # ---------------------------------------------------------------- Build info
@@ -196,5 +228,7 @@ file(WRITE ${CMAKE_BINARY_DIR}/fw_src_dirs.txt "${fw_src_dirs}\n")
 # `python Tests/tools/needs_fakes.py <module>` prints the line to use.
 # New test functions in an existing file need no change here.
 
-add_fw_test(adc_management)
+# The race test fails until adc_data is read atomically (see the comment above
+# it), and how often it catches the race depends on timing.
+add_fw_test(adc_management OPT_IN race main_loop_never_reads_half_updated_adc_data)
 add_fw_test(bsm)

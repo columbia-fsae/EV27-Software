@@ -21,9 +21,6 @@
 #include "isr_sim.h"
 #include "unity.h"
 
-// Defined in adc_management.c but not declared in its header.
-float temp_convert(uint16_t adc_value);
-
 static ADC_TypeDef adc1_regs;
 static ADC_TypeDef adc2_regs;
 static DMA_HandleTypeDef adc2_dma;
@@ -33,6 +30,8 @@ static ADC_HandleTypeDef hadc2 = {.Instance = &adc2_regs, .DMA_Handle = &adc2_dm
 // The ADC1 buffer the firmware gave to DMA in adc_init()
 static volatile uint16_t* adc1_dma_buffer;
 
+// Runs adc_init() and remembers the ADC1 DMA buffer, so dma_transfer_complete()
+// can write into it. Call it first in any test that uses the callback.
 static void start_adcs(void) {
     adc2_regs.ISR = ADC_ISR_ADRDY;  // ADC2 reports ready at once, so the enable wait ends
     adc_init(&hadc1, &hadc2);
@@ -51,8 +50,8 @@ void setUp(void) {
     memset(&adc_data, 0, sizeof(adc_data));
     memset(&adc1_regs, 0, sizeof(adc1_regs));
     memset(&adc2_regs, 0, sizeof(adc2_regs));
-    start_adcs();
-    hal_fakes_reset();  // tests only see calls they make themselves
+    adc1_dma_buffer = NULL;
+    hal_fakes_reset();
 }
 
 void tearDown(void) {}
@@ -106,27 +105,46 @@ void test_temp_convert_mid_scale_is_25C(void) {
 }
 
 void test_temp_convert_interpolates_between_table_points(void) {
-    // R/R25 = 1.5 is between 15C (1.505) and 20C (1.223). vadc/vtop = 1.5 -> 0.6 * 4095
-    TEST_ASSERT_FLOAT_WITHIN(0.2f, 15.1f, temp_convert(2457));
+    // Halfway between 15C (1.505) and 20C (1.223) is R/R25 = 1.364.
+    // R/R25 = raw / (4095 - raw): 2363 / 1732 = 1.3643, 49.9% of the way -> 17.49C.
+    // Returning either table point (15 or 20) instead of interpolating fails.
+    TEST_ASSERT_FLOAT_WITHIN(0.05f, 17.49f, temp_convert(2363));
 }
 
-void test_temp_convert_clamps_to_table_ends(void) {
-    TEST_ASSERT_EQUAL_FLOAT(-10.0f, temp_convert(4095));  // full scale: vtop = 0
-    TEST_ASSERT_EQUAL_FLOAT(120.0f, temp_convert(0));     // shorted thermistor
+void test_temp_convert_full_scale_clamps_to_minus_10C(void) {
+    // 4095 counts: no voltage left across the pull-up (open thermistor)
+    TEST_ASSERT_EQUAL_FLOAT(-10.0f, temp_convert(4095));
+}
+
+void test_temp_convert_resistance_above_table_clamps_to_minus_10C(void) {
+    // 3400 / (4095 - 3400) = 4.892, above the -10C entry (4.651)
+    TEST_ASSERT_EQUAL_FLOAT(-10.0f, temp_convert(3400));
+}
+
+void test_temp_convert_zero_counts_clamps_to_120C(void) {
+    // 0 counts: R/R25 = 0, below the 120C entry (0.05136) (shorted thermistor)
+    TEST_ASSERT_EQUAL_FLOAT(120.0f, temp_convert(0));
 }
 
 // ---------------------------------------------------------------- callback
 
 void test_callback_converts_every_channel(void) {
+    start_adcs();
     const uint16_t raw[ADC1_CHANNEL_COUNT] = {1000, 2000, 2048, 2457, 4095};
 
     dma_transfer_complete(raw);
 
-    TEST_ASSERT_EQUAL_FLOAT(1000 * ADC_VSENSE_SCALAR, adc_data.ts_vsense);
-    TEST_ASSERT_EQUAL_FLOAT(2000 * ADC_VSENSE_SCALAR, adc_data.bat_vsense);
-    TEST_ASSERT_EQUAL_FLOAT(temp_convert(2048), adc_data.temp_precharge);
-    TEST_ASSERT_EQUAL_FLOAT(temp_convert(2457), adc_data.temp_power);
-    TEST_ASSERT_EQUAL_FLOAT(temp_convert(4095), adc_data.temp_vsense);
+    // Voltages: raw * 0.24216 V per count
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 242.16f, adc_data.ts_vsense);   // 1000 * 0.24216
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 484.32f, adc_data.bat_vsense);  // 2000 * 0.24216
+
+    // Temperatures: R/R25 = raw / (4095 - raw), then interpolate the NTC table.
+    // 2048 -> R/R25 = 1.0005, 0.22% of the way from 25C (1.0) to 20C (1.223)
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 24.99f, adc_data.temp_precharge);
+    // 2457 -> R/R25 = 1.5, 1.8% of the way from 15C (1.505) to 20C (1.223)
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 15.09f, adc_data.temp_power);
+    // 4095 -> full scale, no voltage across the pull-up: clamps to -10C
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, -10.0f, adc_data.temp_vsense);
 }
 
 // ---------------------------------------------------------------- ISR vs main loop
@@ -174,6 +192,7 @@ static bool same_sample(const ADC_Inputs_t* a, const ADC_Inputs_t* b) {
 }
 
 void test_main_loop_never_reads_half_updated_adc_data(void) {
+    start_adcs();
     // Work out what each whole sample looks like after conversion
     dma_transfer_complete(SAMPLE_B);
     const ADC_Inputs_t expect_b = adc_data;
