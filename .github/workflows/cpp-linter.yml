@@ -63,7 +63,7 @@ jobs:
       # Each project's own $path/Drivers (vendor CMSIS/HAL) and
       # $path/cmake/stm32cubemx (CubeMX-generated glue) are also ignored —
       # same generated-code exclusion .pre-commit-config.yaml already
-      # applies
+      # applies. Tractive_Battery also ignores Tests/vendor (Unity/fff)
       - name: Build project/path matrix
         id: build-matrix
         run: |
@@ -75,6 +75,8 @@ jobs:
             ignore=".github|$non_firmware|$path/Drivers|$path/cmake/stm32cubemx|$(echo "$all_paths" | tr '|' '\n' | grep -vF "$path" | paste -sd'|')"
             # CubeMX's HAL config header can't be parsed on its own
             ignore="$ignore|$path/Core/Inc/stm32g4xx_hal_conf.h"
+            # Third-party unit test frameworks (Unity, fff)
+            ignore="$ignore|$path/Tests/vendor"
             matrix=$(echo "$matrix" | jq -c --arg path "$path" --arg ignore "$ignore" \
               '. + [{"project":"Tractive_Battery","path":$path,"ignore":$ignore}]')
           fi
@@ -202,7 +204,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           # changed C/C++ files in this project, minus vendor/CubeMX code
-          FILE_REGEX: ${{ matrix.path }}/(?!Drivers/|cmake/stm32cubemx/|Core/Inc/stm32\w+_hal_conf\.h$).*\.(c|cc|cpp|cxx|h|hpp)
+          FILE_REGEX: ${{ matrix.path }}/(?!Drivers/|cmake/stm32cubemx/|Tests/vendor/|Core/Inc/stm32\w+_hal_conf\.h$).*\.(c|cc|cpp|cxx|h|hpp)
           ARM_INC_ARGS: ${{ steps.arm-inc.outputs.args }}
         run: |
           pip install clang-tidy==21.1.6 pyyaml
