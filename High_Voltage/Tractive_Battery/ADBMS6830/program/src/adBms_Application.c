@@ -33,18 +33,44 @@ const float OT_THRESHOLD = 60.0f;     // Overtemperature limit (Celsius)
 const float VOLTAGE_LSB = 0.00015f;   // ADBMS6830 ADC LSB is 150uV
 const float BAL_THRESHOLD_V = 0.05f;  // 50mV — balance if cell is this far above min
 
-// Time to wait after MUTE before snapping cell voltages, so the reading isn't
-// skewed by discharge current through the shared sense lines. Must cover at
-// least one full C-ADC conversion. If the IIR filter (CFGA.FC) is ever
-// enabled, this must be increased to cover the filter's settling time.
+// Settle time after MUTE before reading cells (increase if IIR filter enabled)
 #define BAL_MUTE_SETTLE_MS 20U
 
-// Balancing PWM duty per cell, 4-bit (0-15) -> duty = value / 15.
-// 8 = ~53%, the closest available setting to 50%.
+// Balancing PWM duty, 0-15 (8 = ~53%)
 #define BAL_PWM_DUTY 8U
 
-// True while any DCC bit may be set in hardware -> mute during measurement
+// True while any DCC bit is set -> mute during measurement
 static bool s_dcc_active = false;
+
+// Edge-cell offset per segment (V): {C01, C10}. Index = chain position (A = 0).
+// F's C01 has no edge drop, so no offset.
+static const float EDGE_CELL_OFFSET_V[TOTAL_MODULES][2] = {
+    {EDGE_CELL_VOLT_OFFSET, EDGE_CELL_VOLT_OFFSET},  // A
+    {EDGE_CELL_VOLT_OFFSET, EDGE_CELL_VOLT_OFFSET},  // B
+    {EDGE_CELL_VOLT_OFFSET, EDGE_CELL_VOLT_OFFSET},  // C
+    {EDGE_CELL_VOLT_OFFSET, EDGE_CELL_VOLT_OFFSET},  // D
+    {EDGE_CELL_VOLT_OFFSET, EDGE_CELL_VOLT_OFFSET},  // E
+    {0, EDGE_CELL_VOLT_OFFSET},                      // F
+};
+
+// Extra edge-cell offset (V) added while that segment is discharging: {C01, C10}
+static const float BALANCING_EDGE_CELL_OFFSET_V[TOTAL_MODULES][2] = {
+    {0, 0},  // A
+    {0, 0},  // B
+    {0, 0},  // C
+    {0, 0},  // D
+    {0, 0},  // E
+    {0, 0},  // F
+};
+
+// Balancing serial debug (bench only: ~200 ms blocking print per cycle). 1 = on
+#define BAL_DEBUG 0
+
+#if BAL_DEBUG
+static uint8_t s_dbg_mute_st[TOTAL_IC];   // MUTE_ST readback
+static uint8_t s_dbg_cfga_pec[TOTAL_IC];  // readback PEC error
+static bool s_dbg_mute_checked = false;   // MUTE sent this cycle
+#endif
 
 /* --- GLOBAL PACK STATUS --- */
 SegmentData_t PackSegments[TOTAL_MODULES];
@@ -180,8 +206,40 @@ static void Update_BMS_OK_Output(TotalPack_t* local_pack,
 }
 
 /* -------------------------------------------------------------------------- */
-/* Cell Balancing Logic (Passive, Weakest-Cell Algorithm)                     */
+/* Cell Balancing Logic (Passive, discharge toward pack-wide min cell)        */
 /* -------------------------------------------------------------------------- */
+
+// Faults that stop balancing on a segment (OV/UV prevents discharge runaway)
+#define BAL_BLOCKING_FAULTS (COMMS_FAULT | OT_FAULT | OV_FAULT | UV_FAULT)
+
+// Max in-segment cell spread to trust readings for balancing
+#define BAL_MAX_SEG_SPREAD_MV 100U
+
+// Per-segment balancing enable (disabled = still measured, never discharges)
+static const bool BAL_SEGMENT_ENABLED[TOTAL_MODULES] = {
+    true,   // A
+    true,   // B
+    true,   // C
+    true,   // D
+    true,   // E
+    false,  // F: C2-node fault under balancing, re-enable after HW fix
+};
+
+static bool Segment_Readings_Plausible(const SegmentData_t* segment) {
+    uint16_t lo = 9999;
+    uint16_t hi = 0;
+    for (int i = 0; i < VOLT_PER_SLAVE; i++) {
+        uint16_t v_mV = segment->cell_v_mV[i];
+        if (v_mV < lo) {
+            lo = v_mV;
+        }
+        if (v_mV > hi) {
+            hi = v_mV;
+        }
+    }
+    return (uint16_t)(hi - lo) <= BAL_MAX_SEG_SPREAD_MV;
+}
+
 void Process_Cell_Balancing(TotalPack_t* local_pack,
                             SegmentData_t (*local_segment)[TOTAL_MODULES]) {
     bool all_balanced = true;
@@ -190,31 +248,43 @@ void Process_Cell_Balancing(TotalPack_t* local_pack,
     // Convert the balancing hysteresis threshold from Volts to mV
     uint16_t bal_thresh_mV = (uint16_t)(BAL_THRESHOLD_V * V_TO_MV);
 
+    // Segments trusted for balancing this cycle
+    bool seg_trusted[TOTAL_MODULES];
+    for (int seg = 0; seg < TOTAL_MODULES; seg++) {
+        seg_trusted[seg] = ((*local_segment)[seg].fault_flags & BAL_BLOCKING_FAULTS) == 0 &&
+                           Segment_Readings_Plausible(&(*local_segment)[seg]);
+    }
+
+    // 1. Pack-wide minimum cell, trusted segments only
+    uint16_t pack_min_mV = 9999;
+    for (int seg = 0; seg < TOTAL_MODULES; seg++) {
+        if (!seg_trusted[seg]) {
+            continue;
+        }
+        for (int i = 0; i < CELLS_PER_MOD; i++) {
+            uint16_t v_mV = (*local_segment)[seg].cell_v_mV[i];
+            if (v_mV > 1000 &&
+                v_mV < pack_min_mV) {  // >1V threshold (1000mV) to ignore empty channels
+                pack_min_mV = v_mV;
+            }
+        }
+    }
+
     for (int seg = 0; seg < TOTAL_MODULES; seg++) {
         int ic_master = seg;  //* 2;
         // int ic_slave = (seg * 2) + 1;
         SegmentData_t* segment = &(*local_segment)[seg];
         uint32_t segment_dcc_mask = 0;
 
-        // Don't balance a segment whose data we can't trust (comm drop) or
-        // that is over temperature. Its DCC bits are explicitly cleared below
-        // so a stale mask from an earlier cycle can't keep discharging.
-        if (segment->fault_flags & (COMMS_FAULT | OT_FAULT)) {
+        // Disabled/untrusted segments get mask 0 (disabled don't block balancing_done)
+        if (!BAL_SEGMENT_ENABLED[seg]) {
+            // no discharge
+        } else if (!seg_trusted[seg]) {
             all_balanced = false;
         } else {
-            // 1. Find the minimum (weakest) cell voltage in the segment
-            uint16_t min_v_mV = 9999;
+            // 2. DCC mask vs pack-wide minimum
             for (int i = 0; i < CELLS_PER_MOD; i++) {
-                uint16_t v_mV = segment->cell_v_mV[i];
-                if (v_mV > 1000 &&
-                    v_mV < min_v_mV) {  // >1V threshold (1000mV) to ignore empty channels
-                    min_v_mV = v_mV;
-                }
-            }
-
-            // 2. Build the 24-bit DCC bitmask
-            for (int i = 0; i < CELLS_PER_MOD; i++) {
-                if (segment->cell_v_mV[i] > (min_v_mV + bal_thresh_mV)) {
+                if (segment->cell_v_mV[i] > (pack_min_mV + bal_thresh_mV)) {
                     segment_dcc_mask |= (1UL << i);
                 }
             }
@@ -259,9 +329,7 @@ static void Stop_Cell_Balancing(TotalPack_t* local_pack,
     }
     local_pack->balancing_done = false;
 
-    // Written every cycle while disabled (not just once): DCTO is 0, so there
-    // is no hardware discharge timeout, and a single corrupted write would
-    // otherwise leave a cell draining indefinitely.
+    // Rewritten every cycle: no HW discharge timeout (DCTO = 0)
     adBmsWakeupIc(TOTAL_IC);
     adBmsWriteData(TOTAL_IC, &IC[0], WRCFGB, Config, B);
     s_dcc_active = false;
@@ -333,6 +401,7 @@ void Process_Board_Data(TotalPack_t* local_pack, SegmentData_t (*local_segment)[
         // int ic_slave  = (seg * 2) + 1; // IC 1, 3, 5... (10 cells)
 
         (*local_segment)[seg].dcc_active = 0;
+        bool seg_discharging = (IC[ic_master].tx_cfgb.dcc != 0);  // mask active during this read
 
         // TODO: RUN ON TEST BENCH, COMMENT OUT SLAVE PART
         //  --- 1. Check for Communication Dropout (PEC error) ---
@@ -356,8 +425,16 @@ void Process_Board_Data(TotalPack_t* local_pack, SegmentData_t (*local_segment)[
         for (int i = 0; i < VOLT_PER_SLAVE; i++) {
             float v_cell = ((float)IC[ic_master].cell.c_codes[i] * VOLTAGE_LSB) + VOLT_OFFSET;
 
-            if (i == 0 || i == VOLT_PER_SLAVE - 1) {
-                v_cell += EDGE_CELL_VOLT_OFFSET;
+            if (i == 0) {
+                v_cell += EDGE_CELL_OFFSET_V[seg][0];
+                if (seg_discharging) {
+                    v_cell += BALANCING_EDGE_CELL_OFFSET_V[seg][0];
+                }
+            } else if (i == VOLT_PER_SLAVE - 1) {
+                v_cell += EDGE_CELL_OFFSET_V[seg][1];
+                if (seg_discharging) {
+                    v_cell += BALANCING_EDGE_CELL_OFFSET_V[seg][1];
+                }
             }
 
             (*local_segment)[seg].cell_v_mV[i] = (uint16_t)(v_cell * V_TO_MV);
@@ -408,6 +485,33 @@ void Process_Board_Data(TotalPack_t* local_pack, SegmentData_t (*local_segment)[
     }
 }
 
+#if BAL_DEBUG
+/* -------------------------------------------------------------------------- */
+/* Debug: per-segment state for this cycle (hw_dcc = mask active during read) */
+/* -------------------------------------------------------------------------- */
+static void Print_Balancing_Debug(SegmentData_t (*local_segment)[TOTAL_MODULES]) {
+    printf("\r\n--- BAL DBG t=%lu ms muted=%d ---\r\n", (unsigned long)HAL_GetTick(),
+           s_dbg_mute_checked);
+
+    for (int seg = 0; seg < TOTAL_MODULES; seg++) {
+        int ic = seg;  // one IC per segment
+
+        printf("Seg %c hw_dcc=0x%04X flags=0x%02X", 'A' + seg, IC[ic].tx_cfgb.dcc,
+               (*local_segment)[seg].fault_flags);
+        if (s_dbg_mute_checked) {
+            printf(" mute_st=%u%s", s_dbg_mute_st[ic], s_dbg_cfga_pec[ic] ? " (CFGA PEC ERR)" : "");
+        }
+        printf("\r\n");
+
+        for (int i = 0; i < VOLT_PER_SLAVE; i++) {
+            printf("  C%02d raw=%6d mV=%4u%s\r\n", i + 1, IC[ic].cell.c_codes[i],
+                   (*local_segment)[seg].cell_v_mV[i],
+                   (IC[ic].tx_cfgb.dcc & (1U << i)) ? " [DCC]" : "");
+        }
+    }
+}
+#endif
+
 /* -------------------------------------------------------------------------- */
 /* Real-Time Measurement Loop */
 /* -------------------------------------------------------------------------- */
@@ -419,16 +523,25 @@ void measurement_loop(volatile CAN_Inputs_t* can_data, TotalPack_t* local_pack,
     // 1. Read Cell Voltages (Must Snap/Unsnap during CONTINUOUS mode!)
     adBmsWakeupIc(TOTAL_IC);
 
-    // While balancing, discharge current through the shared sense wiring pulls
-    // the discharging cell's reading down and its neighbours' up, enough to
-    // trip OV/UV. Pause discharge (MUTE) and let the C-ADC settle before
-    // snapping, then UNMUTE once the cell registers have been read.
+    // Pause discharge while reading cells so balancing current doesn't skew them
     bool muted = s_dcc_active;
     if (muted) {
         spiSendCmd(MUTE);
         Delay_ms(BAL_MUTE_SETTLE_MS);
-        adBmsWakeupIc(TOTAL_IC);  // isoSPI may have gone idle during the wait
+        adBmsWakeupIc(TOTAL_IC);  // isoSPI may idle during the wait
+
+#if BAL_DEBUG
+        // Check every chip entered MUTE
+        adBmsReadData(TOTAL_IC, &IC[0], RDCFGA, Config, A);
+        for (int cic = 0; cic < TOTAL_IC; cic++) {
+            s_dbg_mute_st[cic] = IC[cic].rx_cfga.mute_st;
+            s_dbg_cfga_pec[cic] = IC[cic].cccrc.cfgr_pec;
+        }
+#endif
     }
+#if BAL_DEBUG
+    s_dbg_mute_checked = muted;
+#endif
 
     adBms6830_Snap();  // FREEZES CONTINUOUS IIR FILTER SO WE CAN READ
 
@@ -523,6 +636,12 @@ void measurement_loop(volatile CAN_Inputs_t* can_data, TotalPack_t* local_pack,
     // 4. Process math & Output via Serial
     Process_Board_Data(local_pack, local_segment);
 
+#if BAL_DEBUG
+    if (can_data->balancing_enable || s_dbg_mute_checked) {
+        Print_Balancing_Debug(local_segment);
+    }
+#endif
+
     if (can_data->balancing_enable) {
         Process_Cell_Balancing(local_pack, local_segment);
     } else {
@@ -546,8 +665,7 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
         IC[cic].tx_cfga.refon = PWR_UP;
         IC[cic].tx_cfga.gpo = 0X3FF;
 
-        // PWM duty for balancing. Set the struct fields, NOT pwma/pwmb.tx_data:
-        // adBmsWriteData rebuilds tx_data from PwmA/PwmB, so raw bytes get overwritten.
+        // Balancing PWM duty (set struct fields; driver rebuilds tx_data from them)
         for (int i = 0; i < PWMA; i++) {
             IC[cic].PwmA.pwma[i] = BAL_PWM_DUTY;  // cells 1-12
         }
@@ -588,9 +706,7 @@ void adbms_main_init(volatile CAN_Inputs_t* can_data) {
         //        (unsigned long)(raw_id >> 32),
         //        (unsigned long)(raw_id & 0xFFFFFFFF));
         // printf("BOARD ID CONV: %d\r\n",id);
-        // ID assignment for top and bottom BMS.
-        // Written to local_segment (not PackSegments) because local_segment is
-        // memcpy'd over PackSegments at the end of init, which would wipe them.
+        // ID assignment for top and bottom BMS (local_segment is copied to PackSegments below)
         if (id > 7) {
             local_segment[cic].id[1] = id;
         } else {
@@ -617,9 +733,7 @@ void adBms_main_run(volatile CAN_Inputs_t* can_data, Mutex_Struct_t* mutex_struc
     CAN_Inputs_t local_can;
     static bool local_segment_seeded = false;
 
-    // Seed the persistent local copy from PackSegments once, so fields that
-    // the measurement loop never rewrites (board IDs from init) survive the
-    // copy back to PackSegments at the end of this function.
+    // Seed once from PackSegments so board IDs from init aren't wiped
     if (!local_segment_seeded) {
         copyWithMutex(mutex_struct->pack_segments_key, &local_segment, &PackSegments);
         local_segment_seeded = true;
@@ -724,7 +838,7 @@ void adBms6830_soc_init(void) {
             continue;
         }
 
-        printf("Module %d: initializing\r\n", cic + 1);
+        // printf("Module %d: initializing\r\n", cic + 1);
 
         for (int i = 0; i < CELLS_PER_MOD; i++) {
             int temp_idx = cell_to_temp_index(i);
