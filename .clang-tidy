@@ -39,6 +39,7 @@ Checks: >
 WarningsAsErrors: ''
 FormatStyle: file
 
-# Never report diagnostics from STM32 HAL/CMSIS headers. Takes effect in
-# projects whose nested config sets HeaderFilterRegex.
-ExcludeHeaderFilterRegex: '.*/Drivers/.*'
+# Never report diagnostics from STM32 HAL/CMSIS or CubeMX middleware
+# (FreeRTOS) headers. Takes effect in projects whose nested config sets
+# HeaderFilterRegex.
+ExcludeHeaderFilterRegex: '.*/(Drivers|Middlewares)/.*'

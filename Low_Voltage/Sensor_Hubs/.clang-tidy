@@ -1,0 +1,28 @@
+---
+# Sensor Hubs firmware is pure C11. This file extends the repo-root
+# .clang-tidy (which already handles embedded/STM32 false positives) with
+# this codebase's style.
+InheritParentConfig: true
+
+Checks: >
+  -readability-uppercase-literal-suffix,
+  -readability-identifier-length,
+  -readability-braces-around-statements,
+  -readability-math-missing-parentheses,
+  -readability-isolate-declaration,
+  -readability-redundant-declaration
+# redundant-declaration: CubeMX writes `extern` handle declarations (hfdcan1,
+# hi2c2, ...) into generated files like stm32g4xx_it.c on every regen.
+
+# Lint our own headers, never STM32 HAL/CMSIS or FreeRTOS.
+HeaderFilterRegex: '.*/Sensor_Hubs/(CAN|I2C|SPI|Peripherals|Core/Inc)/.*'
+ExcludeHeaderFilterRegex: '.*/(Drivers|Middlewares)/.*'
+
+CheckOptions:
+  # Don't score code expanded from macros (FreeRTOS/HAL helper macros).
+  readability-function-cognitive-complexity.IgnoreMacros: true
+
+  # Keep integer narrowing, but don't flag float literals or int -> float
+  # math in ADC/WSS conversions.
+  bugprone-narrowing-conversions.WarnOnFloatingPointNarrowingConversion: false
+  bugprone-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion: false
