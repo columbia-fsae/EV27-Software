@@ -37,7 +37,7 @@ const float BAL_THRESHOLD_V = 0.05f;  // 50mV — balance if cell is this far ab
 #define BAL_MUTE_SETTLE_MS 20U
 
 // Balancing PWM duty, 0-15 (8 = ~53%)
-#define BAL_PWM_DUTY 8U
+#define BAL_PWM_DUTY 15U
 
 // True while any DCC bit is set -> mute during measurement
 static bool s_dcc_active = false;
