@@ -17,7 +17,7 @@ Takes in:
 - data: Pointer to the bytes to check.
 - length: Number of bytes to process.
 
-Returns: A uint32_t checksum. A 32 bit unsigned integer that can be used to detect whether saved data has been accidentally corrupted or changed. 
+Returns: A uint32_t checksum. A 32 bit unsigned integer that can be used to detect whether saved data has been accidentally corrupted or changed.
 
 ## 3. interp2d(const RC_LookupTable* lut, float soc, float temp)
 
