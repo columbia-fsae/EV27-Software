@@ -1,0 +1,51 @@
+---
+# LVBMS firmware is pure C11. This file extends the repo-root .clang-tidy
+# (which already handles embedded/STM32 false positives) and mirrors
+# High_Voltage/Tractive_Battery/.clang-tidy so both BMS codebases follow
+# the same style.
+InheritParentConfig: true
+
+Checks: >
+  -readability-uppercase-literal-suffix,
+  -readability-identifier-length,
+  -readability-braces-around-statements,
+  -readability-math-missing-parentheses,
+  -readability-isolate-declaration,
+  -readability-redundant-declaration,
+  readability-identifier-naming
+# redundant-declaration: CubeMX writes `extern` handle declarations into
+# generated files like stm32u3xx_it.c on every regen.
+
+# Lint our own headers, never STM32 HAL/CMSIS. Add new module folders
+# (e.g. Communications) to this regex as they are created.
+HeaderFilterRegex: '.*/LVBMS/LVBMS/(Core/Inc)/.*'
+ExcludeHeaderFilterRegex: '.*/Drivers/.*'
+
+CheckOptions:
+  # State machines and CubeMX MSP init functions run over the default of 25.
+  readability-function-cognitive-complexity.Threshold: 50
+  # Don't score code expanded from macros (scheduler helpers like RUN_EVERY).
+  readability-function-cognitive-complexity.IgnoreMacros: true
+
+  # Keep integer narrowing, but don't flag float literals in float tables or
+  # int -> float math.
+  bugprone-narrowing-conversions.WarnOnFloatingPointNarrowingConversion: false
+  bugprone-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion: false
+
+  # Naming: same rules as Tractive_Battery. Function and typedef names are
+  # deliberately not enforced (CubeMX's MX_GPIO_Init etc).
+  #
+  # Variables, parameters and struct members are lower_case. Allowed
+  # exceptions:
+  #   - math symbols:      C_ct, R_dif, P
+  #   - unit suffixes:     temp_C, cell_v_mV
+  #   - CubeMX/HAL names:  GPIO_InitStruct, sConfig, RxHeader
+  readability-identifier-naming.VariableCase: lower_case
+  readability-identifier-naming.VariableIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN)|s[A-Z][A-Za-z]*|[A-Za-z0-9_]*InitStruct|Rx[A-Za-z0-9]*)$'
+  readability-identifier-naming.ParameterCase: lower_case
+  readability-identifier-naming.ParameterIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN)|s[A-Z][A-Za-z]*|[A-Za-z0-9_]*InitStruct|Rx[A-Za-z0-9]*)$'
+  readability-identifier-naming.MemberCase: lower_case
+  readability-identifier-naming.MemberIgnoredRegexp: '^([A-Z](_[a-z0-9]+)?|[a-z][a-z0-9_]*_(mV|V|mA|A|C|ms|us|Ah|mAh|OUT|CAN))$'
+  # File-scope constants may be UPPER_CASE or lower_case.
+  readability-identifier-naming.GlobalConstantCase: lower_case
+  readability-identifier-naming.GlobalConstantIgnoredRegexp: '^[A-Z][A-Z0-9_]*$'
